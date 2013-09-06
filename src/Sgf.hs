@@ -23,6 +23,7 @@ import qualified Data.Set as Set
 import Control.Monad (forM_, sequence_, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.List (find, groupBy, intercalate, nub, sortBy)
+import Data.Maybe (fromMaybe)
 
 -- | A coordinate on a Go board.  @(0, 0)@ refers to the upper-left corner of
 -- the board.  The first component is the horizontal position; the second
@@ -62,6 +63,14 @@ data Node = Node { nodeProperties :: [Property]
 -- | A node with no properties and no children.
 emptyNode :: Node
 emptyNode = Node { nodeProperties = [], nodeChildren = [] }
+
+rootNode :: Int -- ^ Board width
+         -> Int -- ^ Board height
+         -> Node
+rootNode width height =
+  Node { nodeProperties = [SZ width height]
+       , nodeChildren = []
+       }
 
 findProperty :: Node -> (Property -> Bool) -> Maybe Property
 findProperty node pred = find pred $ nodeProperties node
@@ -127,19 +136,19 @@ validateNodeDuplicates props getTaggedElts errAction =
 
 -- | An SGF property that gives a node meaning.
 data Property =
-  -- * Move properties
+  -- Move properties.
     B Coord              -- ^ Black move.
   | KO                   -- ^ Execute move unconditionally (even if illegal).
   | MN Integer           -- ^ Assign move number.
   | W Coord              -- ^ White move.
 
-  -- * Setup properties
+  -- Setup properties.
   | AB CoordList         -- ^ Assign black stones.
   | AE CoordList         -- ^ Assign empty stones.
   | AW CoordList         -- ^ Assign white stones.
   | PL Color             -- ^ Player to play.
 
-  -- * Node annotation properties
+  -- Node annotation properties.
   | C String             -- ^ Comment.
   | DM DoubleValue       -- ^ Even position.
   | GB DoubleValue       -- ^ Good for black.
@@ -149,13 +158,13 @@ data Property =
   | UC DoubleValue       -- ^ Unclear position.
   | V RealValue          -- ^ Node value.
 
-  -- * Move annotation properties
+  -- Move annotation properties.
   | BM DoubleValue       -- ^ Bad move.
   | DO                   -- ^ Doubtful move.
   | IT                   -- ^ Interesting move.
   | TE DoubleValue       -- ^ Tesuji.
 
-  -- * Markup properties
+  -- Markup properties.
   | AR ArrowList         -- ^ Arrows.
   | CR CoordList         -- ^ Mark points with circles.
   | DD CoordList         -- ^ Dim points.
@@ -166,7 +175,7 @@ data Property =
   | SQ CoordList         -- ^ Mark points with squares.
   | TR CoordList         -- ^ Mark points with trianges.
 
-  -- * Root properties
+  -- Root properties.
   | AP SimpleText SimpleText -- ^ Application info.
   | CA SimpleText        -- ^ Copyright info.
   | FF Int               -- ^ File format version.
@@ -185,7 +194,7 @@ type RealValue = Rational
 data SimpleText = SimpleText String
                 deriving (Eq, Show)
 
--- | An SGF double value (values are either 1 or 2).
+-- | An SGF double value: either 1 or 2, nothing else.
 data DoubleValue = Double1
                  | Double2
                  deriving (Eq, Show)
@@ -195,7 +204,8 @@ data Color = Black
            | White
            deriving (Eq, Show)
 
--- | Returns the logical negation of a color, yang for yin and yin for yang.
+-- | Returns the logical negation of a stone color, yang for yin and
+-- yin for yang.
 cnot :: Color -> Color
 cnot Black = White
 cnot White = Black
@@ -276,9 +286,12 @@ propertyInherited (DD _) = True
 propertyInherited _ = False
 
 -- | An object that corresponds to a node in some game tree, and represents the
--- state of the game at that node, including board position, player turn and 
+-- state of the game at that node, including board position, player turn and
 -- captures, and also board annotations.
 data BoardState = BoardState { boardCoordStates :: [[CoordState]]
+                               -- ^ The state of individual points on the board.
+                               -- Stored in row-major order.  Point @(x, y)@ can
+                               -- be accessed via @!! y !! x@.
                              , boardArrows :: ArrowList
                              , boardLines :: LineList
                              , boardLabels :: LabelList
@@ -294,6 +307,7 @@ data BoardState = BoardState { boardCoordStates :: [[CoordState]]
 -- Records whether a stone is present, as well as annotations and visibility
 -- properties.
 data CoordState = CoordState { coordStar :: Bool
+                               -- ^ Whether this point is a star point.
                              , coordStone :: Maybe Color
                              , coordMark :: Maybe Mark
                              , coordVisibility :: CoordVisibility
@@ -318,7 +332,9 @@ instance Show CoordState where
 instance Show BoardState where
   show board = concat $ execWriter $ do
     tell ["Board: (Move ", show (boardMoveNumber board),
-          ", ", show (boardPlayerTurn board), "'s turn)\n"]
+          ", ", show (boardPlayerTurn board), "'s turn, B:",
+          show (boardBlackCaptures board), ", W:",
+          show (boardWhiteCaptures board), ")\n"]
     tell [intercalate "\n" $ flip map (boardCoordStates board) $
           \row -> intercalate " " $ map show row]
 
@@ -354,7 +370,23 @@ emptyBoardState width height =
                                 [0..width-1])
                      [0..height-1]
 
--- | Usage: @isStarPoint width height x y@
+rootBoardState :: Node -> BoardState
+rootBoardState rootNode =
+  foldr applyProperty
+        (emptyBoardState width height)
+        (nodeProperties rootNode)
+  where SZ width height = fromMaybe (error $ "rootBoardState given a non-root node: " ++ show rootNode) $
+                          findProperty rootNode $
+                          \prop -> case prop of
+                            (SZ _ _) -> True
+                            _ -> False
+
+advanceMoveNumber :: BoardState -> BoardState
+advanceMoveNumber board = board { boardMoveNumber = boardMoveNumber board + 1
+                                , boardPlayerTurn = cnot $ boardPlayerTurn board
+                                }
+
+-- |> isStarPoint width height x y
 --
 -- Returns whether @(x, y)@ is a known star point on a board of the given width
 -- and height.
@@ -490,12 +522,14 @@ data ApplyMoveResult = ApplyMoveOk BoardState
 -- 'BoardState' is returned, otherwise, the default 'BoardState' given is
 -- returned.
 getApplyMoveResult :: BoardState -> ApplyMoveResult -> BoardState
-getApplyMoveResult defaultBoard result = maybe defaultBoard id $ getApplyMoveResult' result
+getApplyMoveResult defaultBoard result = fromMaybe defaultBoard $ getApplyMoveResult' result
 
 getApplyMoveResult' :: ApplyMoveResult -> Maybe BoardState
 getApplyMoveResult' result = case result of
   ApplyMoveOk board -> Just board
-  ApplyMoveCapture board _ _ -> Just board
+  ApplyMoveCapture board color points -> Just $ case color of
+    Black -> board { boardBlackCaptures = boardBlackCaptures board + points }
+    White -> board { boardWhiteCaptures = boardWhiteCaptures board + points }
   ApplyMoveSuicideError -> Nothing
   ApplyMoveOverwriteError _ -> Nothing
 
@@ -517,47 +551,57 @@ applyMove params color xy board =
                   then moveResult
                   else ApplyMoveOverwriteError color
     Nothing -> moveResult
-  where board' = updateCoordStates (\state -> state { coordStone = Just color })
-                                   (CoordList [xy])
-                                   board
-        moveResult = let adjGroups = map computeGroup $ filter hasOppStone $ adjacentPoints board' xy
-                         capturedGroups = filter ((0 ==) . applyMoveGroupLiberties) adjGroups
-                     in if not $ null capturedGroups
-                        then applyMoveCapture capturedGroups board'
-                        else let myGroup = computeGroup xy
-                             in if applyMoveGroupLiberties myGroup /= 0
-                             then ApplyMoveOk board'
-                             else if allowSuicide params
-                                  then applyMoveCapture [myGroup] board'
-                                  else ApplyMoveSuicideError
-        hasOppStone xy' = Just (cnot color) == (coordStone $ getCoordState xy' board')
-        computeGroup xy' = let groupCoords = bucketFill board' xy'
-                           in ApplyMoveGroup { applyMoveGroupOrigin = xy'
-                                             , applyMoveGroupCoords = groupCoords
-                                             , applyMoveGroupLiberties = getLibertiesOfGroup board' groupCoords
-                                             }
+  where boardWithMove = updateCoordStates (\state -> state { coordStone = Just color })
+                                          (CoordList [xy])
+                                          board
+        (boardWithCaptures, points) = foldr (maybeCapture $ cnot color)
+                                            (boardWithMove, 0)
+                                            (adjacentPoints boardWithMove xy)
+        playedGroup = computeGroup boardWithCaptures xy
+        moveResult = if applyMoveGroupLiberties playedGroup == 0
+                     then if points /= 0
+                          then error "Cannot commit suicide and capture at the same time."
+                          else if allowSuicide params
+                               then let (boardWithSuicide, suicidePoints) =
+                                          applyMoveCapture (boardWithCaptures, 0) playedGroup
+                                    in ApplyMoveCapture boardWithSuicide (cnot color) suicidePoints
+                               else ApplyMoveSuicideError
+                     else if points /= 0
+                          then ApplyMoveCapture boardWithCaptures color points
+                          else ApplyMoveOk boardWithCaptures
 
-applyMoveCapture :: [ApplyMoveGroup] -> BoardState -> ApplyMoveResult
-applyMoveCapture groups board =
-  let capturedColors = nub $ map (maybe (error "Expected stone.") id
-                                  . coordStone
-                                  . flip getCoordState board
-                                  . applyMoveGroupOrigin)
-                                 groups
-  in if length capturedColors /= 1
-     then error ("Can only capture exactly one color at once: " ++ show capturedColors)
-     else foldr capture
-                (ApplyMoveCapture board (cnot $ head capturedColors) 0)
-                groups
-  where capture group (ApplyMoveCapture board' color points) =
-          ApplyMoveCapture (updateCoordStates (\state -> state { coordStone = Nothing })
-                                              (CoordList $ applyMoveGroupCoords group)
-                                              board')
-                           color
-                           (points + length (applyMoveGroupCoords group))
+-- | Capture if there is a liberty-less group of a color at a point on
+-- a board.  Removes captures stones from the board and accumulates
+-- points for captured stones.
+maybeCapture :: Color -> Coord -> (BoardState, Int) -> (BoardState, Int)
+maybeCapture color xy result@(board, points) =
+  if (coordStone $ getCoordState xy board) /= Just color
+  then result
+  else let group = computeGroup board xy
+       in if applyMoveGroupLiberties group /= 0
+          then result
+          else applyMoveCapture result group
 
--- | Returns a list of the four coordinates that are adjacent to the given
--- coordinate on the board, excluding coordinates that are out of bounds.
+computeGroup :: BoardState -> Coord -> ApplyMoveGroup
+computeGroup board xy =
+  if (coordStone $ getCoordState xy board) == Nothing
+  then error "computeGroup called on an empty point."
+  else let groupCoords = bucketFill board xy
+       in ApplyMoveGroup { applyMoveGroupOrigin = xy
+                         , applyMoveGroupCoords = groupCoords
+                         , applyMoveGroupLiberties = getLibertiesOfGroup board groupCoords
+                         }
+
+applyMoveCapture :: (BoardState, Int) -> ApplyMoveGroup -> (BoardState, Int)
+applyMoveCapture (board, points) group =
+  (updateCoordStates (\state -> state { coordStone = Nothing })
+                     (CoordList $ applyMoveGroupCoords group)
+                     board,
+   points + length (applyMoveGroupCoords group))
+
+-- | Returns a list of the four coordinates that are adjacent to the
+-- given coordinate on the board, excluding coordinates that are out
+-- of bounds.
 adjacentPoints :: BoardState -> Coord -> [Coord]
 adjacentPoints board (x, y) = execWriter $ do
   when (x > 0) $ tell [(x - 1, y)]
@@ -565,18 +609,19 @@ adjacentPoints board (x, y) = execWriter $ do
   when (x < boardWidth board - 1) $ tell [(x + 1, y)]
   when (y < boardHeight board - 1) $ tell [(x, y + 1)]
 
--- | Takes a list of coordinates that comprise a group (e.g. a list returned
--- from 'bucketFill') and returns the number of liberties the group has.  Does
--- no error checking to ensure that the list refers to a single group.
+-- | Takes a list of coordinates that comprise a group (e.g. a list
+-- returned from 'bucketFill') and returns the number of liberties the
+-- group has.  Does no error checking to ensure that the list refers
+-- to a single or maximal group.
 getLibertiesOfGroup :: BoardState -> [Coord] -> Int
 getLibertiesOfGroup board groupCoords =
   length $ nub $ concat $ map findLiberties groupCoords
   where findLiberties xy = filter (\xy' -> Nothing == coordStone (getCoordState xy' board))
                                   (adjacentPoints board xy)
 
--- | Expands a single coordinate on a board into a list of all the coordinates
--- connected to it by some continuous path of stones of the same color (or empty
--- spaces) with the same stone (or space).
+-- | Expands a single coordinate on a board into a list of all the
+-- coordinates connected to it by some continuous path of stones of
+-- the same color (or empty spaces).
 bucketFill :: BoardState -> Coord -> [Coord]
 bucketFill board xy0 = bucketFill' Set.empty [xy0]
   where bucketFill' known [] = Set.toList known
@@ -587,6 +632,7 @@ bucketFill board xy0 = bucketFill' Set.empty [xy0]
                                           in bucketFill' (Set.insert xy known) (new ++ xys)
         stone0 = coordStone $ getCoordState xy0 board
 
+-- | Plays a stone on a board at a point, applying capture rules.
 play :: Color -> Coord -> BoardState -> BoardState
 play color xy board = applyProperty prop board
   where prop = if color == Black then (B xy) else (W xy)
@@ -598,11 +644,11 @@ data Cursor = Cursor { cursorParent :: Maybe Cursor
                        -- the game tree.  The node of the parent cursor is the
                        -- parent of the cursor's node.
                        --
-                       -- Nothing iff the cursor's node has no parent.
+                       -- This is @Nothing@ iff the cursor's node has no parent.
                      , cursorChildIndex :: Int
                        -- ^ The index of this cursor's node in its parent's
                        -- child list.  When the cursor's node has no parent,
-                       -- this is not defined.
+                       -- the value in this field is not specified.
                      , cursorNode :: Node
                        -- ^ The game tree node about which the cursor stores
                        -- information.
@@ -611,7 +657,8 @@ data Cursor = Cursor { cursorParent :: Maybe Cursor
                      } deriving (Show) -- TODO Better Show Cursor instance.
 
 -- | Returns either a cursor for a root node, or an error message if the node
--- lacks the information needed to create a cursor.
+-- lacks the information needed to create a cursor (e.g. if the node is not a
+-- root node).
 rootCursor :: Node -> Either String Cursor
 rootCursor node = do
   SZ width height <- maybe (Left "No board size property in root node.") Right $
@@ -620,7 +667,7 @@ rootCursor node = do
                        (SZ _ _) -> True
                        _ -> False
   return $ Cursor { cursorParent = Nothing
-                  , cursorChildIndex = undefined
+                  , cursorChildIndex = -1
                   , cursorNode = node
                   , cursorBoard = applyProperties node $
                                   emptyBoardState width height
@@ -631,7 +678,9 @@ cursorChild cursor index =
   Cursor { cursorParent = Just cursor
          , cursorChildIndex = index
          , cursorNode = child
-         , cursorBoard = applyProperties child $ cursorBoard cursor
+         , cursorBoard = applyProperties child $
+                         advanceMoveNumber $
+                         cursorBoard cursor
          }
   where child = (!! index) $ nodeChildren $ cursorNode cursor
 
@@ -646,6 +695,23 @@ cursorChildren cursor =
      $ zip [1..]
      $ nodeChildren
      $ cursorNode cursor
+
+cursorModifyNode :: (Node -> Node) -> Cursor -> Cursor
+cursorModifyNode fn cursor =
+  let node' = fn $ cursorNode cursor
+  in case cursorParent cursor of
+    Nothing -> either (\msg -> error $ "Failed to reconstruct root node: " ++ msg)
+                      id
+                      (rootCursor node')
+    Just parentCursor ->
+      let index = cursorChildIndex cursor
+          parentCursor' = cursorModifyNode (\parentNode ->
+                                             parentNode { nodeChildren = listUpdate (const node')
+                                                                                    index
+                                                                                    (nodeChildren parentNode)
+                                                        })
+                                           parentCursor
+      in cursorChild parentCursor' index
 
 -- | A state that is transformed inside of a Go monad, 'GoM'.
 data GoState h = GoState { stateCursor :: Cursor

@@ -9,19 +9,19 @@ description:
 data-dir: ""
  
 executable gohs
-    buildable: True
-    build-depends: QuickCheck -any, base -any, containers -any,
-                   gtk -any, mtl -any
-    ghc-options: -fwarn-incomplete-patterns
-    hs-source-dirs: src
+    build-depends: base -any, containers -any, gtk -any, mtl -any
     main-is: Main.hs
-    other-modules: UiBoard Sgf Model
+    buildable: True
+    extensions: MultiParamTypeClasses
+    hs-source-dirs: src
+    other-modules: UiBoard Model Sgf
+    ghc-options: -fwarn-incomplete-patterns
  
 test-suite test-gohs
-    buildable: True
-    build-depends: QuickCheck -any, base -any, containers -any,
-                   gtk -any, mtl -any
-    cpp-options: -DMAIN_FUNCTION=testMain
-    main-is: Main.hs
-    hs-source-dirs: src
+    build-depends: base -any, containers -any, gtk -any, mtl -any
     type: exitcode-stdio-1.0
+    main-is: Main.hs
+    buildable: True
+    cpp-options: -DMAIN_FUNCTION=testMain
+    extensions: MultiParamTypeClasses
+    hs-source-dirs: src
