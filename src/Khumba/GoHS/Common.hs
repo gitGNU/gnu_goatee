@@ -1,4 +1,4 @@
-module Common where
+module Khumba.GoHS.Common where
 
 fromLeft :: Either a b -> a
 fromLeft (Left a) = a

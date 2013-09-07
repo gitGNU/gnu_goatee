@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module UiBoard where
+module Khumba.GoHS.UiBoard where
 
 import Control.Monad (forM_)
 import Control.Monad.Trans (liftIO)
@@ -20,7 +20,7 @@ import Data.IORef (modifyIORef, newIORef, readIORef)
 import Data.Map ((!))
 import Data.Maybe
 import Graphics.UI.Gtk
-import Sgf
+import Khumba.GoHS.Sgf
 import qualified Data.Map as Map
 
 -- | Generic class for implementations of widgets that render boards.

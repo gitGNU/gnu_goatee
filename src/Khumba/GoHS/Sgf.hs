@@ -12,7 +12,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Sgf where
+module Khumba.GoHS.Sgf where
 
 import qualified Control.Monad.State as State
 import qualified Data.Foldable as Foldable

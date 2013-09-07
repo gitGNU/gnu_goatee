@@ -21,9 +21,9 @@ import Control.Monad.Trans (liftIO)
 import Data.IORef
 import Data.Maybe
 import Graphics.UI.Gtk
-import Common
-import Sgf
-import UiBoard
+import Khumba.GoHS.Common
+import Khumba.GoHS.Sgf
+import Khumba.GoHS.UiBoard
 
 main :: IO ()
 main = do

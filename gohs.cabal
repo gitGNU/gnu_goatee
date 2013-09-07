@@ -4,17 +4,17 @@ cabal-version: >=1.2
 build-type: Simple
 license: AllRightsReserved
 license-file: ""
-synopsis: GoHS
+synopsis: A Go client and SGF library with a focus on flexibility.
 description:  
 data-dir: ""
- 
+
 executable gohs
     build-depends: base -any, containers -any, gtk -any, mtl -any
     main-is: Main.hs
     buildable: True
     extensions: MultiParamTypeClasses
     hs-source-dirs: src
-    other-modules: UiBoard Sgf
+    other-modules: Khumba.GoHS.Common Khumba.GoHS.UiBoard Khumba.GoHS.Sgf
     ghc-options: -fwarn-incomplete-patterns
  
 test-suite test-gohs
