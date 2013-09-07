@@ -20,10 +20,11 @@ import qualified Data.Map as Map
 import qualified Data.Sequence as Sequence
 import qualified Data.Set as Set
 
-import Control.Monad (forM_, sequence_, when)
+import Control.Monad (forM_, sequence_, unless, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
+import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sortBy)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing, mapMaybe)
 
 -- | A coordinate on a Go board.  @(0, 0)@ refers to the upper-left corner of
 -- the board.  The first component is the horizontal position; the second
@@ -105,9 +106,9 @@ validateNode isRoot seenGameNode node = execWriter $ do
 
   -- Check for coordinates marked multiple times.
   validateNodeDuplicates props getMarkedCoords $ \group ->
-    tell ["Coordinate " ++ (show $ fst $ head group) ++
+    tell ["Coordinate " ++ show (fst $ head group) ++
           " is specified multiple times in properties " ++
-          (intercalate ", " $ map snd group) ++ "."]
+          intercalate ", " (map snd group) ++ "."]
 
   -- TODO Validate recursively.
 
@@ -126,12 +127,11 @@ validateNodeDuplicates :: (Eq v, Ord v)
                           -> ([(v, t)] -> Writer [String] ())
                           -> Writer [String] ()
 validateNodeDuplicates props getTaggedElts errAction =
-  let groups = groupBy (\x y -> fst x == fst y) $
-               sortBy (\x y -> fst x `compare` fst y) $
-               concat $
-               map getTaggedElts props
+  let groups = groupBy ((==) `on` fst) $
+               sortBy (compare `on` fst) $
+               concatMap getTaggedElts props
   in forM_ groups $ \group ->
-       when (not $ null $ tail group) $
+       unless (null $ tail group) $
          errAction group
 
 -- | An SGF property that gives a node meaning.
@@ -336,14 +336,14 @@ instance Show BoardState where
           show (boardBlackCaptures board), ", W:",
           show (boardWhiteCaptures board), ")\n"]
     tell [intercalate "\n" $ flip map (boardCoordStates board) $
-          \row -> intercalate " " $ map show row]
+          \row -> unwords $ map show row]
 
     let arrows = boardArrows board
     let lines = boardLines board
     let labels = boardLabels board
-    when (not $ null arrows) $ tell ["\nArrows: ", show arrows]
-    when (not $ null lines) $ tell ["\nLines: ", show lines]
-    when (not $ null labels) $ tell ["\nLabels: ", show labels]
+    unless (null arrows) $ tell ["\nArrows: ", show arrows]
+    unless (null lines) $ tell ["\nLines: ", show lines]
+    unless (null labels) $ tell ["\nLabels: ", show labels]
 
 -- | Creates a 'BoardState' for an empty board of the given width and height.
 emptyBoardState :: Int -> Int -> BoardState
@@ -391,11 +391,11 @@ advanceMoveNumber board = board { boardMoveNumber = boardMoveNumber board + 1
 -- Returns whether @(x, y)@ is a known star point on a board of the given width
 -- and height.
 isStarPoint :: Int -> Int -> Int -> Int -> Bool
-isStarPoint width height =
-  if width == 9 && height == 9 then isStarPoint9
-  else if width == 13 && height == 13 then isStarPoint13
-  else if width == 19 && height == 19 then isStarPoint19
-  else const $ const False
+isStarPoint width height
+  | width == 9 && height == 9 = isStarPoint9
+  | width == 13 && height == 13 = isStarPoint13
+  | width == 19 && height == 19 = isStarPoint19
+  | otherwise = const $ const False
 
 isStarPoint' :: [Int] -> Int -> Int -> Bool
 isStarPoint' ixs x y = x `elem` ixs && y `elem` ixs
@@ -467,8 +467,8 @@ applyProperties node board = foldr applyProperty board (nodeProperties node)
 -- referred to by the 'CoordList'.
 updateCoordStates :: (CoordState -> CoordState) -> CoordList -> BoardState -> BoardState
 updateCoordStates fn coords board = board { boardCoordStates = foldr applyFn (boardCoordStates board) (expandCoordList coords) }
-  where applyFn (x, y) states = listUpdate (updateRow x) y states
-        updateRow x row = listUpdate fn x row
+  where applyFn (x, y) = listUpdate (updateRow x) y
+        updateRow = listUpdate fn
 
 -- | Extracts the 'CoordState' for a coordinate on a board.
 getCoordState :: Coord -> BoardState -> CoordState
@@ -558,24 +558,24 @@ applyMove params color xy board =
                                             (boardWithMove, 0)
                                             (adjacentPoints boardWithMove xy)
         playedGroup = computeGroup boardWithCaptures xy
-        moveResult = if applyMoveGroupLiberties playedGroup == 0
-                     then if points /= 0
-                          then error "Cannot commit suicide and capture at the same time."
-                          else if allowSuicide params
-                               then let (boardWithSuicide, suicidePoints) =
-                                          applyMoveCapture (boardWithCaptures, 0) playedGroup
-                                    in ApplyMoveCapture boardWithSuicide (cnot color) suicidePoints
-                               else ApplyMoveSuicideError
-                     else if points /= 0
-                          then ApplyMoveCapture boardWithCaptures color points
-                          else ApplyMoveOk boardWithCaptures
+        moveResult
+          | applyMoveGroupLiberties playedGroup == 0 =
+            if points /= 0
+            then error "Cannot commit suicide and capture at the same time."
+            else if allowSuicide params
+                 then let (boardWithSuicide, suicidePoints) =
+                            applyMoveCapture (boardWithCaptures, 0) playedGroup
+                      in ApplyMoveCapture boardWithSuicide (cnot color) suicidePoints
+                 else ApplyMoveSuicideError
+          | points /= 0 = ApplyMoveCapture boardWithCaptures color points
+          | otherwise = ApplyMoveOk boardWithCaptures
 
 -- | Capture if there is a liberty-less group of a color at a point on
 -- a board.  Removes captures stones from the board and accumulates
 -- points for captured stones.
 maybeCapture :: Color -> Coord -> (BoardState, Int) -> (BoardState, Int)
 maybeCapture color xy result@(board, points) =
-  if (coordStone $ getCoordState xy board) /= Just color
+  if coordStone (getCoordState xy board) /= Just color
   then result
   else let group = computeGroup board xy
        in if applyMoveGroupLiberties group /= 0
@@ -584,7 +584,7 @@ maybeCapture color xy result@(board, points) =
 
 computeGroup :: BoardState -> Coord -> ApplyMoveGroup
 computeGroup board xy =
-  if (coordStone $ getCoordState xy board) == Nothing
+  if isNothing (coordStone $ getCoordState xy board)
   then error "computeGroup called on an empty point."
   else let groupCoords = bucketFill board xy
        in ApplyMoveGroup { applyMoveGroupOrigin = xy
@@ -615,8 +615,8 @@ adjacentPoints board (x, y) = execWriter $ do
 -- to a single or maximal group.
 getLibertiesOfGroup :: BoardState -> [Coord] -> Int
 getLibertiesOfGroup board groupCoords =
-  length $ nub $ concat $ map findLiberties groupCoords
-  where findLiberties xy = filter (\xy' -> Nothing == coordStone (getCoordState xy' board))
+  length $ nub $ concatMap findLiberties groupCoords
+  where findLiberties xy = filter (\xy' -> isNothing $ coordStone $ getCoordState xy' board)
                                   (adjacentPoints board xy)
 
 -- | Expands a single coordinate on a board into a list of all the
@@ -634,8 +634,8 @@ bucketFill board xy0 = bucketFill' Set.empty [xy0]
 
 -- | Plays a stone on a board at a point, applying capture rules.
 play :: Color -> Coord -> BoardState -> BoardState
-play color xy board = applyProperty prop board
-  where prop = if color == Black then (B xy) else (W xy)
+play color xy = applyProperty prop
+  where prop = if color == Black then B xy else W xy
 
 -- | A pointer to a node in a game tree that also holds information
 -- about the current state of the game at that node.
@@ -666,12 +666,12 @@ rootCursor node = do
                      \prop -> case prop of
                        (SZ _ _) -> True
                        _ -> False
-  return $ Cursor { cursorParent = Nothing
-                  , cursorChildIndex = -1
-                  , cursorNode = node
-                  , cursorBoard = applyProperties node $
-                                  emptyBoardState width height
-                  }
+  return Cursor { cursorParent = Nothing
+                , cursorChildIndex = -1
+                , cursorNode = node
+                , cursorBoard = applyProperties node $
+                                emptyBoardState width height
+                }
 
 cursorChild :: Cursor -> Int -> Cursor
 cursorChild cursor index =
@@ -790,10 +790,7 @@ fireEvent :: Monad h => ChangeEvent -> GoM h ()
 fireEvent e = do
   handlers <- getHandlers
   action <- getHandlerAction
-  let extractJusts = (\x -> case x of  -- TODO There has to be a nicer way
-                       Nothing -> []   -- to write this.
-                       Just y -> [y])
-  let newActions = concat $ map (extractJusts . ($ e)) handlers
+  let newActions = mapMaybe ($ e) handlers
   let action' = action >> sequence_ newActions
   updateState (\goState -> goState { stateHandlerAction = action' })
 
@@ -838,7 +835,7 @@ foo = do
 
 listUpdate :: Show a => (a -> a) -> Int -> [a] -> [a]
 listUpdate fn ix xs = listSet' ix xs
-  where listSet' 0 (x':xs') = (fn x'):xs'
-        listSet' ix' (x':xs') = x':(listSet' (ix' - 1) xs')
+  where listSet' 0 (x':xs') = fn x':xs'
+        listSet' ix' (x':xs') = x':listSet' (ix' - 1) xs'
         listSet' _ _ = error ("Cannot update index " ++ show ix ++
                               " of list " ++ show xs ++ ".")

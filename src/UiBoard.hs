@@ -42,7 +42,7 @@ gtkBoardNew :: Int -- ^ Width
 gtkBoardNew width height clickHandler = do
   table <- tableNew height width False
   cellsRef <- newIORef Map.empty
-  forM_ [0..width-1] $ \x -> do
+  forM_ [0..width-1] $ \x ->
     forM_ [0..height-1] $ \y -> do
       let xy = (x, y)
       button <- buttonNewWithLabel ""
@@ -51,18 +51,18 @@ gtkBoardNew width height clickHandler = do
       tableAttachDefaults table button x (x + 1) y (y + 1)
       modifyIORef cellsRef (Map.insert xy button)
   cells <- readIORef cellsRef
-  return $ GtkBoard { gtkBoardTable = table
-                    , gtkBoardCells = cells
-                    , gtkBoardWidth = width
-                    , gtkBoardHeight = height
-                    }
+  return GtkBoard { gtkBoardTable = table
+                  , gtkBoardCells = cells
+                  , gtkBoardWidth = width
+                  , gtkBoardHeight = height
+                  }
 
 instance GoBoardWidget GtkBoard IO where
   goBoardWidgetUpdate boardState gtkBoard = do
     let cells = gtkBoardCells gtkBoard
         width = gtkBoardWidth gtkBoard
         height = gtkBoardHeight gtkBoard
-    forM_ [0..width-1] $ \x -> do
+    forM_ [0..width-1] $ \x ->
       forM_ [0..height-1] $ \y -> do
         let xy = (x, y)
             button = cells ! xy
