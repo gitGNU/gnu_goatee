@@ -14,7 +14,7 @@ executable gohs
     buildable: True
     extensions: MultiParamTypeClasses
     hs-source-dirs: src
-    other-modules: UiBoard Model Sgf
+    other-modules: UiBoard Sgf
     ghc-options: -fwarn-incomplete-patterns
  
 test-suite test-gohs
