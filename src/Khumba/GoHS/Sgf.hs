@@ -1,17 +1,3 @@
------------------------------------------------------------------------------
---
--- Module      :  Sgf
--- Copyright   :
--- License     :  AllRightsReserved
---
--- Maintainer  :
--- Stability   :
--- Portability :
---
--- |
---
------------------------------------------------------------------------------
-
 module Khumba.GoHS.Sgf where
 
 import qualified Control.Monad.State as State
@@ -210,6 +196,12 @@ cnot :: Color -> Color
 cnot Black = White
 cnot White = Black
 
+colorToMove :: Color -> Coord -> Property
+colorToMove color coord =
+  case color of
+    Black -> B coord
+    White -> W coord
+
 -- | A list of arrows, each specified as @(startCoord, endCoord)@.
 type ArrowList = [(Coord, Coord)]
 
@@ -381,10 +373,10 @@ rootBoardState rootNode =
                             (SZ _ _) -> True
                             _ -> False
 
-advanceMoveNumber :: BoardState -> BoardState
-advanceMoveNumber board = board { boardMoveNumber = boardMoveNumber board + 1
-                                , boardPlayerTurn = cnot $ boardPlayerTurn board
-                                }
+advanceMove :: BoardState -> BoardState
+advanceMove board = board { boardMoveNumber = boardMoveNumber board + 1
+                          , boardPlayerTurn = cnot $ boardPlayerTurn board
+                          }
 
 -- |> isStarPoint width height x y
 --
@@ -679,7 +671,7 @@ cursorChild cursor index =
          , cursorChildIndex = index
          , cursorNode = child
          , cursorBoard = applyProperties child $
-                         advanceMoveNumber $
+                         advanceMove $
                          cursorBoard cursor
          }
   where child = (!! index) $ nodeChildren $ cursorNode cursor
@@ -794,13 +786,13 @@ fireEvent e = do
   let action' = action >> sequence_ newActions
   updateState (\goState -> goState { stateHandlerAction = action' })
 
--- Fails if already at the root.
-goUp :: Monad h => GoM h ()
-goUp = do
-  cursor <- getCursor
-  case cursorParent cursor of
-    Just parent -> putCursor parent
-    Nothing -> fail ("Could not go up from cursor: " ++ show cursor)
+---- Fails if already at the root.
+--goUp :: Monad h => GoM h ()
+--goUp = do
+--  cursor <- getCursor
+--  case cursorParent cursor of
+--    Just parent -> putCursor parent
+--    Nothing -> fail ("Could not go up from cursor: " ++ show cursor)
 
 --zz: Disabled, emptyGoState is broken.
 ---- Executes the actions in the Go monad, returning the handler action

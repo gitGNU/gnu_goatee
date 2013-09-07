@@ -14,7 +14,12 @@ executable gohs
     buildable: True
     extensions: MultiParamTypeClasses
     hs-source-dirs: src
-    other-modules: Khumba.GoHS.Common Khumba.GoHS.UiBoard Khumba.GoHS.Sgf
+    other-modules:
+        Khumba.GoHS.Common
+        Khumba.GoHS.Sgf
+        Khumba.GoHS.Ui.Gtk
+        Khumba.GoHS.Ui.Gtk.Board
+        Khumba.GoHS.Ui.Gtk.Common
     ghc-options: -fwarn-incomplete-patterns
  
 test-suite test-gohs
