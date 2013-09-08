@@ -108,8 +108,7 @@ goReplace = updateUi
 
 updateUi :: UiStateImpl -> Cursor -> IO ()
 updateUi ui cursor = do
-  let board = cursorBoard cursor
-  goBoardWidgetUpdate board (uiBoard ui)
+  goBoardWidgetUpdate cursor (uiBoard ui)
   return ()
 
 openBoard :: Node -> IO UiStateImpl
@@ -130,6 +129,6 @@ openBoard rootNode = do
                        }
   writeIORef uiRef $ Just ui
 
-  goBoardWidgetUpdate board uiBoard
+  goBoardWidgetUpdate cursor uiBoard
   gtkBoardShow uiBoard
   return ui

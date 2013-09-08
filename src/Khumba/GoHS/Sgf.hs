@@ -687,6 +687,9 @@ cursorChildren cursor =
      $ nodeChildren
      $ cursorNode cursor
 
+cursorChildCount :: Cursor -> Int
+cursorChildCount = length . nodeChildren . cursorNode
+
 cursorModifyNode :: (Node -> Node) -> Cursor -> Cursor
 cursorModifyNode fn cursor =
   let node' = fn $ cursorNode cursor

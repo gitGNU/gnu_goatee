@@ -6,7 +6,7 @@ import Control.Monad.Reader (ask)
 import Data.IORef
 import Data.Map ((!))
 import Data.Maybe
-import Graphics.UI.Gtk
+import Graphics.UI.Gtk hiding (Cursor)
 import Khumba.GoHS.Sgf
 import Khumba.GoHS.Ui.Gtk.Common
 import qualified Data.Map as Map
@@ -31,11 +31,12 @@ keyNavActions = Map.fromList $
 
 -- | Generic class for implementations of widgets that render boards.
 class Monad m => GoBoardWidget w m where
-  goBoardWidgetUpdate :: BoardState -> w -> m w
+  goBoardWidgetUpdate :: Cursor -> w -> m w
 
 -- | A GTK widget that renders a Go board.
 data GtkBoard ui = GtkBoard { gtkBoardUi :: UiRef ui
                             , gtkBoardWindow :: Window
+                            , gtkBoardInfoLine :: Label
                             , gtkBoardTable :: Table
                             , gtkBoardCells :: Map.Map (Int, Int) Button
                             , gtkBoardWidth :: Int
@@ -51,21 +52,9 @@ gtkBoardNew :: UiState ui
 gtkBoardNew uiRef width height = do
   let clickHandler = boardClickHandler uiRef
 
-  table <- tableNew height width False
-  cellsRef <- newIORef Map.empty
-  forM_ [0..width-1] $ \x ->
-    forM_ [0..height-1] $ \y -> do
-      let xy = (x, y)
-      button <- buttonNewWithLabel ""
-      buttonSetRelief button ReliefNone
-      on button buttonActivated $ clickHandler x y
-      tableAttachDefaults table button x (x + 1) y (y + 1)
-      modifyIORef cellsRef (Map.insert xy button)
-  cells <- readIORef cellsRef
-
   window <- windowNew
-  windowSetDefaultSize window 400 330
-  containerAdd window table
+  windowSetTitle window "Go"
+  windowSetDefaultSize window 440 380
 
   -- TODO Don't quit if other windows are open.
   on window deleteEvent $ liftIO mainQuit >> return False
@@ -79,8 +68,34 @@ gtkBoardNew uiRef width height = do
       Just action -> void $ readUiRef uiRef >>= action
     return True
 
+  infoBox <- vBoxNew False 0
+  containerAdd window infoBox
+
+  infoLine <- labelNew Nothing
+  containerAdd infoBox infoLine
+
+  tableTreePaned <- vPanedNew
+  containerAdd infoBox tableTreePaned
+
+  table <- tableNew height width False
+  cellsRef <- newIORef Map.empty
+  forM_ [0..width-1] $ \x ->
+    forM_ [0..height-1] $ \y -> do
+      let xy = (x, y)
+      button <- buttonNewWithLabel ""
+      buttonSetRelief button ReliefNone
+      on button buttonActivated $ clickHandler x y
+      tableAttachDefaults table button x (x + 1) y (y + 1)
+      modifyIORef cellsRef (Map.insert xy button)
+  cells <- readIORef cellsRef
+  containerAdd tableTreePaned table
+
+  treeTodoLabel <- labelNew $ Just "TODO: Show the tree view here..."
+  containerAdd tableTreePaned treeTodoLabel
+
   return GtkBoard { gtkBoardUi = uiRef
                   , gtkBoardWindow = window
+                  , gtkBoardInfoLine = infoLine
                   , gtkBoardTable = table
                   , gtkBoardCells = cells
                   , gtkBoardWidth = width
@@ -91,16 +106,34 @@ gtkBoardShow :: UiState ui => GtkBoard ui -> IO ()
 gtkBoardShow = widgetShowAll . gtkBoardWindow
 
 instance UiState ui => GoBoardWidget (GtkBoard ui) IO where
-  goBoardWidgetUpdate boardState gtkBoard = do
-    let cells = gtkBoardCells gtkBoard
+  goBoardWidgetUpdate cursor gtkBoard = do
+    let board = cursorBoard cursor
+        cells = gtkBoardCells gtkBoard
         width = gtkBoardWidth gtkBoard
         height = gtkBoardHeight gtkBoard
     forM_ [0..width-1] $ \x ->
       forM_ [0..height-1] $ \y -> do
         let xy = (x, y)
             button = cells ! xy
-        buttonSetLabel button $ show $ getCoordState xy boardState
-    windowSetTitle (gtkBoardWindow gtkBoard) $ head $ lines $ show boardState
+        buttonSetLabel button $ show $ getCoordState xy board
+    let siblingMsg = case cursorParent cursor of
+                     Nothing -> "Start of game."
+                     Just parent ->
+                       let parentChildCount = cursorChildCount parent
+                       in if parentChildCount > 1
+                          then "Variation " ++ show (cursorChildIndex cursor + 1)
+                               ++ "/" ++ show parentChildCount ++ "."
+                          else ""
+        childrenMsg = let childCount = cursorChildCount cursor
+                      in case childCount of
+                        0 -> "End of variation."
+                        1 -> ""
+                        _ -> "<b>" ++ show childCount ++ " variations from here.</b>"
+    labelSetMarkup (gtkBoardInfoLine gtkBoard) $
+      "Move " ++ show (boardMoveNumber board) ++ ", " ++ show (boardPlayerTurn board)
+      ++ " to play.  Captures: B+" ++ show (boardBlackCaptures board) ++ ", W+"
+      ++ show (boardWhiteCaptures board) ++ ".\n" ++ siblingMsg
+      ++ (if siblingMsg /= [] && childrenMsg /= [] then "  " else "") ++ childrenMsg
     return gtkBoard
 
 boardClickHandler :: UiState a => UiRef a -> Int -> Int -> IO ()
