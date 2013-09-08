@@ -3,10 +3,9 @@ module Khumba.GoHS.Sgf where
 import qualified Control.Monad.State as State
 import qualified Data.Foldable as Foldable
 import qualified Data.Map as Map
-import qualified Data.Sequence as Sequence
 import qualified Data.Set as Set
 
-import Control.Monad (forM_, sequence_, unless, when)
+import Control.Monad (forM_, liftM, sequence_, unless, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sortBy)
@@ -678,13 +677,13 @@ cursorChild cursor index =
 
 cursorChildren :: Cursor -> [Cursor]
 cursorChildren cursor =
-  let board = cursorBoard cursor
+  let board = advanceMove $ cursorBoard cursor
   in map (\(index, child) -> Cursor { cursorParent = Just cursor
                                     , cursorChildIndex = index
                                     , cursorNode = child
                                     , cursorBoard = applyProperties child board
                                     })
-     $ zip [1..]
+     $ zip [0..]
      $ nodeChildren
      $ cursorNode cursor
 
@@ -749,7 +748,7 @@ updateState :: (GoState h -> GoState h) -> GoM h ()
 updateState f = GoM $ State.put . f =<< State.get
 
 getCursor :: GoM h Cursor
-getCursor = GoM { goState = return . stateCursor =<< State.get }
+getCursor = GoM { goState = liftM stateCursor State.get }
 
 putCursor :: Monad h => Cursor -> GoM h ()
 --putCursor cursor = GoM { goState = State.put $ GoState cursor }
@@ -760,7 +759,7 @@ putCursor cursor = do
 
 -- Weird that "Monad h =>" is needed here?
 getNode :: Monad h => GoM h Node
-getNode = return . cursorNode =<< getCursor
+getNode = liftM cursorNode getCursor
 
 putRoot :: Monad h => Node -> GoM h (Maybe String)
 putRoot node =
@@ -769,14 +768,14 @@ putRoot node =
     Right cursor -> putCursor cursor >> return Nothing
 
 getHandlers :: GoM h [ChangeHandler h]
-getHandlers = GoM $ return . stateHandlers =<< State.get
+getHandlers = GoM $ liftM stateHandlers State.get
 
 addHandler :: ChangeHandler h -> GoM h ()
 addHandler h = updateState
   (\goState -> goState { stateHandlers = stateHandlers goState ++ [h] })
 
 getHandlerAction :: Monad h => GoM h (h ())
-getHandlerAction = GoM $ return . stateHandlerAction =<< State.get
+getHandlerAction = GoM $ liftM stateHandlerAction State.get
 
 fireEvent :: Monad h => ChangeEvent -> GoM h ()
 fireEvent e = do

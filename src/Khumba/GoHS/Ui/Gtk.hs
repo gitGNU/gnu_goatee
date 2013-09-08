@@ -58,18 +58,32 @@ instance UiState UiStateImpl where
       child:_ -> goToChild ui child >> return (child, True)
       _ -> return (cursor, False)
 
-  goLeft ui = fail "goLeft not implemented." -- TODO
-  goRight ui = fail "goRight not implemented." -- TODO
+  goLeft ui = modifyMVar (uiCursor ui) $ \cursor ->
+    case cursorParent cursor of
+      Nothing -> return (cursor, False)
+      Just parentCursor ->
+        let index = cursorChildIndex cursor
+        in if index == 0
+           then return (cursor, False)
+           else let left = cursorChild parentCursor $ index - 1
+                in goToLeft ui left >> return (left, True)
+
+  goRight ui = modifyMVar (uiCursor ui) $ \cursor ->
+    case cursorParent cursor of
+      Nothing -> return (cursor, False)
+      Just parentCursor ->
+        let index = cursorChildIndex cursor
+        in if index == length (nodeChildren $ cursorNode parentCursor) - 1
+           then return (cursor, False)
+           else let right = cursorChild parentCursor $ index + 1
+                in goToLeft ui right >> return (right, True)
 
 findChildPlayingAt :: Coord -> Cursor -> Maybe Cursor
 findChildPlayingAt coord cursor =
   let children = cursorChildren cursor
-      player = boardPlayerTurn $ cursorBoard cursor
-      expectedProperties = [case player of
-                               Black -> B coord
-                               White -> W coord]
-  in find ((expectedProperties ==) . filter isPropertyBOrW . nodeProperties . cursorNode)
-          children
+      color = boardPlayerTurn $ cursorBoard cursor
+      hasMove = elem $ colorToMove color coord
+  in find (hasMove . nodeProperties . cursorNode) children
 
 isPropertyBOrW :: Property -> Bool
 isPropertyBOrW prop = case prop of
@@ -82,6 +96,12 @@ goToParent = updateUi
 
 goToChild :: UiStateImpl -> Cursor -> IO ()
 goToChild = updateUi
+
+goToLeft :: UiStateImpl -> Cursor -> IO ()
+goToLeft = updateUi
+
+goToRight :: UiStateImpl -> Cursor -> IO ()
+goToRight = updateUi
 
 goReplace :: UiStateImpl -> Cursor -> IO ()
 goReplace = updateUi

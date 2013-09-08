@@ -36,4 +36,4 @@ class UiState a where
 data UiRef ui = UiRef { getUiRef :: IORef (Maybe ui) }
 
 readUiRef :: UiState ui => UiRef ui -> IO ui
-readUiRef = return . fromJust <=< readIORef . getUiRef
+readUiRef = maybe (fail "readUiRef failed.") return <=< readIORef . getUiRef
