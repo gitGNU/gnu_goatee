@@ -10,6 +10,7 @@ import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sortBy)
 import Data.Maybe (fromMaybe, isNothing, mapMaybe)
+import Khumba.GoHS.Common
 
 -- | A coordinate on a Go board.  @(0, 0)@ refers to the upper-left corner of
 -- the board.  The first component is the horizontal position; the second
@@ -122,10 +123,10 @@ validateNodeDuplicates props getTaggedElts errAction =
 -- | An SGF property that gives a node meaning.
 data Property =
   -- Move properties.
-    B Coord              -- ^ Black move.
+    B (Maybe Coord)      -- ^ Black move (nothing iff pass).
   | KO                   -- ^ Execute move unconditionally (even if illegal).
   | MN Integer           -- ^ Assign move number.
-  | W Coord              -- ^ White move.
+  | W (Maybe Coord)      -- ^ White move (nothing iff pass).
 
   -- Setup properties.
   | AB CoordList         -- ^ Assign black stones.
@@ -200,8 +201,8 @@ cnot White = Black
 colorToMove :: Color -> Coord -> Property
 colorToMove color coord =
   case color of
-    Black -> B coord
-    White -> W coord
+    Black -> B $ Just coord
+    White -> W $ Just coord
 
 -- | A list of arrows, each specified as @(startCoord, endCoord)@.
 type ArrowList = [(Coord, Coord)]
@@ -404,12 +405,16 @@ isStarPoint19 = isStarPoint' [3, 9, 15]
 -- that modify 'BoardState's, including making moves, adding markup, and so on.
 applyProperty :: Property -> BoardState -> BoardState
 
-applyProperty (B xy) board =
-  getApplyMoveResult board $ applyMove playTheDarnMoveGoParams Black xy board
+applyProperty (B maybeXy) board = case maybeXy of
+  Nothing -> board  -- Pass.
+  Just xy -> getApplyMoveResult board $
+             applyMove playTheDarnMoveGoParams Black xy board
 applyProperty KO board = board
 applyProperty (MN moveNum) board = board { boardMoveNumber = moveNum }
-applyProperty (W xy) board =
-  getApplyMoveResult board $ applyMove playTheDarnMoveGoParams White xy board
+applyProperty (W maybeXy) board = case maybeXy of
+  Nothing -> board  -- Pass.
+  Just xy -> getApplyMoveResult board $
+             applyMove playTheDarnMoveGoParams White xy board
 
 applyProperty (AB coords) board =
   updateCoordStates (\state -> state { coordStone = Just Black }) coords board
@@ -633,7 +638,7 @@ bucketFill board xy0 = bucketFill' Set.empty [xy0]
 -- | Plays a stone on a board at a point, applying capture rules.
 play :: Color -> Coord -> BoardState -> BoardState
 play color xy = applyProperty prop
-  where prop = if color == Black then B xy else W xy
+  where prop = (if color == Black then B else W) (Just xy)
 
 -- | A pointer to a node in a game tree that also holds information
 -- about the current state of the game at that node.
@@ -833,10 +838,3 @@ foo = do
 -- [(b, 0), (a, 2)]
 -- [(c, 0), (a, 3)]
 -- [(c, 1), (a, 3)]
-
-listUpdate :: Show a => (a -> a) -> Int -> [a] -> [a]
-listUpdate fn ix xs = listSet' ix xs
-  where listSet' 0 (x':xs') = fn x':xs'
-        listSet' ix' (x':xs') = x':listSet' (ix' - 1) xs'
-        listSet' _ _ = error ("Cannot update index " ++ show ix ++
-                              " of list " ++ show xs ++ ".")

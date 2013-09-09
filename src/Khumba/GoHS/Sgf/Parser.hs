@@ -4,10 +4,38 @@ import Control.Applicative ((<$), (<*), (*>), (<*>))
 import Control.Monad
 import Data.Char
 import Khumba.GoHS.Sgf
+import Khumba.GoHS.Common
 import Text.ParserCombinators.Parsec
 
-parseString :: String -> Either ParseError [Node]
-parseString = parse sgf "<sgf>"
+parseString :: String -> Either String [Node]
+parseString str = case parse sgf "<sgf>" str of
+  Left err -> Left $ show err
+  Right roots -> onLeft concatErrors $ andEithers $ map ttToPass roots
+  where -- SGF allows B[tt] and W[tt] to represent passes on boards <=19x19.
+        -- Convert any passes from this format to B[] and W[] in a root node and
+        -- its descendents.
+        ttToPass root = case findProperty root isSZ of
+          Nothing ->
+            Left $ "Missing size property (SZ) in root node: " ++ show root
+          Just (SZ width height) ->
+            Right $ if width <= 19 && height <= 19
+                    then root
+                    else ttToPass' width height root
+        -- Convert a node and its descendents.
+        ttToPass' width height node =
+          node { nodeProperties = map ttToPass'' $ nodeProperties node
+               , nodeChildren = map (ttToPass' width height) $ nodeChildren node
+               }
+        -- Convert a property.
+        ttToPass'' prop = case prop of
+          B (Just (20, 20)) -> B Nothing
+          W (Just (20, 20)) -> W Nothing
+          _ -> prop
+        isSZ prop = case prop of
+          SZ _ _ -> True
+          _ -> False
+        concatErrors errs = "The following errors occurred while parsing:" ++
+                            concatMap ("\n-> " ++) errs
 
 parseFile :: String -> IO (Either ParseError [Node])
 parseFile = fmap (parse sgf "<sgf>") . readFile
@@ -107,7 +135,7 @@ point = liftM2 (,) line line <?> "point"
 stone :: CharParser () Coord
 stone = liftM2 (,) line line <?> "stone"
 
-move :: CharParser () Coord
-move = liftM2 (,) line line <?> "move"
+move :: CharParser () (Maybe Coord)
+move = try (liftM Just $ liftM2 (,) line line) <|> return Nothing
 
 -- TODO compose
