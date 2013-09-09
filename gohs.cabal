@@ -9,7 +9,7 @@ description:
 data-dir: ""
 
 executable gohs
-    build-depends: base -any, containers -any, gtk -any, mtl -any
+    build-depends: base -any, containers -any, gtk -any, mtl -any, parsec -any
     main-is: Main.hs
     buildable: True
     extensions: MultiParamTypeClasses

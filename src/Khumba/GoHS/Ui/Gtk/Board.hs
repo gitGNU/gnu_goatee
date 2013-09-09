@@ -6,6 +6,7 @@ import Control.Monad.Reader (ask)
 import Data.IORef
 import Data.Map ((!))
 import Data.Maybe
+import Data.Tree (drawTree, unfoldTree)
 import Graphics.UI.Gtk hiding (Cursor)
 import Khumba.GoHS.Sgf
 import Khumba.GoHS.Ui.Gtk.Common
@@ -38,7 +39,8 @@ data GtkBoard ui = GtkBoard { gtkBoardUi :: UiRef ui
                             , gtkBoardWindow :: Window
                             , gtkBoardInfoLine :: Label
                             , gtkBoardTable :: Table
-                            , gtkBoardCells :: Map.Map (Int, Int) Button
+                            , gtkBoardCellButtons :: Map.Map (Int, Int) Button
+                            , gtkBoardCellLabels :: Map.Map (Int, Int) Label
                             , gtkBoardWidth :: Int
                             , gtkBoardHeight :: Int
                             }
@@ -59,13 +61,19 @@ gtkBoardNew uiRef width height = do
   -- TODO Don't quit if other windows are open.
   on window deleteEvent $ liftIO mainQuit >> return False
 
-  on window keyReleaseEvent $ do
+  on window keyPressEvent $ do
     key <- eventKeyName
     mods <- eventModifier
     let maybeAction = Map.lookup key keyNavActions
-    when (null mods) $ liftIO $ case maybeAction of
-      Nothing -> return ()
-      Just action -> void $ readUiRef uiRef >>= action
+    if null mods && isJust maybeAction
+      then liftIO $ void $ readUiRef uiRef >>= fromJust maybeAction
+      else case key of
+        -- Draw a tree rooted at the current node to the console.
+        "t" -> liftIO $ do
+          cursor <- readCursor =<< readUiRef uiRef
+          putStrLn $ drawTree $ flip unfoldTree (cursorNode cursor) $ \node ->
+            (show $ nodeProperties node, nodeChildren node)
+        _ -> return ()
     return True
 
   infoBox <- vBoxNew False 0
@@ -78,16 +86,21 @@ gtkBoardNew uiRef width height = do
   containerAdd infoBox tableTreePaned
 
   table <- tableNew height width False
-  cellsRef <- newIORef Map.empty
+  cellButtonsRef <- newIORef Map.empty
+  cellLabelsRef <- newIORef Map.empty
   forM_ [0..width-1] $ \x ->
     forM_ [0..height-1] $ \y -> do
       let xy = (x, y)
-      button <- buttonNewWithLabel ""
+      button <- buttonNew
+      label <- labelNew Nothing
+      containerAdd button label
       buttonSetRelief button ReliefNone
       on button buttonActivated $ clickHandler x y
       tableAttachDefaults table button x (x + 1) y (y + 1)
-      modifyIORef cellsRef (Map.insert xy button)
-  cells <- readIORef cellsRef
+      modifyIORef cellButtonsRef (Map.insert xy button)
+      modifyIORef cellLabelsRef (Map.insert xy label)
+  cellButtons <- readIORef cellButtonsRef
+  cellLabels <- readIORef cellLabelsRef
   containerAdd tableTreePaned table
 
   treeTodoLabel <- labelNew $ Just "TODO: Show the tree view here..."
@@ -97,7 +110,8 @@ gtkBoardNew uiRef width height = do
                   , gtkBoardWindow = window
                   , gtkBoardInfoLine = infoLine
                   , gtkBoardTable = table
-                  , gtkBoardCells = cells
+                  , gtkBoardCellButtons = cellButtons
+                  , gtkBoardCellLabels = cellLabels
                   , gtkBoardWidth = width
                   , gtkBoardHeight = height
                   }
@@ -108,14 +122,18 @@ gtkBoardShow = widgetShowAll . gtkBoardWindow
 instance UiState ui => GoBoardWidget (GtkBoard ui) IO where
   goBoardWidgetUpdate cursor gtkBoard = do
     let board = cursorBoard cursor
-        cells = gtkBoardCells gtkBoard
         width = gtkBoardWidth gtkBoard
         height = gtkBoardHeight gtkBoard
     forM_ [0..width-1] $ \x ->
       forM_ [0..height-1] $ \y -> do
         let xy = (x, y)
-            button = cells ! xy
-        buttonSetLabel button $ show $ getCoordState xy board
+            label = gtkBoardCellLabels gtkBoard ! xy
+            coordState = getCoordState xy board
+            text = show coordState
+        labelSetMarkup label $ case coordStone coordState of
+          Nothing -> text
+          Just Black -> "<span weight=\"bold\" foreground=\"red\">" ++ text ++ "</span>"
+          Just White -> "<span weight=\"bold\" foreground=\"blue\">" ++ text ++ "</span>"
     let siblingMsg = case cursorParent cursor of
                      Nothing -> "Start of game."
                      Just parent ->

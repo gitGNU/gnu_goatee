@@ -14,5 +14,10 @@ import Khumba.GoHS.Ui.Gtk
 main :: IO ()
 main = do
   args <- initGUI
-  openBoard (rootNode 9 9)
+  if null args
+    then void $ openBoard $ rootNode 9 9
+    else do result <- openFile $ head args
+            case result of
+              Left msg -> print msg
+              _ -> return ()
   mainGUI

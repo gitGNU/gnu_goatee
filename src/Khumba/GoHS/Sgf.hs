@@ -168,6 +168,8 @@ data Property =
   | ST Int               -- ^ Variation display format.
   | SZ Int Int           -- ^ Board size.
 
+  | UnknownProperty String String
+
   -- TODO Game info, timing, and miscellaneous properties.
   -- Also in functions below.
   deriving (Eq, Show)
@@ -269,6 +271,9 @@ propertyType (GM _) = RootProperty
 propertyType (ST _) = RootProperty
 propertyType (SZ _ _) = RootProperty
 
+-- TODO Is this correct?
+propertyType (UnknownProperty _ _) = GeneralProperty
+
 -- | Returns whether the value of the given property is inherited from the
 -- lowest ancestor specifying the property, when the property is not set on a
 -- node itself.
@@ -309,14 +314,14 @@ instance Show CoordState where
              CoordInvisible -> "--"
              _ -> let stoneChar = case coordStone c of
                                     Nothing -> if coordStar c then '*' else '\''
-                                    Just Black -> 'x'
-                                    Just White -> 'o'
+                                    Just Black -> 'X'
+                                    Just White -> 'O'
                       markChar = case coordMark c of
                                    Nothing -> ' '
-                                   Just MarkCircle -> 'O'
-                                   Just MarkSquare -> 'L'
-                                   Just MarkTriangle -> 'A'
-                                   Just MarkX -> 'X'
+                                   Just MarkCircle -> 'o'
+                                   Just MarkSquare -> 's'
+                                   Just MarkTriangle -> 'v'
+                                   Just MarkX -> 'x'
                                    Just MarkSelected -> '!'
                   in [stoneChar, markChar]
 
@@ -450,6 +455,8 @@ applyProperty (FF _) board = board
 applyProperty (GM _) board = board
 applyProperty (ST _) board = board
 applyProperty (SZ _ _) board = board
+
+applyProperty (UnknownProperty _ _) board = board
 
 applyProperties :: Node -> BoardState -> BoardState
 applyProperties node board = foldr applyProperty board (nodeProperties node)

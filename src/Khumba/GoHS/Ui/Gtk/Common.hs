@@ -6,6 +6,9 @@ import Data.Maybe
 import Khumba.GoHS.Sgf
 
 class UiState a where
+  -- | Returns the current cursor.
+  readCursor :: a -> IO Cursor
+
   -- | Determines whether it is currently valid to play at the given point.
   isValidMove :: a -> Coord -> IO Bool
 
