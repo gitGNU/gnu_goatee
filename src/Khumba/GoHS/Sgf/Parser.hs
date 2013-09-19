@@ -61,9 +61,16 @@ node = fmap (\props -> emptyNode { nodeProperties = props })
         <?> "node")
 
 property :: CharParser () Property
-property = choice [try $ parseProperty "B" $ fmap B move,
-                   try $ parseProperty "W" $ fmap W move,
-                   try $ parseProperty "SZ" $ fmap (\x -> SZ x x) number,
+-- TODO Some order on these.
+property = choice [try $ propertyParser "B" $ single $ fmap B move,
+                   try $ propertyParser "W" $ single $ fmap W move,
+
+                   try $ propertyParser "SZ" $ single $ fmap (\x -> SZ x x) number,
+
+                   try $ propertyParser "BR" $ single $ fmap BR simpleText,
+                   try $ propertyParser "PB" $ single $ fmap PB simpleText,
+                   try $ propertyParser "PW" $ single $ fmap PW simpleText,
+                   try $ propertyParser "WR" $ single $ fmap WR simpleText,
                    unknownProperty]
 
 unknownProperty :: CharParser () Property
@@ -76,11 +83,11 @@ unknownProperty = do
 escapedChar :: CharParser () Char
 escapedChar = char '\\' *> anyChar
 
-parseProperty :: String -> CharParser a Property -> CharParser a Property
-parseProperty name valueParser = string name *> asValue valueParser
+propertyParser :: String -> CharParser a Property -> CharParser a Property
+propertyParser name valueParser = string name *> valueParser
 
-asValue :: CharParser a Property -> CharParser a Property
-asValue valueParser = char '[' *> valueParser <* char ']'
+single :: CharParser a Property -> CharParser a Property
+single valueParser = char '[' *> valueParser <* char ']'
 
 number :: CharParser () Int
 number = fmap read number' <?> "number"
@@ -115,7 +122,9 @@ color = choice [Black <$ char 'B',
                 White <$ char 'W']
         <?> "color"
 
--- TODO simpleText
+simpleText :: CharParser () SimpleText
+simpleText = fmap toSimpleText (many (try escapedChar <|> noneOf "]")
+                                <?> "SimpleText")
 
 -- TODO text
 
@@ -138,4 +147,9 @@ stone = liftM2 (,) line line <?> "stone"
 move :: CharParser () (Maybe Coord)
 move = try (liftM Just $ liftM2 (,) line line) <|> return Nothing
 
--- TODO compose
+compose :: CharParser u a -> CharParser u b -> CharParser u (a, b)
+compose first second = do
+  x <- first
+  char ':'
+  y <- second
+  return (x, y)

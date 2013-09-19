@@ -134,7 +134,15 @@ instance UiState ui => GoBoardWidget (GtkBoard ui) IO where
           Nothing -> text
           Just Black -> "<span weight=\"bold\" foreground=\"red\">" ++ text ++ "</span>"
           Just White -> "<span weight=\"bold\" foreground=\"blue\">" ++ text ++ "</span>"
-    let siblingMsg = case cursorParent cursor of
+    let gameInfoMsg = fromMaybe "" $ do
+          let info = boardGameInfo board
+          black <- gameInfoBlackName info
+          white <- gameInfoWhiteName info
+          let renderRank = maybe "" (\x -> " (" ++ x ++ ")")
+              blackRank = renderRank $ gameInfoBlackRank info
+              whiteRank = renderRank $ gameInfoWhiteRank info
+          return $ white ++ whiteRank ++ " vs. " ++ black ++ blackRank ++ "\n"
+        siblingMsg = case cursorParent cursor of
                      Nothing -> "Start of game."
                      Just parent ->
                        let parentChildCount = cursorChildCount parent
@@ -148,7 +156,8 @@ instance UiState ui => GoBoardWidget (GtkBoard ui) IO where
                         1 -> ""
                         _ -> "<b>" ++ show childCount ++ " variations from here.</b>"
     labelSetMarkup (gtkBoardInfoLine gtkBoard) $
-      "Move " ++ show (boardMoveNumber board) ++ ", " ++ show (boardPlayerTurn board)
+      gameInfoMsg
+      ++ "Move " ++ show (boardMoveNumber board) ++ ", " ++ show (boardPlayerTurn board)
       ++ " to play.  Captures: B+" ++ show (boardBlackCaptures board) ++ ", W+"
       ++ show (boardWhiteCaptures board) ++ ".\n" ++ siblingMsg
       ++ (if siblingMsg /= [] && childrenMsg /= [] then "  " else "") ++ childrenMsg

@@ -1,10 +1,15 @@
-module Khumba.GoHS.Common ( listUpdate
+module Khumba.GoHS.Common ( listReplace
+                          , listUpdate
                           , fromLeft
                           , fromRight
                           , onLeft
                           , onRight
                           , andEithers
                           ) where
+
+listReplace :: Eq a => a -> a -> [a] -> [a]
+listReplace from to = map $ replace from to
+  where replace from to x = if x == from then to else x
 
 listUpdate :: Show a => (a -> a) -> Int -> [a] -> [a]
 listUpdate fn ix xs = listSet' ix xs

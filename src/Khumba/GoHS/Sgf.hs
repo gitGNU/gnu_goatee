@@ -169,6 +169,29 @@ data Property =
   | ST Int               -- ^ Variation display format.
   | SZ Int Int           -- ^ Board size.
 
+  -- Game info properties.
+  | AN SimpleText        -- ^ Name of annotator.
+  | BR SimpleText        -- ^ Rank of black player.
+  | BT SimpleText        -- ^ Name of black team.
+  | CP SimpleText        -- ^ Copyright info.
+  | DT SimpleText        -- ^ Dates played.
+  | EV SimpleText        -- ^ Event name.
+  | GC SimpleText        -- ^ Game comment/background/summary.
+  | GN SimpleText        -- ^ Game name.
+  | ON SimpleText        -- ^ Information about the opening.
+  | OT SimpleText        -- ^ The method used for overtime.
+  | PB SimpleText        -- ^ Name of black player.
+  | PC SimpleText        -- ^ Where the game was played.
+  | PW SimpleText        -- ^ Name of white player.
+  | RE GameResult        -- ^ Result of the game.
+  | RO SimpleText        -- ^ Round info.
+  | RU Ruleset           -- ^ Ruleset used.
+  | SO SimpleText        -- ^ Source of the game.
+  | TM RealValue         -- ^ Time limit, in seconds.
+  | US SimpleText        -- ^ Name of user or program who entered the game.
+  | WR SimpleText        -- ^ Rank of white player.
+  | WT SimpleText        -- ^ Name of white team.
+
   | UnknownProperty String String
 
   -- TODO Game info, timing, and miscellaneous properties.
@@ -181,6 +204,15 @@ type RealValue = Rational
 -- | An SGF simple text value.
 data SimpleText = SimpleText String
                 deriving (Eq, Show)
+
+sanitizeSimpleText :: String -> String
+sanitizeSimpleText = listReplace '\n' ' '
+
+toSimpleText :: String -> SimpleText
+toSimpleText = SimpleText . sanitizeSimpleText
+
+fromSimpleText :: SimpleText -> String
+fromSimpleText (SimpleText str) = sanitizeSimpleText str
 
 -- | An SGF double value: either 1 or 2, nothing else.
 data DoubleValue = Double1
@@ -219,6 +251,26 @@ data Mark = MarkCircle | MarkSquare | MarkTriangle | MarkX | MarkSelected
 
 -- | The visibility states that SGF allows a coordinate to be in.
 data CoordVisibility = CoordVisible | CoordDimmed | CoordInvisible
+
+data GameResult = GameResultWin Color WinReason
+                | GameResultDraw
+                | GameResultVoid
+                | GameResultUnknown
+                | GameResultOther String
+                deriving (Eq, Show)
+
+data WinReason = WinByScore Rational
+               | WinByResignation
+               | WinByTime
+               | WinByForfeit
+               deriving (Eq, Show)
+
+data Ruleset = RulesetAga
+             | RulesetIng
+             | RulesetJapanese
+             | RulesetNewZealand
+             | RulesetOther String
+             deriving (Eq, Show)
 
 -- | The property types that SGF uses to group properties.
 data PropertyType = MoveProperty     -- ^ Cannot mix with setup nodes.
@@ -272,6 +324,28 @@ propertyType (GM _) = RootProperty
 propertyType (ST _) = RootProperty
 propertyType (SZ _ _) = RootProperty
 
+propertyType (AN _) = GameInfoProperty
+propertyType (BR _) = GameInfoProperty
+propertyType (BT _) = GameInfoProperty
+propertyType (CP _) = GameInfoProperty
+propertyType (DT _) = GameInfoProperty
+propertyType (EV _) = GameInfoProperty
+propertyType (GC _) = GameInfoProperty
+propertyType (GN _) = GameInfoProperty
+propertyType (ON _) = GameInfoProperty
+propertyType (OT _) = GameInfoProperty
+propertyType (PB _) = GameInfoProperty
+propertyType (PC _) = GameInfoProperty
+propertyType (PW _) = GameInfoProperty
+propertyType (RE _) = GameInfoProperty
+propertyType (RO _) = GameInfoProperty
+propertyType (RU _) = GameInfoProperty
+propertyType (SO _) = GameInfoProperty
+propertyType (TM _) = GameInfoProperty
+propertyType (US _) = GameInfoProperty
+propertyType (WR _) = GameInfoProperty
+propertyType (WT _) = GameInfoProperty
+
 -- TODO Is this correct?
 propertyType (UnknownProperty _ _) = GeneralProperty
 
@@ -281,6 +355,63 @@ propertyType (UnknownProperty _ _) = GeneralProperty
 propertyInherited :: Property -> Bool
 propertyInherited (DD _) = True
 propertyInherited _ = False
+
+data GameInfo = GameInfo { gameInfoBlackName :: Maybe String
+                         , gameInfoBlackTeamName :: Maybe String
+                         , gameInfoBlackRank :: Maybe String
+
+                         , gameInfoWhiteName :: Maybe String
+                         , gameInfoWhiteTeamName :: Maybe String
+                         , gameInfoWhiteRank :: Maybe String
+
+                         , gameInfoRuleset :: Maybe Ruleset
+                         , gameInfoBasicTimeSeconds :: Maybe Rational
+                         , gameInfoOvertime :: Maybe String
+                         , gameInfoResult :: Maybe GameResult
+
+                         , gameInfoGameName :: Maybe String
+                         , gameInfoGameComment :: Maybe String
+                         , gameInfoOpeningComment :: Maybe String
+
+                         , gameInfoEvent :: Maybe String
+                         , gameInfoRound :: Maybe String
+                         , gameInfoPlace :: Maybe String
+                         , gameInfoDatesPlayed :: Maybe String
+                         , gameInfoSource :: Maybe String
+                         , gameInfoCopyright :: Maybe String
+
+                         , gameInfoAnnotatorName :: Maybe String
+                         , gameInfoEntererName :: Maybe String
+                         } deriving (Show)
+
+emptyGameInfo :: GameInfo
+emptyGameInfo = GameInfo { gameInfoBlackName = Nothing
+                         , gameInfoBlackTeamName = Nothing
+                         , gameInfoBlackRank = Nothing
+
+                         , gameInfoWhiteName = Nothing
+                         , gameInfoWhiteTeamName = Nothing
+                         , gameInfoWhiteRank = Nothing
+
+                         , gameInfoRuleset = Nothing
+                         , gameInfoBasicTimeSeconds = Nothing
+                         , gameInfoOvertime = Nothing
+                         , gameInfoResult = Nothing
+
+                         , gameInfoGameName = Nothing
+                         , gameInfoGameComment = Nothing
+                         , gameInfoOpeningComment = Nothing
+
+                         , gameInfoEvent = Nothing
+                         , gameInfoRound = Nothing
+                         , gameInfoPlace = Nothing
+                         , gameInfoDatesPlayed = Nothing
+                         , gameInfoSource = Nothing
+                         , gameInfoCopyright = Nothing
+
+                         , gameInfoAnnotatorName = Nothing
+                         , gameInfoEntererName = Nothing
+                         }
 
 -- | An object that corresponds to a node in some game tree, and represents the
 -- state of the game at that node, including board position, player turn and
@@ -298,6 +429,7 @@ data BoardState = BoardState { boardCoordStates :: [[CoordState]]
                              , boardWhiteCaptures :: Int
                              , boardWidth :: Int
                              , boardHeight :: Int
+                             , boardGameInfo :: GameInfo
                              }
 
 -- | Used by 'BoardState' to represent the state of a single point on the board.
@@ -355,6 +487,7 @@ emptyBoardState width height =
              , boardWhiteCaptures = 0
              , boardWidth = width
              , boardHeight = height
+             , boardGameInfo = emptyGameInfo
              }
   where emptyCoord = CoordState { coordStar = False
                                 , coordStone = Nothing
@@ -377,6 +510,10 @@ rootBoardState rootNode =
                           \prop -> case prop of
                             (SZ _ _) -> True
                             _ -> False
+
+-- | Applies a function to the 'GameInfo' of a 'BoardState'.
+updateBoardInfo :: (GameInfo -> GameInfo) -> BoardState -> BoardState
+updateBoardInfo fn board = board { boardGameInfo = fn $ boardGameInfo board }
 
 advanceMove :: BoardState -> BoardState
 advanceMove board = board { boardMoveNumber = boardMoveNumber board + 1
@@ -460,6 +597,70 @@ applyProperty (FF _) board = board
 applyProperty (GM _) board = board
 applyProperty (ST _) board = board
 applyProperty (SZ _ _) board = board
+
+applyProperty (AN str) board =
+  updateBoardInfo (\info -> info { gameInfoAnnotatorName = Just $ fromSimpleText str })
+                  board
+applyProperty (BR str) board =
+  updateBoardInfo (\info -> info { gameInfoBlackRank = Just $ fromSimpleText str })
+                  board
+applyProperty (BT str) board =
+  updateBoardInfo (\info -> info { gameInfoBlackTeamName = Just $ fromSimpleText str })
+                  board
+applyProperty (CP str) board =
+  updateBoardInfo (\info -> info { gameInfoCopyright = Just $ fromSimpleText str })
+                  board
+applyProperty (DT str) board =
+  updateBoardInfo (\info -> info { gameInfoDatesPlayed = Just $ fromSimpleText str })
+                  board
+applyProperty (EV str) board =
+  updateBoardInfo (\info -> info { gameInfoEvent = Just $ fromSimpleText str })
+                  board
+applyProperty (GC str) board =
+  updateBoardInfo (\info -> info { gameInfoGameComment = Just $ fromSimpleText str })
+                  board
+applyProperty (GN str) board =
+  updateBoardInfo (\info -> info { gameInfoGameName = Just $ fromSimpleText str })
+                  board
+applyProperty (ON str) board =
+  updateBoardInfo (\info -> info { gameInfoOpeningComment = Just $ fromSimpleText str })
+                  board
+applyProperty (OT str) board =
+  updateBoardInfo (\info -> info { gameInfoOvertime = Just $ fromSimpleText str })
+                  board
+applyProperty (PB str) board =
+  updateBoardInfo (\info -> info { gameInfoBlackName = Just $ fromSimpleText str })
+                  board
+applyProperty (PC str) board =
+  updateBoardInfo (\info -> info { gameInfoPlace = Just $ fromSimpleText str })
+                  board
+applyProperty (PW str) board =
+  updateBoardInfo (\info -> info { gameInfoWhiteName = Just $ fromSimpleText str })
+                  board
+applyProperty (RE result) board =
+  updateBoardInfo (\info -> info { gameInfoResult = Just result })
+                  board
+applyProperty (RO str) board =
+  updateBoardInfo (\info -> info { gameInfoRound = Just $ fromSimpleText str })
+                  board
+applyProperty (RU ruleset) board =
+  updateBoardInfo (\info -> info { gameInfoRuleset = Just ruleset })
+                  board
+applyProperty (SO str) board =
+  updateBoardInfo (\info -> info { gameInfoSource = Just $ fromSimpleText str })
+                  board
+applyProperty (TM seconds) board =
+  updateBoardInfo (\info -> info { gameInfoBasicTimeSeconds = Just seconds })
+                  board
+applyProperty (US str) board =
+  updateBoardInfo (\info -> info { gameInfoEntererName = Just $ fromSimpleText str })
+                  board
+applyProperty (WR str) board =
+  updateBoardInfo (\info -> info { gameInfoWhiteRank = Just $ fromSimpleText str })
+                  board
+applyProperty (WT str) board =
+  updateBoardInfo (\info -> info { gameInfoWhiteTeamName = Just $ fromSimpleText str })
+                  board
 
 applyProperty (UnknownProperty _ _) board = board
 
