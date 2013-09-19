@@ -8,8 +8,9 @@ import qualified Data.Set as Set
 import Control.Monad (forM_, liftM, sequence_, unless, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Function (on)
-import Data.List (find, groupBy, intercalate, nub, sortBy)
+import Data.List (find, groupBy, intercalate, nub, sort, sortBy)
 import Data.Maybe (fromMaybe, isNothing, mapMaybe)
+import Data.Monoid
 import Khumba.GoHS.Common
 
 -- | A coordinate on a Go board.  @(0, 0)@ refers to the upper-left corner of
@@ -19,22 +20,31 @@ type Coord = (Int, Int)
 
 -- | Allows for compact representation of a list of coordinates.  Convert to a
 -- list with 'expandCoordList'.
-data CoordList = CoordList [Coord]
-                 -- ^ Represents the list of coordinates that it contains.
-               | CoordRect Coord Coord
-                 -- ^ Represents a rectangle of coordinates.  Given a @CoordRect
-                 -- (x0,y0) (x1,y1)@, this represents all coordinates @(x,y)@
-                 -- with @x0 <= x <= x1@ and @y0 <= y <= y1@.  We require as a
-                 -- precondition that @x0 < x1@ and @y0 < y1@.
-               deriving (Eq, Show)
+data CoordList = CoordList { coordListSingles :: [Coord]
+                           , coordListRects :: [(Coord, Coord)]
+                           } deriving (Show)
+
+instance Eq CoordList where
+  (==) = (==) `on` sort . expandCoordList
+
+instance Monoid CoordList where
+  mempty = CoordList { coordListSingles = []
+                     , coordListRects = []
+                     }
+
+  mappend x y = CoordList { coordListSingles = coordListSingles x ++ coordListSingles y
+                          , coordListRects = coordListRects x ++ coordListRects y
+                          }
 
 -- | Converts a compact 'CoordList' to a list of coordinates.
 expandCoordList :: CoordList -> [Coord]
-expandCoordList (CoordList xs) = xs
-expandCoordList r@(CoordRect (x0, y0) (x1, y1)) =
-  if x0 > x1 || y0 > y1
-  then error ("Invalid CoordRect: " ++ show r)
-  else [(x, y) | x <- [x0..x1], y <- [y0..y1]]
+expandCoordList cl = coordListSingles cl ++
+                     (foldr (\r@((x0, y0), (x1, y1)) rest ->
+                              if x0 > x1 || y0 > y1
+                              then error ("Invalid coord. rectangle: " ++ show r)
+                              else [(x, y) | x <- [x0..x1], y <- [y0..y1]] ++ rest)
+                            []
+                            (coordListRects cl))
 
 -- | An SGF collection of game trees.
 data Collection = Collection { collectionTrees :: [Node]
@@ -554,11 +564,11 @@ applyProperty (W maybeXy) board = case maybeXy of
              applyMove playTheDarnMoveGoParams White xy board
 
 applyProperty (AB coords) board =
-  updateCoordStates (\state -> state { coordStone = Just Black }) coords board
+  updateCoordStates' (\state -> state { coordStone = Just Black }) coords board
 applyProperty (AW coords) board =
-  updateCoordStates (\state -> state { coordStone = Just White }) coords board
+  updateCoordStates' (\state -> state { coordStone = Just White }) coords board
 applyProperty (AE coords) board =
-  updateCoordStates (\state -> state { coordStone = Nothing }) coords board
+  updateCoordStates' (\state -> state { coordStone = Nothing }) coords board
 applyProperty (PL color) board = board { boardPlayerTurn = color }
 
 applyProperty (C _) board = board
@@ -577,19 +587,19 @@ applyProperty (TE _) board = board
 
 applyProperty (AR arrows) board = board { boardArrows = arrows ++ boardArrows board }
 applyProperty (CR coords) board =
-  updateCoordStates (\state -> state { coordMark = Just MarkCircle }) coords board
+  updateCoordStates' (\state -> state { coordMark = Just MarkCircle }) coords board
 applyProperty (DD coords) board =
-  updateCoordStates (\state -> state { coordVisibility = CoordDimmed }) coords board
+  updateCoordStates' (\state -> state { coordVisibility = CoordDimmed }) coords board
 applyProperty (LB labels) board = board { boardLabels = labels ++ boardLabels board }
 applyProperty (LN lines) board = board { boardLines = lines ++ boardLines board }
 applyProperty (MA coords) board =
-  updateCoordStates (\state -> state { coordMark = Just MarkX }) coords board
+  updateCoordStates' (\state -> state { coordMark = Just MarkX }) coords board
 applyProperty (SL coords) board =
-  updateCoordStates (\state -> state { coordMark = Just MarkSelected }) coords board
+  updateCoordStates' (\state -> state { coordMark = Just MarkSelected }) coords board
 applyProperty (SQ coords) board =
-  updateCoordStates (\state -> state { coordMark = Just MarkSquare }) coords board
+  updateCoordStates' (\state -> state { coordMark = Just MarkSquare }) coords board
 applyProperty (TR coords) board =
-  updateCoordStates (\state -> state { coordMark = Just MarkTriangle }) coords board
+  updateCoordStates' (\state -> state { coordMark = Just MarkTriangle }) coords board
 
 applyProperty (AP _ _) board = board
 applyProperty (CA _) board = board
@@ -669,10 +679,13 @@ applyProperties node board = foldr applyProperty board (nodeProperties node)
 
 -- | Applies the transformation function to all of a board's coordinates
 -- referred to by the 'CoordList'.
-updateCoordStates :: (CoordState -> CoordState) -> CoordList -> BoardState -> BoardState
-updateCoordStates fn coords board = board { boardCoordStates = foldr applyFn (boardCoordStates board) (expandCoordList coords) }
+updateCoordStates :: (CoordState -> CoordState) -> [Coord] -> BoardState -> BoardState
+updateCoordStates fn coords board = board { boardCoordStates = foldr applyFn (boardCoordStates board) coords }
   where applyFn (x, y) = listUpdate (updateRow x) y
         updateRow = listUpdate fn
+
+updateCoordStates' :: (CoordState -> CoordState) -> CoordList -> BoardState -> BoardState
+updateCoordStates' fn coords board = updateCoordStates fn (expandCoordList coords) board
 
 -- | Extracts the 'CoordState' for a coordinate on a board.
 getCoordState :: Coord -> BoardState -> CoordState
@@ -756,7 +769,7 @@ applyMove params color xy board =
                   else ApplyMoveOverwriteError color
     Nothing -> moveResult
   where boardWithMove = updateCoordStates (\state -> state { coordStone = Just color })
-                                          (CoordList [xy])
+                                          [xy]
                                           board
         (boardWithCaptures, points) = foldr (maybeCapture $ cnot color)
                                             (boardWithMove, 0)
@@ -799,7 +812,7 @@ computeGroup board xy =
 applyMoveCapture :: (BoardState, Int) -> ApplyMoveGroup -> (BoardState, Int)
 applyMoveCapture (board, points) group =
   (updateCoordStates (\state -> state { coordStone = Nothing })
-                     (CoordList $ applyMoveGroupCoords group)
+                     (applyMoveGroupCoords group)
                      board,
    points + length (applyMoveGroupCoords group))
 

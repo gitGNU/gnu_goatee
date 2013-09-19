@@ -68,8 +68,12 @@ gtkBoardNew uiRef width height = do
     if null mods && isJust maybeAction
       then liftIO $ void $ readUiRef uiRef >>= fromJust maybeAction
       else case key of
-        -- Draw a tree rooted at the current node to the console.
+        -- Write a list of the current node's properties to the console.
         "t" -> liftIO $ do
+          cursor <- readCursor =<< readUiRef uiRef
+          putStrLn $ show $ nodeProperties $ cursorNode cursor
+        -- Draw a tree rooted at the current node to the console.
+        "T" -> liftIO $ do
           cursor <- readCursor =<< readUiRef uiRef
           putStrLn $ drawTree $ flip unfoldTree (cursorNode cursor) $ \node ->
             (show $ nodeProperties node, nodeChildren node)

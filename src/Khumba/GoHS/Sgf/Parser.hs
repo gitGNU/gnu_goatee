@@ -3,6 +3,7 @@ module Khumba.GoHS.Sgf.Parser (ParseError, parseString, parseFile) where
 import Control.Applicative ((<$), (<*), (*>), (<*>))
 import Control.Monad
 import Data.Char
+import Data.Monoid
 import Khumba.GoHS.Sgf
 import Khumba.GoHS.Common
 import Text.ParserCombinators.Parsec
@@ -65,6 +66,11 @@ property :: CharParser () Property
 property = choice [try $ propertyParser "B" $ single $ fmap B move,
                    try $ propertyParser "W" $ single $ fmap W move,
 
+                   try $ propertyParser "AB" $ fmap AB listOfPoint,
+                   try $ propertyParser "AE" $ fmap AE listOfPoint,
+                   try $ propertyParser "AW" $ fmap AW listOfPoint,
+                   try $ propertyParser "PL" $ single $ fmap PL color,
+
                    try $ propertyParser "SZ" $ single $ fmap (\x -> SZ x x) number,
 
                    try $ propertyParser "BR" $ single $ fmap BR simpleText,
@@ -86,8 +92,29 @@ escapedChar = char '\\' *> anyChar
 propertyParser :: String -> CharParser a Property -> CharParser a Property
 propertyParser name valueParser = string name *> valueParser
 
-single :: CharParser a Property -> CharParser a Property
+single :: CharParser a b -> CharParser a b
 single valueParser = char '[' *> valueParser <* char ']'
+
+listOf :: CharParser a b -> CharParser a [b]
+listOf valueParser = many1 (single valueParser <* spaces)
+                     <?> "list"
+
+elistOf :: CharParser a b -> CharParser a [b]
+elistOf valueParser = try (listOf valueParser)
+                      <|> ([] <$ string "[]")
+                      <?> "elist"
+
+listOfPoint :: CharParser () CoordList
+listOfPoint = fmap mconcat $ listOf pointListEntry
+  where pointListEntry = (fmap list1 $ try point)
+                         <|> (fmap listR $ compose point point)
+                         <?> "point list entry"
+        list1 point = CoordList { coordListSingles = [point]
+                                , coordListRects = []
+                                }
+        listR (from, to) = CoordList { coordListSingles = []
+                                     , coordListRects = [(from, to)]
+                                     }
 
 number :: CharParser () Int
 number = fmap read number' <?> "number"
