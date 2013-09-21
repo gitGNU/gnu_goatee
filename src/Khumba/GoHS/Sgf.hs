@@ -44,12 +44,12 @@ instance NFData CoordList where
 -- | Converts a compact 'CoordList' to a list of coordinates.
 expandCoordList :: CoordList -> [Coord]
 expandCoordList cl = coordListSingles cl ++
-                     (foldr (\r@((x0, y0), (x1, y1)) rest ->
-                              if x0 > x1 || y0 > y1
-                              then error ("Invalid coord. rectangle: " ++ show r)
-                              else [(x, y) | x <- [x0..x1], y <- [y0..y1]] ++ rest)
-                            []
-                            (coordListRects cl))
+                     foldr (\r@((x0, y0), (x1, y1)) rest ->
+                             if x0 > x1 || y0 > y1
+                             then error ("Invalid coord. rectangle: " ++ show r)
+                             else [(x, y) | x <- [x0..x1], y <- [y0..y1]] ++ rest)
+                           []
+                           (coordListRects cl)
 
 -- | An SGF collection of game trees.
 data Collection = Collection { collectionTrees :: [Node]
@@ -831,7 +831,7 @@ updateCoordStates fn coords board = board { boardCoordStates = foldr applyFn (bo
         updateRow = listUpdate fn
 
 updateCoordStates' :: (CoordState -> CoordState) -> CoordList -> BoardState -> BoardState
-updateCoordStates' fn coords board = updateCoordStates fn (expandCoordList coords) board
+updateCoordStates' fn coords = updateCoordStates fn (expandCoordList coords)
 
 -- | Extracts the 'CoordState' for a coordinate on a board.
 getCoordState :: Coord -> BoardState -> CoordState

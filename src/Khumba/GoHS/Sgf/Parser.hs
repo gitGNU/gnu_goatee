@@ -106,8 +106,8 @@ elistOf valueParser = try (listOf valueParser)
 
 listOfPoint :: CharParser () CoordList
 listOfPoint = fmap mconcat $ listOf pointListEntry
-  where pointListEntry = (fmap list1 $ try point)
-                         <|> (fmap listR $ compose point point)
+  where pointListEntry = fmap list1 (try point)
+                         <|> fmap listR (compose point point)
                          <?> "point list entry"
         list1 point = CoordList { coordListSingles = [point]
                                 , coordListRects = []

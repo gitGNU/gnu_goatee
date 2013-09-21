@@ -71,7 +71,7 @@ gtkBoardNew uiRef width height = do
         -- Write a list of the current node's properties to the console.
         "t" -> liftIO $ do
           cursor <- readCursor =<< readUiRef uiRef
-          putStrLn $ show $ nodeProperties $ cursorNode cursor
+          print $ nodeProperties $ cursorNode cursor
         -- Draw a tree rooted at the current node to the console.
         "T" -> liftIO $ do
           cursor <- readCursor =<< readUiRef uiRef
