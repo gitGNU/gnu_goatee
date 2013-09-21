@@ -5,6 +5,7 @@ import qualified Data.Foldable as Foldable
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+import Control.DeepSeq
 import Control.Monad (forM_, liftM, sequence_, unless, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Function (on)
@@ -36,6 +37,10 @@ instance Monoid CoordList where
                           , coordListRects = coordListRects x ++ coordListRects y
                           }
 
+instance NFData CoordList where
+  rnf coords = rnf (coordListSingles coords) `seq`
+               rnf (coordListRects coords)
+
 -- | Converts a compact 'CoordList' to a list of coordinates.
 expandCoordList :: CoordList -> [Coord]
 expandCoordList cl = coordListSingles cl ++
@@ -56,6 +61,10 @@ data Collection = Collection { collectionTrees :: [Node]
 data Node = Node { nodeProperties :: [Property]
                  , nodeChildren :: [Node]
                  } deriving (Show)
+
+instance NFData Node where
+  rnf node = rnf (nodeProperties node) `seq`
+             rnf (nodeChildren node)
 
 -- | A node with no properties and no children.
 emptyNode :: Node
@@ -208,12 +217,81 @@ data Property =
   -- Also in functions below.
   deriving (Eq, Show)
 
+instance NFData Property where
+  rnf (B x) = rnf x
+  rnf KO = ()
+  rnf (MN x) = rnf x
+  rnf (W x) = rnf x
+
+  rnf (AB x) = rnf x
+  rnf (AE x) = rnf x
+  rnf (AW x) = rnf x
+  rnf (PL x) = rnf x
+
+  rnf (C x) = rnf x
+  rnf (DM x) = rnf x
+  rnf (GB x) = rnf x
+  rnf (GW x) = rnf x
+  rnf (HO x) = rnf x
+  rnf (N x) = rnf x
+  rnf (UC x) = rnf x
+  rnf (V x) = rnf x
+
+  rnf (BM x) = rnf x
+  rnf DO = ()
+  rnf IT = ()
+  rnf (TE x) = rnf x
+
+  rnf (AR x) = rnf x
+  rnf (CR x) = rnf x
+  rnf (DD x) = rnf x
+  rnf (LB x) = rnf x
+  rnf (LN x) = rnf x
+  rnf (MA x) = rnf x
+  rnf (SL x) = rnf x
+  rnf (SQ x) = rnf x
+  rnf (TR x) = rnf x
+
+  rnf (AP x y) = rnf x `seq` rnf y
+  rnf (CA x) = rnf x
+  rnf (FF x) = rnf x
+  rnf (GM x) = rnf x
+  rnf (ST x) = rnf x
+  rnf (SZ x y) = rnf x `seq` rnf y
+
+  rnf (AN x) = rnf x
+  rnf (BR x) = rnf x
+  rnf (BT x) = rnf x
+  rnf (CP x) = rnf x
+  rnf (DT x) = rnf x
+  rnf (EV x) = rnf x
+  rnf (GC x) = rnf x
+  rnf (GN x) = rnf x
+  rnf (ON x) = rnf x
+  rnf (OT x) = rnf x
+  rnf (PB x) = rnf x
+  rnf (PC x) = rnf x
+  rnf (PW x) = rnf x
+  rnf (RE x) = rnf x
+  rnf (RO x) = rnf x
+  rnf (RU x) = rnf x
+  rnf (SO x) = rnf x
+  rnf (TM x) = rnf x
+  rnf (US x) = rnf x
+  rnf (WR x) = rnf x
+  rnf (WT x) = rnf x
+
+  rnf (UnknownProperty x y) = rnf x `seq` rnf y
+
 -- | An SGF real value.
 type RealValue = Rational
 
 -- | An SGF simple text value.
 data SimpleText = SimpleText String
                 deriving (Eq, Show)
+
+instance NFData SimpleText where
+  rnf (SimpleText str) = rnf str
 
 sanitizeSimpleText :: String -> String
 sanitizeSimpleText = listReplace '\n' ' '
@@ -229,10 +307,14 @@ data DoubleValue = Double1
                  | Double2
                  deriving (Eq, Show)
 
+instance NFData DoubleValue
+
 -- | Stone color: black or white.
 data Color = Black
            | White
            deriving (Eq, Show)
+
+instance NFData Color
 
 -- | Returns the logical negation of a stone color, yang for yin and
 -- yin for yang.
@@ -259,8 +341,12 @@ type LabelList = [(Coord, String)]
 -- | The markings that SGF supports annotating coordinates with.
 data Mark = MarkCircle | MarkSquare | MarkTriangle | MarkX | MarkSelected
 
+instance NFData Mark
+
 -- | The visibility states that SGF allows a coordinate to be in.
 data CoordVisibility = CoordVisible | CoordDimmed | CoordInvisible
+
+instance NFData CoordVisibility
 
 data GameResult = GameResultWin Color WinReason
                 | GameResultDraw
@@ -269,11 +355,20 @@ data GameResult = GameResultWin Color WinReason
                 | GameResultOther String
                 deriving (Eq, Show)
 
+instance NFData GameResult where
+  rnf (GameResultWin color reason) = rnf color `seq` rnf reason
+  rnf (GameResultOther str) = rnf str
+  rnf _ = ()
+
 data WinReason = WinByScore Rational
                | WinByResignation
                | WinByTime
                | WinByForfeit
                deriving (Eq, Show)
+
+instance NFData WinReason where
+  rnf (WinByScore points) = rnf points
+  rnf _ = ()
 
 data Ruleset = RulesetAga
              | RulesetIng
@@ -281,6 +376,10 @@ data Ruleset = RulesetAga
              | RulesetNewZealand
              | RulesetOther String
              deriving (Eq, Show)
+
+instance NFData Ruleset where
+  rnf (RulesetOther str) = rnf str
+  rnf _ = ()
 
 -- | The property types that SGF uses to group properties.
 data PropertyType = MoveProperty     -- ^ Cannot mix with setup nodes.
@@ -394,6 +493,34 @@ data GameInfo = GameInfo { gameInfoBlackName :: Maybe String
                          , gameInfoEntererName :: Maybe String
                          } deriving (Show)
 
+instance NFData GameInfo where
+  rnf info = rnf (gameInfoBlackName info) `seq`
+             rnf (gameInfoBlackTeamName info) `seq`
+             rnf (gameInfoBlackRank info) `seq`
+
+             rnf (gameInfoWhiteName info) `seq`
+             rnf (gameInfoWhiteTeamName info) `seq`
+             rnf (gameInfoWhiteRank info) `seq`
+
+             rnf (gameInfoRuleset info) `seq`
+             rnf (gameInfoBasicTimeSeconds info) `seq`
+             rnf (gameInfoOvertime info) `seq`
+             rnf (gameInfoResult info) `seq`
+
+             rnf (gameInfoGameName info) `seq`
+             rnf (gameInfoGameComment info) `seq`
+             rnf (gameInfoOpeningComment info) `seq`
+
+             rnf (gameInfoEvent info) `seq`
+             rnf (gameInfoRound info) `seq`
+             rnf (gameInfoPlace info) `seq`
+             rnf (gameInfoDatesPlayed info) `seq`
+             rnf (gameInfoSource info) `seq`
+             rnf (gameInfoCopyright info) `seq`
+
+             rnf (gameInfoAnnotatorName info) `seq`
+             rnf (gameInfoEntererName info)
+
 emptyGameInfo :: GameInfo
 emptyGameInfo = GameInfo { gameInfoBlackName = Nothing
                          , gameInfoBlackTeamName = Nothing
@@ -442,6 +569,19 @@ data BoardState = BoardState { boardCoordStates :: [[CoordState]]
                              , boardGameInfo :: GameInfo
                              }
 
+instance NFData BoardState where
+  rnf board = rnf (boardCoordStates board) `seq`
+              rnf (boardArrows board) `seq`
+              rnf (boardLines board) `seq`
+              rnf (boardLabels board) `seq`
+              rnf (boardMoveNumber board) `seq`
+              rnf (boardPlayerTurn board) `seq`
+              rnf (boardBlackCaptures board) `seq`
+              rnf (boardWhiteCaptures board) `seq`
+              rnf (boardWidth board) `seq`
+              rnf (boardHeight board) `seq`
+              rnf (boardGameInfo board)
+
 -- | Used by 'BoardState' to represent the state of a single point on the board.
 -- Records whether a stone is present, as well as annotations and visibility
 -- properties.
@@ -451,6 +591,12 @@ data CoordState = CoordState { coordStar :: Bool
                              , coordMark :: Maybe Mark
                              , coordVisibility :: CoordVisibility
                              }
+
+instance NFData CoordState where
+  rnf c = rnf (coordStar c) `seq`
+          rnf (coordStone c) `seq`
+          rnf (coordMark c) `seq`
+          rnf (coordVisibility c)
 
 instance Show CoordState where
   show c = case coordVisibility c of
@@ -872,6 +1018,12 @@ data Cursor = Cursor { cursorParent :: Maybe Cursor
                      , cursorBoard :: BoardState
                        -- ^ The complete board state for the current node.
                      } deriving (Show) -- TODO Better Show Cursor instance.
+
+instance NFData Cursor where
+  rnf cursor = rnf (cursorParent cursor) `seq`
+               rnf (cursorChildIndex cursor) `seq`
+               rnf (cursorNode cursor) `seq`
+               rnf (cursorBoard cursor)
 
 -- | Returns either a cursor for a root node, or an error message if the node
 -- lacks the information needed to create a cursor (e.g. if the node is not a

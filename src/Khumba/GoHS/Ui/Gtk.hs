@@ -1,6 +1,6 @@
 module Khumba.GoHS.Ui.Gtk where
 
-import Control.Concurrent.MVar
+import Control.Concurrent.MVar.Strict
 import Data.IORef
 import Data.List (find)
 import Data.Maybe
