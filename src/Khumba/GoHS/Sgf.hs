@@ -706,13 +706,15 @@ applyProperty :: Property -> BoardState -> BoardState
 
 applyProperty (B maybeXy) board = case maybeXy of
   Nothing -> board  -- Pass.
-  Just xy -> getApplyMoveResult board $
+  Just xy -> applyProperty (PL White) $
+             getApplyMoveResult board $
              applyMove playTheDarnMoveGoParams Black xy board
 applyProperty KO board = board
 applyProperty (MN moveNum) board = board { boardMoveNumber = moveNum }
 applyProperty (W maybeXy) board = case maybeXy of
   Nothing -> board  -- Pass.
-  Just xy -> getApplyMoveResult board $
+  Just xy -> applyProperty (PL Black) $
+             getApplyMoveResult board $
              applyMove playTheDarnMoveGoParams White xy board
 
 applyProperty (AB coords) board =
