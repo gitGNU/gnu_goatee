@@ -392,77 +392,77 @@ data PropertyType = MoveProperty     -- ^ Cannot mix with setup nodes.
 -- | Returns a property's type, as specified by the SGF spec.
 propertyType :: Property -> PropertyType
 
-propertyType (B _) = MoveProperty
-propertyType KO = MoveProperty
-propertyType (MN _) = MoveProperty
-propertyType (W _) = MoveProperty
+propertyType B {} = MoveProperty
+propertyType KO {} = MoveProperty
+propertyType MN {} = MoveProperty
+propertyType W {} = MoveProperty
 
-propertyType (AB _) = SetupProperty
-propertyType (AE _) = SetupProperty
-propertyType (AW _) = SetupProperty
-propertyType (PL _) = SetupProperty
+propertyType AB {} = SetupProperty
+propertyType AE {} = SetupProperty
+propertyType AW {} = SetupProperty
+propertyType PL {} = SetupProperty
 
-propertyType (C _) = GeneralProperty
-propertyType (DM _) = GeneralProperty
-propertyType (GB _) = GeneralProperty
-propertyType (GW _) = GeneralProperty
-propertyType (HO _) = GeneralProperty
-propertyType (N _) = GeneralProperty
-propertyType (UC _) = GeneralProperty
-propertyType (V _) = GeneralProperty
+propertyType C {} = GeneralProperty
+propertyType DM {} = GeneralProperty
+propertyType GB {} = GeneralProperty
+propertyType GW {} = GeneralProperty
+propertyType HO {} = GeneralProperty
+propertyType N {} = GeneralProperty
+propertyType UC {} = GeneralProperty
+propertyType V {} = GeneralProperty
 
-propertyType (BM _) = MoveProperty
-propertyType DO = MoveProperty
-propertyType IT = MoveProperty
-propertyType (TE _) = MoveProperty
+propertyType BM {} = MoveProperty
+propertyType DO {} = MoveProperty
+propertyType IT {} = MoveProperty
+propertyType TE {} = MoveProperty
 
-propertyType (AR _) = GeneralProperty
-propertyType (CR _) = GeneralProperty
-propertyType (DD _) = GeneralProperty
-propertyType (LB _) = GeneralProperty
-propertyType (LN _) = GeneralProperty
-propertyType (MA _) = GeneralProperty
-propertyType (SL _) = GeneralProperty
-propertyType (SQ _) = GeneralProperty
-propertyType (TR _) = GeneralProperty
+propertyType AR {} = GeneralProperty
+propertyType CR {} = GeneralProperty
+propertyType DD {} = GeneralProperty
+propertyType LB {} = GeneralProperty
+propertyType LN {} = GeneralProperty
+propertyType MA {} = GeneralProperty
+propertyType SL {} = GeneralProperty
+propertyType SQ {} = GeneralProperty
+propertyType TR {} = GeneralProperty
 
-propertyType (AP _ _) = RootProperty
-propertyType (CA _) = RootProperty
-propertyType (FF _) = RootProperty
-propertyType (GM _) = RootProperty
-propertyType (ST _) = RootProperty
-propertyType (SZ _ _) = RootProperty
+propertyType AP {} = RootProperty
+propertyType CA {} = RootProperty
+propertyType FF {} = RootProperty
+propertyType GM {} = RootProperty
+propertyType ST {} = RootProperty
+propertyType SZ {} = RootProperty
 
-propertyType (AN _) = GameInfoProperty
-propertyType (BR _) = GameInfoProperty
-propertyType (BT _) = GameInfoProperty
-propertyType (CP _) = GameInfoProperty
-propertyType (DT _) = GameInfoProperty
-propertyType (EV _) = GameInfoProperty
-propertyType (GC _) = GameInfoProperty
-propertyType (GN _) = GameInfoProperty
-propertyType (ON _) = GameInfoProperty
-propertyType (OT _) = GameInfoProperty
-propertyType (PB _) = GameInfoProperty
-propertyType (PC _) = GameInfoProperty
-propertyType (PW _) = GameInfoProperty
-propertyType (RE _) = GameInfoProperty
-propertyType (RO _) = GameInfoProperty
-propertyType (RU _) = GameInfoProperty
-propertyType (SO _) = GameInfoProperty
-propertyType (TM _) = GameInfoProperty
-propertyType (US _) = GameInfoProperty
-propertyType (WR _) = GameInfoProperty
-propertyType (WT _) = GameInfoProperty
+propertyType AN {} = GameInfoProperty
+propertyType BR {} = GameInfoProperty
+propertyType BT {} = GameInfoProperty
+propertyType CP {} = GameInfoProperty
+propertyType DT {} = GameInfoProperty
+propertyType EV {} = GameInfoProperty
+propertyType GC {} = GameInfoProperty
+propertyType GN {} = GameInfoProperty
+propertyType ON {} = GameInfoProperty
+propertyType OT {} = GameInfoProperty
+propertyType PB {} = GameInfoProperty
+propertyType PC {} = GameInfoProperty
+propertyType PW {} = GameInfoProperty
+propertyType RE {} = GameInfoProperty
+propertyType RO {} = GameInfoProperty
+propertyType RU {} = GameInfoProperty
+propertyType SO {} = GameInfoProperty
+propertyType TM {} = GameInfoProperty
+propertyType US {} = GameInfoProperty
+propertyType WR {} = GameInfoProperty
+propertyType WT {} = GameInfoProperty
 
 -- TODO Is this correct?
-propertyType (UnknownProperty _ _) = GeneralProperty
+propertyType UnknownProperty {} = GeneralProperty
 
 -- | Returns whether the value of the given property is inherited from the
 -- lowest ancestor specifying the property, when the property is not set on a
 -- node itself.
 propertyInherited :: Property -> Bool
-propertyInherited (DD _) = True
+propertyInherited DD {} = True
 propertyInherited _ = False
 
 data GameInfo = GameInfo { gameInfoBlackName :: Maybe String
@@ -664,7 +664,7 @@ rootBoardState rootNode =
   where SZ width height = fromMaybe (error $ "rootBoardState given a non-root node: " ++ show rootNode) $
                           findProperty rootNode $
                           \prop -> case prop of
-                            (SZ _ _) -> True
+                            SZ {} -> True
                             _ -> False
 
 mapBoardCoords :: (Int -> Int -> CoordState -> a) -> BoardState -> [a]
@@ -725,19 +725,19 @@ applyProperty (AE coords) board =
   updateCoordStates' (\state -> state { coordStone = Nothing }) coords board
 applyProperty (PL color) board = board { boardPlayerTurn = color }
 
-applyProperty (C _) board = board
-applyProperty (DM _) board = board
-applyProperty (GB _) board = board
-applyProperty (GW _) board = board
-applyProperty (HO _) board = board
-applyProperty (N _) board = board
-applyProperty (UC _) board = board
-applyProperty (V _) board = board
+applyProperty (C {}) board = board
+applyProperty (DM {}) board = board
+applyProperty (GB {}) board = board
+applyProperty (GW {}) board = board
+applyProperty (HO {}) board = board
+applyProperty (N {}) board = board
+applyProperty (UC {}) board = board
+applyProperty (V {}) board = board
 
-applyProperty (BM _) board = board
-applyProperty DO board = board
-applyProperty IT board = board
-applyProperty (TE _) board = board
+applyProperty (BM {}) board = board
+applyProperty (DO {}) board = board
+applyProperty (IT {}) board = board
+applyProperty (TE {}) board = board
 
 applyProperty (AR arrows) board = board { boardArrows = arrows ++ boardArrows board }
 applyProperty (CR coords) board =
@@ -755,12 +755,12 @@ applyProperty (SQ coords) board =
 applyProperty (TR coords) board =
   updateCoordStates' (\state -> state { coordMark = Just MarkTriangle }) coords board
 
-applyProperty (AP _ _) board = board
-applyProperty (CA _) board = board
-applyProperty (FF _) board = board
-applyProperty (GM _) board = board
-applyProperty (ST _) board = board
-applyProperty (SZ _ _) board = board
+applyProperty (AP {}) board = board
+applyProperty (CA {}) board = board
+applyProperty (FF {}) board = board
+applyProperty (GM {}) board = board
+applyProperty (ST {}) board = board
+applyProperty (SZ {}) board = board
 
 applyProperty (AN str) board =
   updateBoardInfo (\info -> info { gameInfoAnnotatorName = Just $ fromSimpleText str })
@@ -826,7 +826,7 @@ applyProperty (WT str) board =
   updateBoardInfo (\info -> info { gameInfoWhiteTeamName = Just $ fromSimpleText str })
                   board
 
-applyProperty (UnknownProperty _ _) board = board
+applyProperty (UnknownProperty {}) board = board
 
 applyProperties :: Node -> BoardState -> BoardState
 applyProperties node board = foldr applyProperty board (nodeProperties node)
@@ -1054,7 +1054,7 @@ rootCursor node = do
   SZ width height <- maybe (Left "No board size property in root node.") Right $
                      findProperty node $
                      \prop -> case prop of
-                       (SZ _ _) -> True
+                       SZ {} -> True
                        _ -> False
   return Cursor { cursorParent = Nothing
                 , cursorChildIndex = -1
