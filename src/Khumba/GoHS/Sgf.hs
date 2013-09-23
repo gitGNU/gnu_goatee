@@ -582,6 +582,22 @@ instance NFData BoardState where
               rnf (boardHeight board) `seq`
               rnf (boardGameInfo board)
 
+instance Show BoardState where
+  show board = concat $ execWriter $ do
+    tell ["Board: (Move ", show (boardMoveNumber board),
+          ", ", show (boardPlayerTurn board), "'s turn, B:",
+          show (boardBlackCaptures board), ", W:",
+          show (boardWhiteCaptures board), ")\n"]
+    tell [intercalate "\n" $ flip map (boardCoordStates board) $
+          \row -> unwords $ map show row]
+
+    let arrows = boardArrows board
+    let lines = boardLines board
+    let labels = boardLabels board
+    unless (null arrows) $ tell ["\nArrows: ", show arrows]
+    unless (null lines) $ tell ["\nLines: ", show lines]
+    unless (null labels) $ tell ["\nLabels: ", show labels]
+
 -- | Used by 'BoardState' to represent the state of a single point on the board.
 -- Records whether a stone is present, as well as annotations and visibility
 -- properties.
@@ -613,22 +629,6 @@ instance Show CoordState where
                                    Just MarkX -> 'x'
                                    Just MarkSelected -> '!'
                   in [stoneChar, markChar]
-
-instance Show BoardState where
-  show board = concat $ execWriter $ do
-    tell ["Board: (Move ", show (boardMoveNumber board),
-          ", ", show (boardPlayerTurn board), "'s turn, B:",
-          show (boardBlackCaptures board), ", W:",
-          show (boardWhiteCaptures board), ")\n"]
-    tell [intercalate "\n" $ flip map (boardCoordStates board) $
-          \row -> unwords $ map show row]
-
-    let arrows = boardArrows board
-    let lines = boardLines board
-    let labels = boardLabels board
-    unless (null arrows) $ tell ["\nArrows: ", show arrows]
-    unless (null lines) $ tell ["\nLines: ", show lines]
-    unless (null labels) $ tell ["\nLabels: ", show labels]
 
 -- | Creates a 'BoardState' for an empty board of the given width and height.
 emptyBoardState :: Int -> Int -> BoardState
@@ -666,6 +666,12 @@ rootBoardState rootNode =
                           \prop -> case prop of
                             (SZ _ _) -> True
                             _ -> False
+
+mapBoardCoords :: (Int -> Int -> CoordState -> a) -> BoardState -> [a]
+mapBoardCoords fn board =
+  concatMap applyRow $ zip [0..] $ boardCoordStates board
+  where applyRow (y, row) = map (applyCell y) $ zip [0..] row
+        applyCell y (x, cell) = fn x y cell
 
 -- | Applies a function to the 'GameInfo' of a 'BoardState'.
 updateBoardInfo :: (GameInfo -> GameInfo) -> BoardState -> BoardState
@@ -994,6 +1000,19 @@ bucketFill board xy0 = bucketFill' Set.empty [xy0]
                                                            (adjacentPoints board xy)
                                           in bucketFill' (Set.insert xy known) (new ++ xys)
         stone0 = coordStone $ getCoordState xy0 board
+
+-- | Returns whether it is legal to place a stone of the given color at a point
+-- on a board.
+isValidMove :: BoardState -> Color -> Coord -> Bool
+isValidMove board color coord@(x, y) =
+  let w = boardWidth board
+      h = boardHeight board
+  in x >= 0 && y >= 0 && x < w && y < h &&
+     case applyMove standardGoMoveParams color coord board of
+       ApplyMoveOk {} -> True
+       ApplyMoveCapture {} -> True
+       ApplyMoveSuicideError {} -> False
+       ApplyMoveOverwriteError {} -> False
 
 -- | Plays a stone on a board at a point, applying capture rules.
 play :: Color -> Coord -> BoardState -> BoardState

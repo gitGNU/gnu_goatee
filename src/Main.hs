@@ -7,12 +7,19 @@ import Control.Monad.Trans (liftIO)
 import Data.IORef
 import Data.Maybe
 import Graphics.UI.Gtk
+import Graphics.UI.WX (start)
 import Khumba.GoHS.Common
 import Khumba.GoHS.Sgf
+import Khumba.GoHS.Sgf.Parser
 import Khumba.GoHS.Ui.Gtk
+import Khumba.GoHS.Ui.Wx
+import System.Environment (getArgs)
 
 main :: IO ()
-main = do
+main = mainWx
+
+mainGtk :: IO ()
+mainGtk = do
   args <- initGUI
   if null args
     then void $ openBoard $ rootNode 9 9
@@ -21,3 +28,15 @@ main = do
               Left msg -> print msg
               _ -> return ()
   mainGUI
+
+mainWx :: IO ()
+mainWx = do
+  args <- getArgs
+  if null args
+    then start $ boardFrame $ fromRight $ rootCursor $ rootNode 9 9
+    else do result <- parseFile $ head args
+            case result of
+              Right trees ->
+                start $ boardFrame $ fromRight $ rootCursor $ head trees
+              Left err ->
+                putStrLn $ "Error loading file: " ++ show err
