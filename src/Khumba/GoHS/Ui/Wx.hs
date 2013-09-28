@@ -174,7 +174,7 @@ handleClick canvasInfoVar cursorVar mouseVar onChanged mousePoint = do
              cursor' = cursorModifyNode (addChild child) cursor
              childCursor = cursorChild cursor' $ cursorChildCount cursor' - 1
          in childCursor)
-        (findChildPlayingAt xy cursor)
+        (cursorChildPlayingAt xy cursor)
     onChanged
 
 drawBoard :: MVS.MVar Cursor

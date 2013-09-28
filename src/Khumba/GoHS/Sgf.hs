@@ -1089,8 +1089,8 @@ cursorChildren cursor =
 cursorChildCount :: Cursor -> Int
 cursorChildCount = length . nodeChildren . cursorNode
 
-findChildPlayingAt :: Coord -> Cursor -> Maybe Cursor
-findChildPlayingAt coord cursor =
+cursorChildPlayingAt :: Coord -> Cursor -> Maybe Cursor
+cursorChildPlayingAt coord cursor =
   let children = cursorChildren cursor
       color = boardPlayerTurn $ cursorBoard cursor
       hasMove = elem $ colorToMove color coord

@@ -39,7 +39,7 @@ instance UiState UiStateImpl where
       dialogRun dialog
       widgetDestroy dialog
       return cursor
-    else case findChildPlayingAt coord cursor of
+    else case cursorChildPlayingAt coord cursor of
       Just child -> goToChild ui child >> return child
       Nothing -> do
         let board = cursorBoard cursor
