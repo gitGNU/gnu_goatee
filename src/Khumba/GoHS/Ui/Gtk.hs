@@ -81,13 +81,6 @@ instance UiState UiStateImpl where
            else let right = cursorChild parentCursor $ index + 1
                 in goToLeft ui right >> return (right, True)
 
-findChildPlayingAt :: Coord -> Cursor -> Maybe Cursor
-findChildPlayingAt coord cursor =
-  let children = cursorChildren cursor
-      color = boardPlayerTurn $ cursorBoard cursor
-      hasMove = elem $ colorToMove color coord
-  in find (hasMove . nodeProperties . cursorNode) children
-
 isPropertyBOrW :: Property -> Bool
 isPropertyBOrW prop = case prop of
   B _ -> True

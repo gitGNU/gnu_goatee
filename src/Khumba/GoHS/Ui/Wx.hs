@@ -4,6 +4,7 @@ import qualified Control.Concurrent.MVar as MV
 import qualified Control.Concurrent.MVar.Strict as MVS
 import Control.DeepSeq
 import Control.Monad
+import Data.Maybe
 import Khumba.GoHS.Sgf
 import Graphics.UI.WX hiding (Color, when)
 import qualified Graphics.UI.WX as WX
@@ -91,7 +92,8 @@ boardFrame cursor = do
   set boardPanel [on leftKey := goUp cursorVar (updateMouse >> redraw),
                   on rightKey := goDown cursorVar (updateMouse >> redraw),
                   on resize := updateCanvasInfo canvasInfoVar cursorVar boardPanel,
-                  on motion := updateMouseLocation canvasInfoVar cursorVar mouseVar redraw]
+                  on motion := updateMouseLocation canvasInfoVar cursorVar mouseVar redraw,
+                  on click := handleClick canvasInfoVar cursorVar mouseVar redraw]
 
 goUp :: MVS.MVar Cursor -> IO () -> IO ()
 goUp cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
@@ -106,7 +108,7 @@ goDown cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
     child:_ -> (child, onChange)
 
 updateMouseLocation :: MV.MVar CanvasInfo
-                    -> MV.MVar Cursor
+                    -> MVS.MVar Cursor
                     -> MVS.MVar MouseState
                     -> IO ()  -- ^ Action to take when the mouse location changes.
                     -> Point  -- ^ Location of the mouse cursor.
@@ -125,7 +127,10 @@ updateMouseLocation canvasInfoVar cursorVar mouseVar onChanged (Point x y) = do
             let mouse' = mouse { mouseCoordX = ix, mouseCoordY = iy }
             return (updateMouseState' cursor mouse', onChanged)
 
-updateMouseState :: MV.MVar Cursor
+-- | Reads the coordinate location of the mouse cursor from the
+-- 'MouseState' and updates the other variables according to the
+-- location.  Returns true if the 'MouseState' changed.
+updateMouseState :: MVS.MVar Cursor
                  -> MVS.MVar MouseState
                  -> IO Bool
 updateMouseState cursorVar mouseVar = do
@@ -143,6 +148,34 @@ updateMouseState' cursor mouse =
       color = boardPlayerTurn board
       valid = isValidMove board color (mouseCoordX mouse, mouseCoordY mouse)
   in mouse { mouseIsValidMove = valid }
+
+-- | Updates the mouse state (via 'updateMouseLocation') then, if the mouse is
+-- over a point at which it is valid to place a stone, does so.  If there is
+-- already a child of the current node in which the current player plays at the
+-- clicked point, then we simply navigate to that node instead.
+handleClick :: MV.MVar CanvasInfo
+            -> MVS.MVar Cursor
+            -> MVS.MVar MouseState
+            -> IO ()  -- ^ Action to take when the click places a stone, or
+                      -- navigates to an existing child node.
+            -> Point  -- ^ Location of the mouse cursor
+            -> IO ()
+handleClick canvasInfoVar cursorVar mouseVar onChanged mousePoint = do
+  -- First ensure that the info in the mouse state is current.
+  updateMouseLocation canvasInfoVar cursorVar mouseVar (return ()) mousePoint
+  mouse <- MVS.readMVar mouseVar
+  when (mouseIsValidMove mouse) $ do
+    MVS.modifyMVar_ cursorVar $ \cursor -> do
+      let xy = (mouseCoordX mouse, mouseCoordY mouse)
+      return $ fromMaybe
+        (let board = cursorBoard cursor
+             player = boardPlayerTurn board
+             child = emptyNode { nodeProperties = [colorToMove player xy] }
+             cursor' = cursorModifyNode (addChild child) cursor
+             childCursor = cursorChild cursor' $ cursorChildCount cursor' - 1
+         in childCursor)
+        (findChildPlayingAt xy cursor)
+    onChanged
 
 drawBoard :: MVS.MVar Cursor
           -> MV.MVar CanvasInfo
