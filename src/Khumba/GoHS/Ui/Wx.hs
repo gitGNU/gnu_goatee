@@ -93,7 +93,7 @@ boardFrame cursor = do
   set boardPanel [on leftKey := goUp cursorVar (updateMouse >> redraw),
                   on rightKey := goDown cursorVar (updateMouse >> redraw),
                   on resize := updateCanvasInfo canvasInfoVar cursorVar boardPanel,
-                  on motion := updateMouseLocation canvasInfoVar cursorVar mouseVar redraw,
+                  on motion := updateMouseLocation canvasInfoVar cursorVar mouseVar False redraw,
                   on click := handleClick canvasInfoVar cursorVar mouseVar redraw]
 
   menuFile <- menuPane [text := "&File"]
@@ -118,10 +118,11 @@ goDown cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
 updateMouseLocation :: MV.MVar CanvasInfo
                     -> MVS.MVar Cursor
                     -> MVS.MVar MouseState
+                    -> Bool
                     -> IO ()  -- ^ Action to take when the mouse location changes.
                     -> Point  -- ^ Location of the mouse cursor.
                     -> IO ()
-updateMouseLocation canvasInfoVar cursorVar mouseVar onChanged (Point x y) = do
+updateMouseLocation canvasInfoVar cursorVar mouseVar forceStateUpdate onChanged (Point x y) = do
   CanvasInfo { canvasBoardUL = Point x0 y0
              , canvasStoneLength = sl
              , canvasStoneRadius = sr
@@ -129,7 +130,7 @@ updateMouseLocation canvasInfoVar cursorVar mouseVar onChanged (Point x y) = do
   let ix = (x - x0) `div` sl
       iy = (y - y0) `div` sl
   join $ MVS.modifyMVar mouseVar $ \mouse ->
-    if ix == mouseCoordX mouse && iy == mouseCoordY mouse
+    if not forceStateUpdate && ix == mouseCoordX mouse && iy == mouseCoordY mouse
     then return (mouse, return ())
     else do cursor <- MVS.readMVar cursorVar
             let mouse' = mouse { mouseCoordX = ix, mouseCoordY = iy }
@@ -170,7 +171,7 @@ handleClick :: MV.MVar CanvasInfo
             -> IO ()
 handleClick canvasInfoVar cursorVar mouseVar onChanged mousePoint = do
   -- First ensure that the info in the mouse state is current.
-  updateMouseLocation canvasInfoVar cursorVar mouseVar (return ()) mousePoint
+  updateMouse False
   mouse <- MVS.readMVar mouseVar
   when (mouseIsValidMove mouse) $ do
     MVS.modifyMVar_ cursorVar $ \cursor -> do
@@ -183,7 +184,9 @@ handleClick canvasInfoVar cursorVar mouseVar onChanged mousePoint = do
              childCursor = cursorChild cursor' $ cursorChildCount cursor' - 1
          in childCursor)
         (cursorChildPlayingAt xy cursor)
+    updateMouse True
     onChanged
+  where updateMouse force = updateMouseLocation canvasInfoVar cursorVar mouseVar force (return ()) mousePoint
 
 drawBoard :: MVS.MVar Cursor
           -> MV.MVar CanvasInfo
