@@ -14,6 +14,8 @@ import Data.Maybe (fromMaybe, isNothing, mapMaybe)
 import Data.Monoid
 import Khumba.GoHS.Common
 
+-- TODO Stop using errors everywhere, they're not testable.
+
 -- | A coordinate on a Go board.  @(0, 0)@ refers to the upper-left corner of
 -- the board.  The first component is the horizontal position; the second
 -- component is the vertical position.
@@ -60,7 +62,7 @@ data Collection = Collection { collectionTrees :: [Node]
 -- nodes.
 data Node = Node { nodeProperties :: [Property]
                  , nodeChildren :: [Node]
-                 } deriving (Show)
+                 } deriving (Eq, Show)
 
 instance NFData Node where
   rnf node = rnf (nodeProperties node) `seq`
