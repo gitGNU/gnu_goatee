@@ -6,6 +6,7 @@ import Control.DeepSeq
 import Control.Monad
 import Data.Maybe
 import Khumba.GoHS.Sgf
+import Khumba.GoHS.Common
 import Graphics.UI.WX hiding (Color, when)
 import qualified Graphics.UI.WX as WX
 
@@ -94,6 +95,13 @@ boardFrame cursor = do
                   on resize := updateCanvasInfo canvasInfoVar cursorVar boardPanel,
                   on motion := updateMouseLocation canvasInfoVar cursorVar mouseVar redraw,
                   on click := handleClick canvasInfoVar cursorVar mouseVar redraw]
+
+  menuFile <- menuPane [text := "&File"]
+  menuFileNew <- menuItem menuFile [text := "&New\tCtrl+N",
+                                    on command := boardFrame $ fromRight $ rootCursor $ rootNode 9 9]
+  menuLine menuFile
+  menuFileQuit <- menuQuit menuFile [on command := close frame]
+  set frame [menuBar := [menuFile]]
 
 goUp :: MVS.MVar Cursor -> IO () -> IO ()
 goUp cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
