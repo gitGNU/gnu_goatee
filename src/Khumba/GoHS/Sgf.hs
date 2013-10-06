@@ -43,6 +43,11 @@ instance NFData CoordList where
   rnf coords = rnf (coordListSingles coords) `seq`
                rnf (coordListRects coords)
 
+emptyCoordList :: CoordList
+emptyCoordList = CoordList { coordListSingles = []
+                           , coordListRects = []
+                           }
+
 -- | Converts a compact 'CoordList' to a list of coordinates.
 expandCoordList :: CoordList -> [Coord]
 expandCoordList cl = coordListSingles cl ++
