@@ -5,7 +5,7 @@ module Khumba.GoHS.Test.Common ( assertElem
 import Control.Monad
 import Test.HUnit
 
-printableAsciiChars :: [Char]
+printableAsciiChars :: String
 printableAsciiChars = [' '..'~']
 
 assertElem :: (Eq a, Show a) => a -> [a] -> Assertion
