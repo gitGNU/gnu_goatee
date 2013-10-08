@@ -9,7 +9,7 @@ die() {
 
 cd "$(dirname "$(git rev-parse --git-dir)")"
 echo "Precommit: Stashing unstaged changes..."
-git stash save --keep-index --include-untracked "GoHS presubmit stash ($(date))."
+git stash save --keep-index --include-untracked --quiet "GoHS presubmit stash ($(date))."
 
 set +e
 
@@ -56,7 +56,7 @@ fi
 rm "$testLog"
 
 echo "Precommit: Popping stashed changes..."
-git stash pop
+git stash pop --quiet
 result="$?"
 if test "$result" -ne 0; then
     echo "Precommit: Failed to unstash changes prior to commit."
