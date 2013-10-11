@@ -4,6 +4,7 @@ set -e
 
 die() {
     echo "Precommit: Encountered errors, exiting ($1)."
+    git stash pop --quiet
     exit "${1:-1}"
 }
 
