@@ -1070,6 +1070,11 @@ rootCursor node = do
                                 emptyBoardState width height
                 }
 
+cursorRoot :: Cursor -> Cursor
+cursorRoot cursor = case cursorParent cursor of
+  Nothing -> cursor
+  Just parent -> cursorRoot parent
+
 cursorChild :: Cursor -> Int -> Cursor
 cursorChild cursor index =
   Cursor { cursorParent = Just cursor

@@ -8,14 +8,15 @@ import Data.Maybe
 import Khumba.GoHS.Sgf
 import Khumba.GoHS.Common
 import Graphics.UI.WX hiding (Color, when)
+import Graphics.UI.WXCore.WxcDefs (wxBU_EXACTFIT)
 import qualified Graphics.UI.WX as WX
 
 --data UiState = UiState { uiCursor :: MVar Cursor
 --                       }
 
 -- | The minimum board width and height in pixels.
-minBoardDiameter :: Int
-minBoardDiameter = 200
+minBoardLength :: Int
+minBoardLength = 200
 
 boardBgColor :: WX.Color
 boardBgColor = rgb 229 178 58
@@ -81,39 +82,92 @@ boardFrame cursor = do
                                      }
 
   frame <- frame [text := "Untitled game"]
-  boardPanel <- panel frame []
-  set boardPanel [on paint := drawBoard cursorVar canvasInfoVar mouseVar boardPanel]
+  vsplitter <- splitterWindow frame []
+  boardPanel <- panel vsplitter [fullRepaintOnResize := True] -- TODO Doesn't seem to work.
+  rightPanel <- panel vsplitter []
+  navPanel <- panel rightPanel []
+  topButton <- buttonEx navPanel wxBU_EXACTFIT [text := "<<"]
+  upButton <- buttonEx navPanel wxBU_EXACTFIT [text := "<"]
+  downButton <- buttonEx navPanel wxBU_EXACTFIT [text := ">"]
+  bottomButton <- buttonEx navPanel wxBU_EXACTFIT [text := ">>"]
 
-  let redraw = repaint boardPanel
+  let doRedraw = repaint boardPanel
+      doGoTo cursorFn = goTo cursorFn cursorVar >> updateMouse >> doRedraw
+      doGoTop = doGoTo (return . cursorRoot)
+      doGoUp = goUp cursorVar (updateMouse >> doRedraw)
+      doGoDown = goDown cursorVar (updateMouse >> doRedraw)
+      doGoLeft = goLeft cursorVar (updateMouse >> doRedraw)
+      doGoRight = goRight cursorVar (updateMouse >> doRedraw)
+      doGoBottom = let findBottom cursor = case cursorChildren cursor of
+                         child:_ -> findBottom child
+                         _ -> cursor
+                   in doGoTo (return . findBottom)
       updateMouse = updateMouseState cursorVar mouseVar
 
-  set frame [layout := minsize (sz minBoardDiameter minBoardDiameter) $
-                       fill $
-                       widget boardPanel]
-  set boardPanel [on leftKey := goUp cursorVar (updateMouse >> redraw),
-                  on rightKey := goDown cursorVar (updateMouse >> redraw),
+  set boardPanel [on resize := doRedraw,
+                  on paint := drawBoard cursorVar canvasInfoVar mouseVar boardPanel,
+                  on leftKey := void doGoUp,
+                  on rightKey := void doGoDown,
+                  on upKey := void doGoLeft,
+                  on downKey := void doGoRight,
                   on resize := updateCanvasInfo canvasInfoVar cursorVar boardPanel,
-                  on motion := updateMouseLocation canvasInfoVar cursorVar mouseVar False redraw,
-                  on click := handleClick canvasInfoVar cursorVar mouseVar redraw]
+                  on motion := updateMouseLocation canvasInfoVar cursorVar mouseVar False doRedraw,
+                  on click := handleClick canvasInfoVar cursorVar mouseVar doRedraw]
+
+  set topButton [on command := doGoTop]
+  set upButton [on command := void doGoUp]
+  set downButton [on command := void doGoDown]
+  set bottomButton [on command := doGoBottom]
 
   menuFile <- menuPane [text := "&File"]
   menuFileNew <- menuItem menuFile [text := "&New\tCtrl+N",
                                     on command := boardFrame $ fromRight $ rootCursor $ rootNode 9 9]
   menuLine menuFile
+  -- TODO This is close, not quit.
   menuFileQuit <- menuQuit menuFile [on command := close frame]
-  set frame [menuBar := [menuFile]]
 
-goUp :: MVS.MVar Cursor -> IO () -> IO ()
+  set frame [menuBar := [menuFile],
+             layout := fill $ vsplit vsplitter 5 minBoardLength
+               -- TODO minsize isn't working here, minBoardLength above seems to be the min?
+               (fill $ {-minsize (sz minBoardLength minBoardLength) $-} widget boardPanel)
+               (fill $ container rightPanel $ column 4 [
+                   hfill $ container navPanel $ row 0 $ map (hfill . widget)
+                     [topButton, upButton, downButton, bottomButton]]),
+             clientSize := sz 640 480]
+
+goTo :: (Cursor -> IO Cursor) -> MVS.MVar Cursor -> IO ()
+goTo cursorFn cursorVar = MVS.modifyMVar_ cursorVar cursorFn
+
+goUp :: MVS.MVar Cursor -> IO () -> IO Bool
 goUp cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
   return $ case cursorParent cursor of
-    Nothing -> (cursor, return ())
-    Just parent -> (parent, onChange)
+    Nothing -> (cursor, return False)
+    Just parent -> (parent, onChange >> return True)
 
-goDown :: MVS.MVar Cursor -> IO () -> IO ()
+goDown :: MVS.MVar Cursor -> IO () -> IO Bool
 goDown cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
   return $ case cursorChildren cursor of
-    [] -> (cursor, return ())
-    child:_ -> (child, onChange)
+    [] -> (cursor, return False)
+    child:_ -> (child, onChange >> return True)
+
+goLeft :: MVS.MVar Cursor -> IO () -> IO Bool
+goLeft cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
+  return $ case cursorParent cursor of
+    Nothing -> (cursor, return False)
+    Just parent -> case cursorChildIndex cursor of
+      0 -> (cursor, return False)
+      index -> (cursorChild parent (index - 1), onChange >> return True)
+
+goRight :: MVS.MVar Cursor -> IO () -> IO Bool
+goRight cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
+  return $ case cursorParent cursor of
+    Nothing -> (cursor, return False)
+    Just parent ->
+      let count = cursorChildCount parent
+          index = cursorChildIndex cursor
+      in if index == count - 1
+         then (cursor, return False)
+         else (cursorChild parent (index + 1), onChange >> return True)
 
 updateMouseLocation :: MV.MVar CanvasInfo
                     -> MVS.MVar Cursor
