@@ -16,7 +16,7 @@ import Khumba.GoHS.Ui.Wx
 import System.Environment (getArgs)
 
 main :: IO ()
-main = mainWx
+main = mainGtk
 
 mainGtk :: IO ()
 mainGtk = do

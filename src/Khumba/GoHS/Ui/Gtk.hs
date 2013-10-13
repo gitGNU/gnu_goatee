@@ -6,6 +6,7 @@ import Data.List (find)
 import Data.Maybe
 import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), Window, dialogRun, messageDialogNew, widgetDestroy, windowSetTitle)
 import Khumba.GoHS.Sgf
+import qualified Khumba.GoHS.Sgf as Sgf
 import Khumba.GoHS.Sgf.Parser
 import Khumba.GoHS.Ui.Gtk.Board
 import Khumba.GoHS.Ui.Gtk.Common
@@ -14,22 +15,15 @@ data UiStateImpl = UiStateImpl { uiBoard :: GtkBoard UiStateImpl
                                , uiCursor :: MVar Cursor
                                }
 
-isValidMove' :: Cursor -> Coord -> Bool
-isValidMove' cursor coord =
-  let board = cursorBoard cursor
-      player = boardPlayerTurn board
-      result = applyMove standardGoMoveParams player coord board
-  in isJust $ getApplyMoveResult' result
-
 instance UiState UiStateImpl where
   readCursor = readMVar . uiCursor
 
   isValidMove ui coord = do
     cursor <- readMVar $ uiCursor ui
-    return $ isValidMove' cursor coord
+    return $ Sgf.isCurrentValidMove (cursorBoard cursor) coord
 
   playAt ui coord = modifyMVar_ (uiCursor ui) $ \cursor ->
-    if not $ isValidMove' cursor coord
+    if not $ Sgf.isCurrentValidMove (cursorBoard cursor) coord
     then do
       dialog <- messageDialogNew (Just $ gtkBoardWindow $ uiBoard ui)
                                  [DialogModal, DialogDestroyWithParent]

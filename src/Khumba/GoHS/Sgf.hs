@@ -10,7 +10,7 @@ import Control.Monad (forM_, liftM, sequence_, unless, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sort, sortBy)
-import Data.Maybe (fromMaybe, isNothing, mapMaybe)
+import Data.Maybe
 import Data.Monoid
 import Khumba.GoHS.Common
 
@@ -1068,17 +1068,19 @@ bucketFill board xy0 = bucketFill' Set.empty [xy0]
         stone0 = coordStone $ getCoordState xy0 board
 
 -- | Returns whether it is legal to place a stone of the given color at a point
--- on a board.
+-- on a board.  Accepts out-of-bound coordinates and returns false.
 isValidMove :: BoardState -> Color -> Coord -> Bool
+-- TODO Should out-of-bound coordinates be accepted?
 isValidMove board color coord@(x, y) =
   let w = boardWidth board
       h = boardHeight board
   in x >= 0 && y >= 0 && x < w && y < h &&
-     case applyMove standardGoMoveParams color coord board of
-       ApplyMoveOk {} -> True
-       ApplyMoveCapture {} -> True
-       ApplyMoveSuicideError {} -> False
-       ApplyMoveOverwriteError {} -> False
+     isJust (getApplyMoveResult' $ applyMove standardGoMoveParams color coord board)
+
+-- | Returns whether it is legal for the current player to place a stone at a
+-- point on a board.  Accepts out-of-bound coordinates and returns false.
+isCurrentValidMove :: BoardState -> Coord -> Bool
+isCurrentValidMove board = isValidMove board (boardPlayerTurn board)
 
 -- | Plays a stone on a board at a point, applying capture rules.
 play :: Color -> Coord -> BoardState -> BoardState
