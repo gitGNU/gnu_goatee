@@ -189,10 +189,10 @@ data Property =
 
   -- Root properties.
   | AP SimpleText SimpleText -- ^ Application info.
-  | CA SimpleText        -- ^ Copyright info.
+  | CA SimpleText        -- ^ Charset for SimpleText and Text.
   | FF Int               -- ^ File format version.
   | GM Int               -- ^ Game (must be 1 = Go).
-  | ST Int               -- ^ Variation display format.
+  | ST VariationMode     -- ^ Variation display format.
   | SZ Int Int           -- ^ Board size.
 
   -- Game info properties.
@@ -335,6 +335,40 @@ colorToMove color coord =
     Black -> B $ Just coord
     White -> W $ Just coord
 
+data VariationMode = VariationMode { variationModeSource :: VariationModeSource
+                                   , variationModeBoardOverlay :: Bool
+                                   } deriving (Eq, Show)
+
+instance NFData VariationMode where
+  rnf mode = rnf (variationModeSource mode) `seq`
+             rnf (variationModeBoardOverlay mode)
+
+data VariationModeSource = ShowChildVariations
+                         | ShowCurrentVariations
+                         deriving (Eq, Show)
+
+instance NFData VariationModeSource
+
+defaultVariationMode :: VariationMode
+defaultVariationMode = VariationMode ShowChildVariations True
+
+toVariationMode :: Int -> Maybe VariationMode
+toVariationMode n = case n of
+  0 -> Just $ VariationMode ShowChildVariations True
+  1 -> Just $ VariationMode ShowCurrentVariations True
+  2 -> Just $ VariationMode ShowChildVariations False
+  3 -> Just $ VariationMode ShowCurrentVariations False
+  _ -> Nothing
+
+fromVariationMode :: VariationMode -> Int
+fromVariationMode mode = case mode of
+  VariationMode ShowChildVariations True -> 0
+  VariationMode ShowCurrentVariations True -> 1
+  VariationMode ShowChildVariations False -> 2
+  VariationMode ShowCurrentVariations False -> 3
+  _ -> error $ "Unsupported variation mode in fromVariationMode: " ++
+       show mode
+
 -- | A list of arrows, each specified as @(startCoord, endCoord)@.
 type ArrowList = [(Coord, Coord)]
 
@@ -472,7 +506,19 @@ propertyInherited :: Property -> Bool
 propertyInherited DD {} = True
 propertyInherited _ = False
 
-data GameInfo = GameInfo { gameInfoBlackName :: Maybe String
+data RootInfo = RootInfo { rootInfoWidth :: Int
+                         , rootInfoHeight :: Int
+                         , rootInfoVariationMode :: VariationMode
+                         } deriving (Show)
+
+instance NFData RootInfo where
+  rnf info = rnf (rootInfoWidth info) `seq`
+             rnf (rootInfoHeight info) `seq`
+             rnf (rootInfoVariationMode info)
+
+data GameInfo = GameInfo { gameInfoRootInfo :: RootInfo
+
+                         , gameInfoBlackName :: Maybe String
                          , gameInfoBlackTeamName :: Maybe String
                          , gameInfoBlackRank :: Maybe String
 
@@ -501,7 +547,9 @@ data GameInfo = GameInfo { gameInfoBlackName :: Maybe String
                          } deriving (Show)
 
 instance NFData GameInfo where
-  rnf info = rnf (gameInfoBlackName info) `seq`
+  rnf info = rnf (gameInfoRootInfo info) `seq`
+
+             rnf (gameInfoBlackName info) `seq`
              rnf (gameInfoBlackTeamName info) `seq`
              rnf (gameInfoBlackRank info) `seq`
 
@@ -528,34 +576,37 @@ instance NFData GameInfo where
              rnf (gameInfoAnnotatorName info) `seq`
              rnf (gameInfoEntererName info)
 
-emptyGameInfo :: GameInfo
-emptyGameInfo = GameInfo { gameInfoBlackName = Nothing
-                         , gameInfoBlackTeamName = Nothing
-                         , gameInfoBlackRank = Nothing
+emptyGameInfo :: RootInfo -> GameInfo
+emptyGameInfo rootInfo =
+  GameInfo { gameInfoRootInfo = rootInfo
 
-                         , gameInfoWhiteName = Nothing
-                         , gameInfoWhiteTeamName = Nothing
-                         , gameInfoWhiteRank = Nothing
+           , gameInfoBlackName = Nothing
+           , gameInfoBlackTeamName = Nothing
+           , gameInfoBlackRank = Nothing
 
-                         , gameInfoRuleset = Nothing
-                         , gameInfoBasicTimeSeconds = Nothing
-                         , gameInfoOvertime = Nothing
-                         , gameInfoResult = Nothing
+           , gameInfoWhiteName = Nothing
+           , gameInfoWhiteTeamName = Nothing
+           , gameInfoWhiteRank = Nothing
 
-                         , gameInfoGameName = Nothing
-                         , gameInfoGameComment = Nothing
-                         , gameInfoOpeningComment = Nothing
+           , gameInfoRuleset = Nothing
+           , gameInfoBasicTimeSeconds = Nothing
+           , gameInfoOvertime = Nothing
+           , gameInfoResult = Nothing
 
-                         , gameInfoEvent = Nothing
-                         , gameInfoRound = Nothing
-                         , gameInfoPlace = Nothing
-                         , gameInfoDatesPlayed = Nothing
-                         , gameInfoSource = Nothing
-                         , gameInfoCopyright = Nothing
+           , gameInfoGameName = Nothing
+           , gameInfoGameComment = Nothing
+           , gameInfoOpeningComment = Nothing
 
-                         , gameInfoAnnotatorName = Nothing
-                         , gameInfoEntererName = Nothing
-                         }
+           , gameInfoEvent = Nothing
+           , gameInfoRound = Nothing
+           , gameInfoPlace = Nothing
+           , gameInfoDatesPlayed = Nothing
+           , gameInfoSource = Nothing
+           , gameInfoCopyright = Nothing
+
+           , gameInfoAnnotatorName = Nothing
+           , gameInfoEntererName = Nothing
+           }
 
 -- | An object that corresponds to a node in some game tree, and represents the
 -- state of the game at that node, including board position, player turn and
@@ -571,8 +622,6 @@ data BoardState = BoardState { boardCoordStates :: [[CoordState]]
                              , boardPlayerTurn :: Color
                              , boardBlackCaptures :: Int
                              , boardWhiteCaptures :: Int
-                             , boardWidth :: Int
-                             , boardHeight :: Int
                              , boardGameInfo :: GameInfo
                              }
 
@@ -604,6 +653,12 @@ instance Show BoardState where
     unless (null arrows) $ tell ["\nArrows: ", show arrows]
     unless (null lines) $ tell ["\nLines: ", show lines]
     unless (null labels) $ tell ["\nLabels: ", show labels]
+
+boardWidth :: BoardState -> Int
+boardWidth = rootInfoWidth . gameInfoRootInfo . boardGameInfo
+
+boardHeight :: BoardState -> Int
+boardHeight = rootInfoHeight . gameInfoRootInfo . boardGameInfo
 
 -- | Used by 'BoardState' to represent the state of a single point on the board.
 -- Records whether a stone is present, as well as annotations and visibility
@@ -648,11 +703,13 @@ emptyBoardState width height =
              , boardPlayerTurn = Black
              , boardBlackCaptures = 0
              , boardWhiteCaptures = 0
-             , boardWidth = width
-             , boardHeight = height
-             , boardGameInfo = emptyGameInfo
+             , boardGameInfo = emptyGameInfo rootInfo
              }
-  where emptyCoord = CoordState { coordStar = False
+  where rootInfo = RootInfo { rootInfoWidth = width
+                            , rootInfoHeight = height
+                            , rootInfoVariationMode = defaultVariationMode
+                            }
+        emptyCoord = CoordState { coordStar = False
                                 , coordStone = Nothing
                                 , coordMark = Nothing
                                 , coordVisibility = CoordVisible

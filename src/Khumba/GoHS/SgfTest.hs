@@ -85,7 +85,7 @@ findPropertyTests = testGroup "findProperty" [
     Nothing @=? findProperty (mk []) (const True),
 
   testCase "returns Nothing if no properties match" $
-    Nothing @=? findProperty (mk [FF 4, GM 1, ST 0, SZ 9 9]) (const False),
+    Nothing @=? findProperty (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9]) (const False),
 
   testCase "finds present properties" $ do
      Just (B (Just (2,3))) @=?
@@ -104,7 +104,7 @@ findPropertyTests = testGroup "findProperty" [
   testCase "doesn't find absent properties" $ do
     Nothing @=? findProperty (mk [B Nothing])
                              (\p -> case p of { W Nothing -> True; _ -> False })
-    Nothing @=? findProperty (mk [FF 4, GM 1, ST 0, SZ 9 9])
+    Nothing @=? findProperty (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9])
                              (\p -> case p of
                                FF {} -> False
                                GM {} -> False
@@ -210,7 +210,7 @@ propertyMetadataTests = testGroup "property metadata" [
                              -- Guess this fits here.
                              UnknownProperty "" ""]
         rootProperties = [-- Root properties.
-                          AP st st, CA st, FF 1, GM 1, ST 1, SZ 1 1]
+                          AP st st, CA st, FF 1, GM 1, ST vm, SZ 1 1]
         gameInfoProperties = [-- Game info properties.
                               AN st, BR st, BT st, CP st, DT st, EV st, GC st, GN st, ON st, OT st,
                               PB st, PC st, PW st, RE GameResultVoid, RO st, RU RulesetJapanese,
@@ -221,3 +221,4 @@ propertyMetadataTests = testGroup "property metadata" [
         db = Double1
         st = toSimpleText ""
         rv = 1
+        vm = defaultVariationMode

@@ -69,6 +69,7 @@ boardFrame cursor = do
   let board = cursorBoard cursor
       info = boardGameInfo board
 
+  -- Create variables for UI state.
   canvasInfoVar <- MV.newMVar CanvasInfo { canvasSize = sizeNull
                                          , canvasBoardUL = pointNull
                                          , canvasStoneLength = 0
@@ -81,6 +82,7 @@ boardFrame cursor = do
                                      , mouseIsValidMove = False
                                      }
 
+  -- Create widgets used in the frame.
   frame <- frame [text := "Untitled game"]
   vsplitter <- splitterWindow frame []
   boardPanel <- panel vsplitter [fullRepaintOnResize := True] -- TODO Doesn't seem to work.
@@ -90,27 +92,57 @@ boardFrame cursor = do
   upButton <- buttonEx navPanel wxBU_EXACTFIT [text := "<"]
   downButton <- buttonEx navPanel wxBU_EXACTFIT [text := ">"]
   bottomButton <- buttonEx navPanel wxBU_EXACTFIT [text := ">>"]
+  currentVariationText <- staticText rightPanel []
+  childVariationsText <- staticText rightPanel []
 
+  -- Declare handlers and curried versions of top-level functions that have been
+  -- applied to their required variables, for ease of use in event handlers
+  -- below.
   let doRedraw = repaint boardPanel
-      doGoTo cursorFn = goTo cursorFn cursorVar >> updateMouse >> doRedraw
+      updateMouse = updateMouseState cursorVar mouseVar
+
+      onCanvasResize = updateCanvasInfo canvasInfoVar cursorVar boardPanel >> doRedraw
+      onBoardChange = do
+        cursor <- MVS.readMVar cursorVar
+
+        -- Update the navigation buttons.
+        let childCount = cursorChildCount cursor
+        set topButton [text := if isJust $ cursorParent cursor then "<<" else "[["]
+        set upButton [text := if isJust $ cursorParent cursor then "<" else "["]
+        set downButton [text := if childCount > 0 then ">" else "]"]
+        set bottomButton [text := if childCount > 0 then ">>" else "]]"]
+
+        -- Update the variation labels.
+        set currentVariationText [
+          text := case cursorParent cursor of
+             Nothing -> "Start of game."
+             Just parent -> let parentChildCount = cursorChildCount parent
+                            in if parentChildCount > 1
+                               then "Variation " ++ show (cursorChildIndex cursor + 1) ++
+                                    "/" ++ show parentChildCount ++ "."
+                               else ""]
+        set childVariationsText [text := case childCount of
+                                    0 -> "End of variation."
+                                    1 -> ""
+                                    _ -> show childCount ++ " variations from here."]
+
+        -- Update the mouse state and redraw the board.
+        updateMouse
+        doRedraw
+
+      doGoTo cursorFn = goTo cursorFn cursorVar >> onBoardChange
       doGoTop = doGoTo (return . cursorRoot)
-      doGoUp = goUp cursorVar (updateMouse >> doRedraw)
-      doGoDown = goDown cursorVar (updateMouse >> doRedraw)
-      doGoLeft = goLeft cursorVar (updateMouse >> doRedraw)
-      doGoRight = goRight cursorVar (updateMouse >> doRedraw)
+      doGoUp = goUp cursorVar onBoardChange
+      doGoDown = goDown cursorVar onBoardChange
+      doGoLeft = goLeft cursorVar onBoardChange
+      doGoRight = goRight cursorVar onBoardChange
       doGoBottom = let findBottom cursor = case cursorChildren cursor of
                          child:_ -> findBottom child
                          _ -> cursor
                    in doGoTo (return . findBottom)
-      updateMouse = updateMouseState cursorVar mouseVar
 
-  set boardPanel [on resize := doRedraw,
+  set boardPanel [on resize := onCanvasResize,
                   on paint := drawBoard cursorVar canvasInfoVar mouseVar boardPanel,
-                  on leftKey := void doGoUp,
-                  on rightKey := void doGoDown,
-                  on upKey := void doGoLeft,
-                  on downKey := void doGoRight,
-                  on resize := updateCanvasInfo canvasInfoVar cursorVar boardPanel,
                   on motion := updateMouseLocation canvasInfoVar cursorVar mouseVar False doRedraw,
                   on click := handleClick canvasInfoVar cursorVar mouseVar doRedraw]
 
@@ -119,6 +151,7 @@ boardFrame cursor = do
   set downButton [on command := void doGoDown]
   set bottomButton [on command := doGoBottom]
 
+  -- Create a menubar.
   menuFile <- menuPane [text := "&File"]
   menuFileNew <- menuItem menuFile [text := "&New\tCtrl+N",
                                     on command := boardFrame $ fromRight $ rootCursor $ rootNode 9 9]
@@ -126,15 +159,38 @@ boardFrame cursor = do
   -- TODO This is close, not quit.
   menuFileQuit <- menuQuit menuFile [on command := close frame]
 
+  -- Set up the window's layout.
   set frame [menuBar := [menuFile],
              layout := fill $ vsplit vsplitter 5 minBoardLength
                -- TODO minsize isn't working here, minBoardLength above seems to be the min?
                (fill $ {-minsize (sz minBoardLength minBoardLength) $-} widget boardPanel)
                (fill $ container rightPanel $ column 4 [
                    hfill $ container navPanel $ row 0 $ map (hfill . widget)
-                     [topButton, upButton, downButton, bottomButton]]),
+                     [topButton, upButton, downButton, bottomButton],
+                   hfill $ widget currentVariationText,
+                   hfill $ widget childVariationsText]),
              clientSize := sz 640 480]
 
+  -- Install global keybindings.
+  --
+  -- wxWidgets doesn't propagate key events upward.  To work around this,
+  -- install key handlers on all focusable widgets where it makes sense.
+  -- See: http://wiki.wxwidgets.org/Catching_key_events_globally
+  let setKeys :: Window a -> IO ()
+      setKeys = flip set [on leftKey := void doGoUp,
+                          on rightKey := void doGoDown,
+                          on upKey := void doGoLeft,
+                          on downKey := void doGoRight]
+  setKeys boardPanel
+  mapM_ setKeys [topButton, upButton, downButton, bottomButton]
+
+  -- Set up initial UI state, e.g. disable the "<<" button because we're at the
+  -- start.
+  onBoardChange
+
+-- | Applies the given function to the cursor.  Unlike 'goUp', 'goDown',
+-- 'goLeft', 'goRight', etc., this function does not do any on-change event
+-- handling.
 goTo :: (Cursor -> IO Cursor) -> MVS.MVar Cursor -> IO ()
 goTo cursorFn cursorVar = MVS.modifyMVar_ cursorVar cursorFn
 
@@ -183,12 +239,12 @@ updateMouseLocation canvasInfoVar cursorVar mouseVar forceStateUpdate onChanged 
              } <- MV.readMVar canvasInfoVar
   let ix = (x - x0) `div` sl
       iy = (y - y0) `div` sl
+  cursor <- MVS.readMVar cursorVar
   join $ MVS.modifyMVar mouseVar $ \mouse ->
     if not forceStateUpdate && ix == mouseCoordX mouse && iy == mouseCoordY mouse
     then return (mouse, return ())
-    else do cursor <- MVS.readMVar cursorVar
-            let mouse' = mouse { mouseCoordX = ix, mouseCoordY = iy }
-            return (updateMouseState' cursor mouse', onChanged)
+    else let mouse' = mouse { mouseCoordX = ix, mouseCoordY = iy }
+         in return (updateMouseState' cursor mouse', onChanged)
 
 -- | Reads the coordinate location of the mouse cursor from the
 -- 'MouseState' and updates the other variables according to the
