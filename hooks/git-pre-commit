@@ -16,7 +16,7 @@ set +e
 
 echo "Precommit: Linting..."
 lintLog="$(mktemp)"
-hlint src >"$lintLog" 2>&1
+hlint src >>"$lintLog" 2>&1
 result="$?"
 if test "$result" -ne 0; then
     echo
@@ -30,7 +30,8 @@ rm "$lintLog"
 
 echo "Precommit: Checking that the package builds..."
 buildLog="$(mktemp)"
-cabal build >"$buildLog" 2>&1
+cabal configure >>"$buildLog" 2>&1
+cabal build >>"$buildLog" 2>&1
 result="$?"
 if test "$result" -ne 0; then
     echo
@@ -44,7 +45,7 @@ rm "$buildLog"
 
 echo "Precommit: Running tests..."
 testLog="$(mktemp)"
-./test.sh >"$testLog" 2>&1
+./test.sh >>"$testLog" 2>&1
 result="$?"
 if test "$result" -ne 0; then
     echo
