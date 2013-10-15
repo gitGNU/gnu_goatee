@@ -18,7 +18,7 @@ import qualified Data.Map as Map
 useHorizontalKeyNavigation :: Bool
 useHorizontalKeyNavigation = True
 
-keyNavActions :: UiState a => Map.Map String (a -> IO Bool)
+keyNavActions :: UiCtrl a => Map.Map String (a -> IO Bool)
 keyNavActions = Map.fromList $
                 if useHorizontalKeyNavigation
                 then [("Up", goLeft),
@@ -30,11 +30,9 @@ keyNavActions = Map.fromList $
                       ("Left", goLeft),
                       ("Right", goRight)]
 
--- | Generic class for implementations of widgets that render boards.
-class Monad m => GoBoardWidget w m where
-  goBoardWidgetUpdate :: Cursor -> w -> m w
-
 -- | A GTK widget that renders a Go board.
+--
+-- @ui@ should be an instance of 'UiCtrl'.
 data GtkBoard ui = GtkBoard { gtkBoardUi :: UiRef ui
                             , gtkBoardWindow :: Window
                             , gtkBoardInfoLine :: Label
@@ -46,7 +44,7 @@ data GtkBoard ui = GtkBoard { gtkBoardUi :: UiRef ui
                             }
 
 -- | Creates a 'GtkBoard' for rendering Go boards of the given size.
-gtkBoardNew :: UiState ui
+gtkBoardNew :: UiCtrl ui
             => UiRef ui
             -> Int -- ^ Width
             -> Int -- ^ Height
@@ -120,11 +118,11 @@ gtkBoardNew uiRef width height = do
                   , gtkBoardHeight = height
                   }
 
-gtkBoardShow :: UiState ui => GtkBoard ui -> IO ()
+gtkBoardShow :: UiCtrl ui => GtkBoard ui -> IO ()
 gtkBoardShow = widgetShowAll . gtkBoardWindow
 
-instance UiState ui => GoBoardWidget (GtkBoard ui) IO where
-  goBoardWidgetUpdate cursor gtkBoard = do
+instance UiCtrl ui => UiView (GtkBoard ui) where
+  updateView cursor gtkBoard = do
     let board = cursorBoard cursor
         width = gtkBoardWidth gtkBoard
         height = gtkBoardHeight gtkBoard
@@ -165,9 +163,8 @@ instance UiState ui => GoBoardWidget (GtkBoard ui) IO where
       ++ " to play.  Captures: B+" ++ show (boardBlackCaptures board) ++ ", W+"
       ++ show (boardWhiteCaptures board) ++ ".\n" ++ siblingMsg
       ++ (if siblingMsg /= [] && childrenMsg /= [] then "  " else "") ++ childrenMsg
-    return gtkBoard
 
-boardClickHandler :: UiState a => UiRef a -> Int -> Int -> IO ()
+boardClickHandler :: UiCtrl a => UiRef a -> Int -> Int -> IO ()
 boardClickHandler uiRef x y = do
   ui <- readUiRef uiRef
   playAt ui (x, y)

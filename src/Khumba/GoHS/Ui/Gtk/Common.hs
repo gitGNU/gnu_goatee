@@ -5,7 +5,8 @@ import Data.IORef
 import Data.Maybe
 import Khumba.GoHS.Sgf
 
-class UiState a where
+-- | A controller for the GTK+ UI.
+class UiCtrl a where
   -- | Returns the current cursor.
   readCursor :: a -> IO Cursor
 
@@ -36,7 +37,12 @@ class UiState a where
   -- (i.e. whether there was a right sibling).
   goRight :: a -> IO Bool
 
+-- | An IO variable that points to a 'UiCtrl'.
 data UiRef ui = UiRef { getUiRef :: IORef (Maybe ui) }
 
-readUiRef :: UiState ui => UiRef ui -> IO ui
+readUiRef :: UiCtrl ui => UiRef ui -> IO ui
 readUiRef = maybe (fail "readUiRef failed.") return <=< readIORef . getUiRef
+
+-- | A class for implementations of widgets that render boards.
+class UiView w where
+  updateView :: Cursor -> w -> IO ()

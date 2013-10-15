@@ -11,11 +11,11 @@ import Khumba.GoHS.Sgf.Parser
 import Khumba.GoHS.Ui.Gtk.Board
 import Khumba.GoHS.Ui.Gtk.Common
 
-data UiStateImpl = UiStateImpl { uiBoard :: GtkBoard UiStateImpl
-                               , uiCursor :: MVar Cursor
-                               }
+data UiCtrlImpl = UiCtrlImpl { uiBoard :: GtkBoard UiCtrlImpl
+                             , uiCursor :: MVar Cursor
+                             }
 
-instance UiState UiStateImpl where
+instance UiCtrl UiCtrlImpl where
   readCursor = readMVar . uiCursor
 
   isValidMove ui coord = do
@@ -81,27 +81,25 @@ isPropertyBOrW prop = case prop of
   W _ -> True
   _ -> False
 
-goToParent :: UiStateImpl -> Cursor -> IO ()
+goToParent :: UiCtrlImpl -> Cursor -> IO ()
 goToParent = updateUi
 
-goToChild :: UiStateImpl -> Cursor -> IO ()
+goToChild :: UiCtrlImpl -> Cursor -> IO ()
 goToChild = updateUi
 
-goToLeft :: UiStateImpl -> Cursor -> IO ()
+goToLeft :: UiCtrlImpl -> Cursor -> IO ()
 goToLeft = updateUi
 
-goToRight :: UiStateImpl -> Cursor -> IO ()
+goToRight :: UiCtrlImpl -> Cursor -> IO ()
 goToRight = updateUi
 
-goReplace :: UiStateImpl -> Cursor -> IO ()
+goReplace :: UiCtrlImpl -> Cursor -> IO ()
 goReplace = updateUi
 
-updateUi :: UiStateImpl -> Cursor -> IO ()
-updateUi ui cursor = do
-  goBoardWidgetUpdate cursor (uiBoard ui)
-  return ()
+updateUi :: UiCtrlImpl -> Cursor -> IO ()
+updateUi ui cursor = updateView cursor (uiBoard ui)
 
-openBoard :: Node -> IO UiStateImpl
+openBoard :: Node -> IO UiCtrlImpl
 openBoard rootNode = do
   let cursor = either (error . ("Error creating root cursor: " ++)) id $
                rootCursor rootNode
@@ -114,16 +112,16 @@ openBoard rootNode = do
   uiBoard <- gtkBoardNew uiRef' width height
 
   cursorVar <- newMVar cursor
-  let ui = UiStateImpl { uiBoard = uiBoard
-                       , uiCursor = cursorVar
-                       }
+  let ui = UiCtrlImpl { uiBoard = uiBoard
+                      , uiCursor = cursorVar
+                      }
   writeIORef uiRef $ Just ui
 
-  goBoardWidgetUpdate cursor uiBoard
+  updateView cursor uiBoard
   gtkBoardShow uiBoard
   return ui
 
-openFile :: String -> IO (Either ParseError UiStateImpl)
+openFile :: String -> IO (Either ParseError UiCtrlImpl)
 -- TODO Don't only choose the first tree in the collection.
 openFile file = do
   result <- parseFile file
