@@ -32,10 +32,34 @@ keyNavActions = Map.fromList $
                       ("Left", goLeft),
                       ("Right", goRight)]
 
-boardBgColor = rgb 229 178 58
+boardBgColor :: Rgb
+boardBgColor = rgb255 229 178 58
 
-boardPadding :: Int
-boardPadding = 8
+blackStoneColor :: Rgb
+blackStoneColor = rgb 0 0 0
+
+blackStoneBorderColor :: Rgb
+blackStoneBorderColor = rgb 1 1 1
+
+whiteStoneColor :: Rgb
+whiteStoneColor = rgb 1 1 1
+
+whiteStoneBorderColor :: Rgb
+whiteStoneBorderColor = rgb 0 0 0
+
+stoneColor :: Color -> Rgb
+stoneColor color = case color of
+  Black -> blackStoneColor
+  White -> whiteStoneColor
+
+stoneBorderColor :: Color -> Rgb
+stoneBorderColor color = case color of
+  Black -> blackStoneBorderColor
+  White -> whiteStoneBorderColor
+
+-- | Percentage, in @[0, 1]@.
+stoneBorderThickness :: Double
+stoneBorderThickness = 0.03
 
 -- | A GTK widget that renders a Go board.
 --
@@ -170,7 +194,7 @@ drawBoard uiRef drawingArea = do
     scale maxStoneLength maxStoneLength
 
     -- Fill the background a nice woody shade.
-    setColor boardBgColor
+    setRgb boardBgColor
     paint
 
     setSourceRGB 0 0 0
@@ -179,21 +203,36 @@ drawBoard uiRef drawingArea = do
     setLineWidth gridLineWidth
     stroke
 
-    sequence_ $ mapBoardCoords (drawCoord board) board
+    sequence_ $ flip mapBoardCoords board $
+      drawCoord board gridLineWidth (gridLineWidth * 2)
   return ()
 
-drawCoord :: BoardState -> Int -> Int -> CoordState -> Render ()
-drawCoord board x y coord = do
+drawCoord :: BoardState -> Double -> Double -> Int -> Int -> CoordState -> Render ()
+drawCoord board gridWidth gridBorderWidth x y coord = do
   let x' = fromIntegral x
       y' = fromIntegral y
       draw = do
         -- Draw the grid.
-        let gridX0 = x' + if x == 0 then 0.5 else 0
-            gridY0 = y' + if y == 0 then 0.5 else 0
-            gridX1 = x' + if x == boardWidth board - 1 then 0.5 else 1
-            gridY1 = y' + if y == boardHeight board - 1 then 0.5 else 1
-        moveTo gridX0 gridY0
-        lineTo gridX1 gridY1
+        let atLeft = x == 0
+            atTop = y == 0
+            atRight = x == boardWidth board - 1
+            atBottom = y == boardHeight board - 1
+            gridX0 = x' + if atLeft then 0.5 else 0
+            gridY0 = y' + if atTop then 0.5 else 0
+            gridX1 = x' + if atRight then 0.5 else 1
+            gridY1 = y' + if atBottom then 0.5 else 1
+        -- Temporarily disable antialiasing.  We want grid lines to be sharp.
+        setAntialias AntialiasNone
+        setSourceRGB 0 0 0
+        setLineWidth $ if atTop || atBottom then gridBorderWidth else gridWidth
+        moveTo gridX0 (y' + 0.5)
+        lineTo gridX1 (y' + 0.5)
+        stroke
+        setLineWidth $ if atLeft || atRight then gridBorderWidth else gridWidth
+        moveTo (x' + 0.5) gridY0
+        lineTo (x' + 0.5) gridY1
+        stroke
+        setAntialias AntialiasDefault
 
         -- Draw a stone if present.
         case coordStone coord of
@@ -207,17 +246,20 @@ drawCoord board x y coord = do
 
 drawStone :: Double -> Double -> Color -> Render ()
 drawStone x y color = do
-  arc (x + 0.5) (y + 0.5) 0.46 0 (2 * pi)
-  setLineWidth 0.025
-  case color of
-    Black -> setSourceRGB 1 1 1
-    White -> setSourceRGB 0 0 0
-  strokePreserve
-  case color of
-    Black -> setSourceRGB 0 0 0
-    White -> setSourceRGB 1 1 1
-  fill
+  arc (x + 0.5) (y + 0.5) (0.5 - stoneBorderThickness / 2) 0 (2 * pi)
+  setRgb $ stoneColor color
+  fillPreserve
+  setLineWidth stoneBorderThickness
+  setRgb $ stoneBorderColor color
+  stroke
 
-rgb r g b = (r / 255, g / 255, b / 255)
+type Rgb = (Double, Double, Double)
 
-setColor (r, g, b) = setSourceRGB r g b
+rgb :: Double -> Double -> Double -> Rgb
+rgb = (,,)
+
+rgb255 :: Double -> Double -> Double -> Rgb
+rgb255 r g b = (r / 255, g / 255, b / 255)
+
+setRgb :: Rgb -> Render ()
+setRgb (r, g, b) = setSourceRGB r g b
