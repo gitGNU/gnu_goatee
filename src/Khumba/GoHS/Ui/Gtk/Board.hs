@@ -7,7 +7,9 @@ import Data.IORef
 import Data.Map ((!))
 import Data.Maybe
 import Data.Tree (drawTree, unfoldTree)
-import Graphics.UI.Gtk hiding (Cursor)
+import Graphics.Rendering.Cairo
+import Graphics.UI.Gtk hiding (Color, Cursor)
+import Khumba.GoHS.Common (mapTuple)
 import Khumba.GoHS.Sgf
 import Khumba.GoHS.Ui.Gtk.Common
 import qualified Data.Map as Map
@@ -30,15 +32,18 @@ keyNavActions = Map.fromList $
                       ("Left", goLeft),
                       ("Right", goRight)]
 
+boardBgColor = rgb 229 178 58
+
+boardPadding :: Int
+boardPadding = 8
+
 -- | A GTK widget that renders a Go board.
 --
 -- @ui@ should be an instance of 'UiCtrl'.
 data GtkBoard ui = GtkBoard { gtkBoardUi :: UiRef ui
                             , gtkBoardWindow :: Window
                             , gtkBoardInfoLine :: Label
-                            , gtkBoardTable :: Table
-                            , gtkBoardCellButtons :: Map.Map (Int, Int) Button
-                            , gtkBoardCellLabels :: Map.Map (Int, Int) Label
+                            , gtkBoardDrawingArea :: DrawingArea
                             , gtkBoardWidth :: Int
                             , gtkBoardHeight :: Int
                             }
@@ -78,42 +83,25 @@ gtkBoardNew uiRef width height = do
         _ -> return ()
     return True
 
-  infoBox <- vBoxNew False 0
-  containerAdd window infoBox
+  boardBox <- vBoxNew False 0
+  containerAdd window boardBox
 
   infoLine <- labelNew Nothing
-  containerAdd infoBox infoLine
+  boxPackStart boardBox infoLine PackNatural 0
 
-  tableTreePaned <- vPanedNew
-  containerAdd infoBox tableTreePaned
-
-  table <- tableNew height width False
-  cellButtonsRef <- newIORef Map.empty
-  cellLabelsRef <- newIORef Map.empty
-  forM_ [0..width-1] $ \x ->
-    forM_ [0..height-1] $ \y -> do
-      let xy = (x, y)
-      button <- buttonNew
-      label <- labelNew Nothing
-      containerAdd button label
-      buttonSetRelief button ReliefNone
-      on button buttonActivated $ clickHandler x y
-      tableAttachDefaults table button x (x + 1) y (y + 1)
-      modifyIORef cellButtonsRef (Map.insert xy button)
-      modifyIORef cellLabelsRef (Map.insert xy label)
-  cellButtons <- readIORef cellButtonsRef
-  cellLabels <- readIORef cellLabelsRef
-  containerAdd tableTreePaned table
-
-  treeTodoLabel <- labelNew $ Just "TODO: Show the tree view here..."
-  containerAdd tableTreePaned treeTodoLabel
+  drawingArea <- drawingAreaNew
+  -- TODO Enable mouse events for the DrawingArea as mentioned in the docs for
+  -- Graphics.UI.Gtk.Misc.DrawingArea.  Also handle configureEvent (resizes)?
+  on drawingArea exposeEvent $ liftIO $ do
+    cursor <- readCursor =<< readUiRef uiRef
+    drawBoard uiRef drawingArea
+    return True
+  boxPackStart boardBox drawingArea PackGrow 0
 
   return GtkBoard { gtkBoardUi = uiRef
                   , gtkBoardWindow = window
                   , gtkBoardInfoLine = infoLine
-                  , gtkBoardTable = table
-                  , gtkBoardCellButtons = cellButtons
-                  , gtkBoardCellLabels = cellLabels
+                  , gtkBoardDrawingArea = drawingArea
                   , gtkBoardWidth = width
                   , gtkBoardHeight = height
                   }
@@ -126,16 +114,6 @@ instance UiCtrl ui => UiView (GtkBoard ui) where
     let board = cursorBoard cursor
         width = gtkBoardWidth gtkBoard
         height = gtkBoardHeight gtkBoard
-    forM_ [0..width-1] $ \x ->
-      forM_ [0..height-1] $ \y -> do
-        let xy = (x, y)
-            label = gtkBoardCellLabels gtkBoard ! xy
-            coordState = getCoordState xy board
-            text = show coordState
-        labelSetMarkup label $ case coordStone coordState of
-          Nothing -> text
-          Just Black -> "<span weight=\"bold\" foreground=\"red\">" ++ text ++ "</span>"
-          Just White -> "<span weight=\"bold\" foreground=\"blue\">" ++ text ++ "</span>"
     let gameInfoMsg = fromMaybe "" $ do
           let info = boardGameInfo board
           black <- gameInfoBlackName info
@@ -163,8 +141,83 @@ instance UiCtrl ui => UiView (GtkBoard ui) where
       ++ " to play.  Captures: B+" ++ show (boardBlackCaptures board) ++ ", W+"
       ++ show (boardWhiteCaptures board) ++ ".\n" ++ siblingMsg
       ++ (if siblingMsg /= [] && childrenMsg /= [] then "  " else "") ++ childrenMsg
+    widgetQueueDraw $ gtkBoardDrawingArea gtkBoard
 
 boardClickHandler :: UiCtrl a => UiRef a -> Int -> Int -> IO ()
 boardClickHandler uiRef x y = do
   ui <- readUiRef uiRef
   playAt ui (x, y)
+
+drawBoard :: UiCtrl ui => UiRef ui -> DrawingArea -> IO ()
+drawBoard uiRef drawingArea = do
+  ui <- readUiRef uiRef
+  cursor <- readCursor ui
+
+  (canvasWidth, canvasHeight) <- return . mapTuple fromIntegral =<< widgetGetSize drawingArea
+  let board = cursorBoard cursor
+      cols = fromIntegral $ boardWidth board
+      rows = fromIntegral $ boardHeight board
+      maxStoneWidth = canvasWidth / cols
+      maxStoneHeight = canvasHeight / rows
+      maxStoneLength = min maxStoneWidth maxStoneHeight
+
+  drawWindow <- widgetGetDrawWindow drawingArea
+  renderWithDrawable drawWindow $ do
+    -- Set user coordinates so that the top-left stone occupies the rectangle
+    -- from (0,0) to (1,1).
+    when (canvasWidth > canvasHeight) $ translate ((canvasWidth - canvasHeight) / 2) 0
+    when (canvasHeight > canvasWidth) $ translate 0 ((canvasHeight - canvasWidth) / 2)
+    scale maxStoneLength maxStoneLength
+
+    -- Fill the background a nice woody shade.
+    setColor boardBgColor
+    paint
+
+    setSourceRGB 0 0 0
+    rectangle 0.5 0.5 (cols - 1) (rows - 1)
+    gridLineWidth <- fmap fst $ deviceToUserDistance 1 0
+    setLineWidth gridLineWidth
+    stroke
+
+    sequence_ $ mapBoardCoords (drawCoord board) board
+  return ()
+
+drawCoord :: BoardState -> Int -> Int -> CoordState -> Render ()
+drawCoord board x y coord = do
+  let x' = fromIntegral x
+      y' = fromIntegral y
+      draw = do
+        -- Draw the grid.
+        let gridX0 = x' + if x == 0 then 0.5 else 0
+            gridY0 = y' + if y == 0 then 0.5 else 0
+            gridX1 = x' + if x == boardWidth board - 1 then 0.5 else 1
+            gridY1 = y' + if y == boardHeight board - 1 then 0.5 else 1
+        moveTo gridX0 gridY0
+        lineTo gridX1 gridY1
+
+        -- Draw a stone if present.
+        case coordStone coord of
+          Just color -> drawStone x' y' color
+          Nothing -> return ()
+
+  case coordVisibility coord of
+    CoordInvisible -> return ()
+    -- TODO CoordDimmed
+    CoordVisible -> draw
+
+drawStone :: Double -> Double -> Color -> Render ()
+drawStone x y color = do
+  arc (x + 0.5) (y + 0.5) 0.46 0 (2 * pi)
+  setLineWidth 0.025
+  case color of
+    Black -> setSourceRGB 1 1 1
+    White -> setSourceRGB 0 0 0
+  strokePreserve
+  case color of
+    Black -> setSourceRGB 0 0 0
+    White -> setSourceRGB 1 1 1
+  fill
+
+rgb r g b = (r / 255, g / 255, b / 255)
+
+setColor (r, g, b) = setSourceRGB r g b

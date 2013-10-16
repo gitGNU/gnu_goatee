@@ -5,7 +5,11 @@ module Khumba.GoHS.Common ( listReplace
                           , onLeft
                           , onRight
                           , andEithers
+                          , mapTuple
                           ) where
+
+import Control.Arrow ((***))
+import Control.Monad (join)
 
 listReplace :: Eq a => a -> a -> [a] -> [a]
 listReplace from to = map $ replace from to
@@ -46,3 +50,6 @@ andEithers' :: [Either a b] -> ([a], [b])
 andEithers' (Left a:rest) = let (as, bs) = andEithers' rest in (a:as, bs)
 andEithers' (Right b:rest) = let (as, bs) = andEithers' rest in (as, b:bs)
 andEithers' _ = ([], [])
+
+mapTuple :: (a -> b) -> (a, a) -> (b, b)
+mapTuple = join (***)

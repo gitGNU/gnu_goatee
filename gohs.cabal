@@ -9,7 +9,7 @@ description:
 data-dir: ""
 
 executable gohs
-    build-depends: base, containers, deepseq, gtk, mtl, parsec,
+    build-depends: base, cairo, containers, deepseq, gtk, mtl, parsec,
                    strict-concurrency, wx, wxcore
     main-is: Main.hs
     buildable: True
