@@ -10,9 +10,14 @@ die() {
     fi
     echo "Precommit: Applying stashed changes."
     set -e
-    git apply --whitespace=nowarn <"$unstagedDiff" && \
-        git stash drop --quiet && \
-        rm "$unstagedDiff"
+    # git apply doesn't like when its input is empty, so don't call it
+    # if that's the case.
+    (if test -s "$unstagedDiff"
+        then git apply --whitespace=nowarn <"$unstagedDiff"
+        else :
+	fi) && \
+            git stash drop --quiet && \
+            rm "$unstagedDiff"
     exit "${1:-1}"
 }
 
