@@ -134,7 +134,7 @@ gtkBoardShow :: UiCtrl ui => GtkBoard ui -> IO ()
 gtkBoardShow = widgetShowAll . gtkBoardWindow
 
 instance UiCtrl ui => UiView (GtkBoard ui) where
-  updateView cursor gtkBoard = do
+  onCursorChange gtkBoard cursor = do
     let board = cursorBoard cursor
         width = gtkBoardWidth gtkBoard
         height = gtkBoardHeight gtkBoard

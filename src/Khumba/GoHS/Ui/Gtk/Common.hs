@@ -45,4 +45,4 @@ readUiRef = maybe (fail "readUiRef failed.") return <=< readIORef . getUiRef
 
 -- | A class for implementations of widgets that render boards.
 class UiView w where
-  updateView :: Cursor -> w -> IO ()
+  onCursorChange :: w -> Cursor -> IO ()

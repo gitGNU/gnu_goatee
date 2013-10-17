@@ -97,7 +97,7 @@ goReplace :: UiCtrlImpl -> Cursor -> IO ()
 goReplace = updateUi
 
 updateUi :: UiCtrlImpl -> Cursor -> IO ()
-updateUi ui cursor = updateView cursor (uiBoard ui)
+updateUi ui = onCursorChange (uiBoard ui)
 
 openBoard :: Node -> IO UiCtrlImpl
 openBoard rootNode = do
@@ -117,7 +117,7 @@ openBoard rootNode = do
                       }
   writeIORef uiRef $ Just ui
 
-  updateView cursor uiBoard
+  onCursorChange uiBoard cursor
   gtkBoardShow uiBoard
   return ui
 
