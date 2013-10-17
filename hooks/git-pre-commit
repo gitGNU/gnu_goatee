@@ -8,7 +8,6 @@ die() {
     if test ${1:-1} -ne 0; then
         echo "Precommit: Encountered errors, exiting ($1)."
     fi
-    echo "Precommit: Applying stashed changes."
     set -e
     # git apply doesn't like when its input is empty, so don't call it
     # if that's the case.
@@ -41,6 +40,11 @@ if test "$result" -ne 0; then
     die "$result"
 fi
 rm "$lintLog"
+# Also check for any new trailing whitespace.
+if git diff --cached | grep -q '^+.*[[:space:]]$'; then
+    echo "Precommit: Trailing whitespace detected, please remove."
+    die 1
+fi
 
 echo "Precommit: Checking that the package builds."
 buildLog="$(mktemp)"
