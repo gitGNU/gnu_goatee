@@ -9,6 +9,7 @@ die() {
         echo "Precommit: Encountered errors, exiting ($1)."
     fi
     echo "Precommit: Applying stashed changes."
+    set -e
     git apply --whitespace=nowarn <"$unstagedDiff" && \
         git stash pop --quiet && \
         rm "$unstagedDiff"
