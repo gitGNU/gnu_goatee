@@ -11,7 +11,7 @@ die() {
     echo "Precommit: Applying stashed changes."
     set -e
     git apply --whitespace=nowarn <"$unstagedDiff" && \
-        git stash pop --quiet && \
+        git stash drop --quiet && \
         rm "$unstagedDiff"
     exit "${1:-1}"
 }
