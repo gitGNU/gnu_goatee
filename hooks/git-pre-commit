@@ -2,19 +2,27 @@
 
 set -e
 
+unstagedDiff="$(mktemp)"
+
 die() {
-    echo "Precommit: Encountered errors, exiting ($1)."
-    git stash pop --quiet
+    if test ${1:-1} -ne 0; then
+        echo "Precommit: Encountered errors, exiting ($1)."
+    fi
+    echo "Precommit: Applying stashed changes."
+    git apply --whitespace=nowarn <"$unstagedDiff" && \
+        git stash pop --quiet && \
+        rm "$unstagedDiff"
     exit "${1:-1}"
 }
 
 cd "$(dirname "$(git rev-parse --git-dir)")"
-echo "Precommit: Stashing unstaged changes..."
-git stash save --keep-index --include-untracked --quiet "GoHS presubmit stash ($(date))."
+echo "Precommit: Stashing unstaged changes in $unstagedDiff."
+git diff --full-index --binary >"$unstagedDiff"
+git stash save --keep-index --quiet "GoHS presubmit stash ($(date))."
 
 set +e
 
-echo "Precommit: Linting..."
+echo "Precommit: Linting."
 lintLog="$(mktemp)"
 hlint src >>"$lintLog" 2>&1
 result="$?"
@@ -28,7 +36,7 @@ if test "$result" -ne 0; then
 fi
 rm "$lintLog"
 
-echo "Precommit: Checking that the package builds..."
+echo "Precommit: Checking that the package builds."
 buildLog="$(mktemp)"
 cabal configure >>"$buildLog" 2>&1
 cabal build >>"$buildLog" 2>&1
@@ -43,7 +51,7 @@ if test "$result" -ne 0; then
 fi
 rm "$buildLog"
 
-echo "Precommit: Running tests..."
+echo "Precommit: Running tests."
 testLog="$(mktemp)"
 ./test.sh >>"$testLog" 2>&1
 result="$?"
@@ -57,13 +65,5 @@ if test "$result" -ne 0; then
 fi
 rm "$testLog"
 
-echo "Precommit: Popping stashed changes..."
-git stash pop --quiet
-result="$?"
-if test "$result" -ne 0; then
-    echo "Precommit: Failed to unstash changes prior to commit."
-    die "$result"
-fi
-
 echo "Precommit: Success."
-exit 0
+die 0
