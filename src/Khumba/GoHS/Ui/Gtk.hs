@@ -8,11 +8,12 @@ import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), Windo
 import Khumba.GoHS.Sgf
 import qualified Khumba.GoHS.Sgf as Sgf
 import Khumba.GoHS.Sgf.Parser
-import Khumba.GoHS.Ui.Gtk.Board
 import Khumba.GoHS.Ui.Gtk.Common
+import qualified Khumba.GoHS.Ui.Gtk.MainWindow as MainWindow
+import Khumba.GoHS.Ui.Gtk.MainWindow (MainWindow)
 
-data UiCtrlImpl = UiCtrlImpl { uiBoard :: GtkBoard UiCtrlImpl
-                             , uiCursor :: MVar Cursor
+data UiCtrlImpl = UiCtrlImpl { uiCursor :: MVar Cursor
+                             , uiMainWindow :: MainWindow UiCtrlImpl
                              }
 
 instance UiCtrl UiCtrlImpl where
@@ -25,7 +26,7 @@ instance UiCtrl UiCtrlImpl where
   playAt ui coord = modifyMVar_ (uiCursor ui) $ \cursor ->
     if not $ Sgf.isCurrentValidMove (cursorBoard cursor) coord
     then do
-      dialog <- messageDialogNew (Just $ gtkBoardWindow $ uiBoard ui)
+      dialog <- messageDialogNew (Just $ MainWindow.myWindow $ uiMainWindow ui)
                                  [DialogModal, DialogDestroyWithParent]
                                  MessageError
                                  ButtonsOk
@@ -97,28 +98,26 @@ goReplace :: UiCtrlImpl -> Cursor -> IO ()
 goReplace = updateUi
 
 updateUi :: UiCtrlImpl -> Cursor -> IO ()
-updateUi ui = onCursorChange (uiBoard ui)
+updateUi ui = onCursorChange (uiMainWindow ui)
 
 openBoard :: Node -> IO UiCtrlImpl
 openBoard rootNode = do
   let cursor = either (error . ("Error creating root cursor: " ++)) id $
                rootCursor rootNode
       board = cursorBoard cursor
-      width = boardWidth board
-      height = boardHeight board
-  uiRef <- newIORef Nothing
-  let uiRef' = UiRef uiRef
-
-  uiBoard <- gtkBoardNew uiRef' width height
+  uiRef' <- newIORef Nothing
+  let uiRef = UiRef uiRef'
 
   cursorVar <- newMVar cursor
-  let ui = UiCtrlImpl { uiBoard = uiBoard
-                      , uiCursor = cursorVar
-                      }
-  writeIORef uiRef $ Just ui
+  mainWindow <- MainWindow.create uiRef
 
-  onCursorChange uiBoard cursor
-  gtkBoardShow uiBoard
+  let ui = UiCtrlImpl { uiCursor = cursorVar
+                      , uiMainWindow = mainWindow
+                      }
+  writeIORef uiRef' $ Just ui
+
+  onCursorChange mainWindow cursor
+  MainWindow.display mainWindow
   return ui
 
 openFile :: String -> IO (Either ParseError UiCtrlImpl)

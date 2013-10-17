@@ -17,11 +17,14 @@ executable gohs
     other-modules:
         Khumba.GoHS.Common
         Khumba.GoHS.Sgf
+        Khumba.GoHS.Sgf.Parser
         Khumba.GoHS.Ui.Gtk
-        Khumba.GoHS.Ui.Gtk.Board
         Khumba.GoHS.Ui.Gtk.Common
+        Khumba.GoHS.Ui.Gtk.Goban
+        Khumba.GoHS.Ui.Gtk.InfoLine
+        Khumba.GoHS.Ui.Gtk.MainWindow
     ghc-options: -fwarn-incomplete-patterns
- 
+
 test-suite test-gohs
     build-depends: base, containers, HUnit, mtl, test-framework,
                    test-framework-hunit
