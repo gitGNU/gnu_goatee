@@ -13,7 +13,7 @@ data InfoLine ui = InfoLine { myUi :: UiRef ui
                             }
 
 instance UiCtrl ui => UiView (InfoLine ui) where
-  onCursorChange infoLine cursor =
+  viewCursorChanged infoLine cursor =
     labelSetMarkup (myLabel infoLine) (generateMarkup cursor)
 
 create :: UiCtrl ui => UiRef ui -> IO (InfoLine ui)

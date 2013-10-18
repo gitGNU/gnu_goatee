@@ -1,4 +1,6 @@
-module Khumba.GoHS.Ui.Gtk where
+module Khumba.GoHS.Ui.Gtk ( openBoard
+                          , openFile
+                          ) where
 
 import Control.Concurrent.MVar.Strict
 import Data.IORef
@@ -12,11 +14,16 @@ import Khumba.GoHS.Ui.Gtk.Common
 import qualified Khumba.GoHS.Ui.Gtk.MainWindow as MainWindow
 import Khumba.GoHS.Ui.Gtk.MainWindow (MainWindow)
 
-data UiCtrlImpl = UiCtrlImpl { uiCursor :: MVar Cursor
+data UiCtrlImpl = UiCtrlImpl { uiModes :: IORef UiModes
+                             , uiCursor :: MVar Cursor
                              , uiMainWindow :: MainWindow UiCtrlImpl
                              }
 
 instance UiCtrl UiCtrlImpl where
+  readModes = readIORef . uiModes
+
+  internalSetModes = writeIORef . uiModes
+
   readCursor = readMVar . uiCursor
 
   isValidMove ui coord = do
@@ -98,7 +105,7 @@ goReplace :: UiCtrlImpl -> Cursor -> IO ()
 goReplace = updateUi
 
 updateUi :: UiCtrlImpl -> Cursor -> IO ()
-updateUi ui = onCursorChange (uiMainWindow ui)
+updateUi ui = fireViewCursorChanged (uiMainWindow ui)
 
 openBoard :: Node -> IO UiCtrlImpl
 openBoard rootNode = do
@@ -108,15 +115,17 @@ openBoard rootNode = do
   uiRef' <- newIORef Nothing
   let uiRef = UiRef uiRef'
 
+  modesVar <- newIORef defaultUiModes
   cursorVar <- newMVar cursor
   mainWindow <- MainWindow.create uiRef
 
-  let ui = UiCtrlImpl { uiCursor = cursorVar
+  let ui = UiCtrlImpl { uiModes = modesVar
+                      , uiCursor = cursorVar
                       , uiMainWindow = mainWindow
                       }
   writeIORef uiRef' $ Just ui
 
-  onCursorChange mainWindow cursor
+  fireViewCursorChanged mainWindow cursor
   MainWindow.display mainWindow
   return ui
 

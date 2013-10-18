@@ -13,6 +13,7 @@ executable gohs
                    strict-concurrency, wx, wxcore
     main-is: Main.hs
     buildable: True
+    extensions: ExistentialQuantification
     hs-source-dirs: src
     other-modules:
         Khumba.GoHS.Common
@@ -31,5 +32,4 @@ test-suite test-gohs
     type: exitcode-stdio-1.0
     main-is: Test.hs
     buildable: True
-    extensions: MultiParamTypeClasses
     hs-source-dirs: src

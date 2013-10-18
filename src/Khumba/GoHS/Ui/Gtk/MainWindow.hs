@@ -43,9 +43,8 @@ data MainWindow ui = MainWindow { myUi :: UiRef ui
                                 }
 
 instance UiCtrl ui => UiView (MainWindow ui) where
-  onCursorChange mainWindow cursor = do
-    onCursorChange (myInfoLine mainWindow) cursor
-    onCursorChange (myGoban mainWindow) cursor
+  viewChildren mainWindow = [View (myInfoLine mainWindow),
+                             View (myGoban mainWindow)]
 
 create :: UiCtrl ui => UiRef ui -> IO (MainWindow ui)
 create uiRef = do

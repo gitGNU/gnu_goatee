@@ -49,7 +49,7 @@ data Goban ui = Goban { myUi :: UiRef ui
                       }
 
 instance UiCtrl ui => UiView (Goban ui) where
-  onCursorChange goban cursor = widgetQueueDraw $ myDrawingArea goban
+  viewCursorChanged goban cursor = widgetQueueDraw $ myDrawingArea goban
 
 -- | Creates a 'Goban' for rendering Go boards of the given size.
 create :: UiCtrl ui => UiRef ui -> IO (Goban ui)
