@@ -6,6 +6,7 @@ module Khumba.GoHS.Common ( listReplace
                           , onRight
                           , andEithers
                           , mapTuple
+                          , whenMaybe
                           ) where
 
 import Control.Arrow ((***))
@@ -53,3 +54,6 @@ andEithers' _ = ([], [])
 
 mapTuple :: (a -> b) -> (a, a) -> (b, b)
 mapTuple = join (***)
+
+whenMaybe :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenMaybe = flip $ maybe (return ())

@@ -6,10 +6,11 @@ module Khumba.GoHS.Ui.Gtk.Goban ( Goban
 import Control.Monad
 import Control.Monad.Trans (liftIO)
 import Data.Maybe
+import Data.IORef
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk hiding (Color, Cursor)
-import Khumba.GoHS.Common (mapTuple)
-import Khumba.GoHS.Sgf
+import Khumba.GoHS.Common
+import Khumba.GoHS.Sgf hiding (isValidMove)
 import Khumba.GoHS.Ui.Gtk.Common
 
 boardBgColor :: Rgb
@@ -41,6 +42,11 @@ stoneBorderColor color = case color of
 stoneBorderThickness :: Double
 stoneBorderThickness = 0.03
 
+-- | The opacity, in @[0, 1]@, of a stone that should be drawn as transparent,
+-- e.g. when hovering over a empty point on the board.
+transparentStoneOpacity :: Double
+transparentStoneOpacity = 0.7
+
 -- | A GTK widget that renders a Go board.
 --
 -- @ui@ should be an instance of 'UiCtrl'.
@@ -49,50 +55,150 @@ data Goban ui = Goban { myUi :: UiRef ui
                       }
 
 instance UiCtrl ui => UiView (Goban ui) where
-  viewCursorChanged goban cursor = widgetQueueDraw $ myDrawingArea goban
+  viewCursorChanged goban cursor =
+    -- TODO Need to update the hover state's validity on cursor and tool (mode?)
+    -- changes.
+    widgetQueueDraw $ myDrawingArea goban
+
+-- | Holds data relating to the state of the mouse hovering over the board.
+data HoverState = HoverState { hoverCoord :: Maybe Coord
+                               -- ^ The board coordinate corresponding to the
+                               -- current mouse position.  Nothing if the mouse
+                               -- is not over the board.
+                             , hoverIsValidMove :: Bool
+                               -- ^ True iff the hovered point is legal to play
+                               -- on for the current player.
+                             } deriving (Show)
 
 -- | Creates a 'Goban' for rendering Go boards of the given size.
 create :: UiCtrl ui => UiRef ui -> IO (Goban ui)
 create uiRef = do
-  let clickHandler = boardClickHandler uiRef
+  hoverStateRef <- newIORef HoverState { hoverCoord = Nothing
+                                       , hoverIsValidMove = False
+                                       }
 
   drawingArea <- drawingAreaNew
-  -- TODO Enable mouse events for the DrawingArea as mentioned in the docs for
-  -- Graphics.UI.Gtk.Misc.DrawingArea.  Also handle configureEvent (resizes)?
+  widgetAddEvents drawingArea [LeaveNotifyMask,
+                               ButtonPressMask,
+                               PointerMotionMask]
   on drawingArea exposeEvent $ liftIO $ do
     cursor <- readCursor =<< readUiRef uiRef
-    drawBoard uiRef drawingArea
+    drawBoard uiRef hoverStateRef drawingArea
+    return True
+
+  on drawingArea motionNotifyEvent $ do
+    mouseCoord <- fmap Just eventCoordinates
+    liftIO $ handleMouseMove uiRef hoverStateRef drawingArea mouseCoord
+    return True
+  on drawingArea leaveNotifyEvent $ do
+    liftIO $ handleMouseMove uiRef hoverStateRef drawingArea Nothing
+    return True
+
+  on drawingArea buttonPressEvent $ do
+    mouseXy <- eventCoordinates
+    liftIO $ doToolAtPoint uiRef drawingArea mouseXy
     return True
 
   return Goban { myUi = uiRef
                , myDrawingArea = drawingArea
                }
 
-boardClickHandler :: UiCtrl a => UiRef a -> Int -> Int -> IO ()
-boardClickHandler uiRef x y = do
+-- | Called when the mouse is moved.  Updates the 'HoverState' according to the
+-- new mouse location, and redraws the board if necessary.
+handleMouseMove :: UiCtrl a
+                => UiRef a
+                -> IORef HoverState
+                -> DrawingArea
+                -> Maybe (Double, Double)
+                -> IO ()
+handleMouseMove uiRef hoverStateRef drawingArea maybeClickCoord = do
   ui <- readUiRef uiRef
-  playAt ui (x, y)
+  maybeXy <- case maybeClickCoord of
+    Nothing -> return Nothing
+    Just (mouseX, mouseY) -> do
+      board <- fmap cursorBoard (readCursor ui)
+      gtkToBoardCoordinates board drawingArea mouseX mouseY
+  updateHoverPosition ui hoverStateRef maybeXy >>= flip when
+    (widgetQueueDraw drawingArea)
 
-drawBoard :: UiCtrl ui => UiRef ui -> DrawingArea -> IO ()
-drawBoard uiRef drawingArea = do
+-- | Applies the current tool at the given GTK coordinate, if such an action is
+-- valid.
+doToolAtPoint :: UiCtrl ui => UiRef ui -> DrawingArea -> (Double, Double) -> IO ()
+doToolAtPoint uiRef drawingArea (mouseX, mouseY) = do
   ui <- readUiRef uiRef
   cursor <- readCursor ui
-
-  (canvasWidth, canvasHeight) <- return . mapTuple fromIntegral =<< widgetGetSize drawingArea
   let board = cursorBoard cursor
-      cols = fromIntegral $ boardWidth board
-      rows = fromIntegral $ boardHeight board
-      maxStoneWidth = canvasWidth / cols
-      maxStoneHeight = canvasHeight / rows
+  maybeXy <- gtkToBoardCoordinates board drawingArea mouseX mouseY
+  whenMaybe maybeXy $ \xy -> do
+    tool <- fmap uiTool (readModes ui)
+
+    case tool of
+      ToolPlay -> do
+        valid <- isValidMove ui xy
+        when valid $ playAt ui xy
+      _ -> return ()  -- TODO Support other tools.
+
+-- | Updates the hover state for the mouse having moved to the given board
+-- coordinate.  Returns true if the board coordinate has changed.
+updateHoverPosition :: UiCtrl ui => ui -> IORef HoverState -> Maybe Coord -> IO Bool
+updateHoverPosition ui hoverStateRef maybeXy = do
+  hoverState <- readIORef hoverStateRef
+  if maybeXy == hoverCoord hoverState
+    then return False
+    else do valid <- case maybeXy of
+              Nothing -> return False
+              Just xy -> isValidMove ui xy
+            writeIORef hoverStateRef HoverState { hoverCoord = maybeXy
+                                                , hoverIsValidMove = valid
+                                                }
+            return True
+
+applyBoardCoordinates :: BoardState -> DrawingArea -> IO (Render ())
+applyBoardCoordinates board drawingArea = do
+  (canvasWidth, canvasHeight) <- return . mapTuple fromIntegral =<< widgetGetSize drawingArea
+
+  let maxStoneWidth = canvasWidth / fromIntegral (boardWidth board)
+      maxStoneHeight = canvasHeight / fromIntegral (boardHeight board)
       maxStoneLength = min maxStoneWidth maxStoneHeight
 
-  drawWindow <- widgetGetDrawWindow drawingArea
-  renderWithDrawable drawWindow $ do
+  return $ do
     -- Set user coordinates so that the top-left stone occupies the rectangle
     -- from (0,0) to (1,1).
     when (canvasWidth > canvasHeight) $ translate ((canvasWidth - canvasHeight) / 2) 0
     when (canvasHeight > canvasWidth) $ translate 0 ((canvasHeight - canvasWidth) / 2)
     scale maxStoneLength maxStoneLength
+
+-- | Takes a GTK coordinate and, using a Cairo rendering context, returns the
+-- corresponding board coordinate, or @Nothing@ if the GTK coordinate is not
+-- over the board.
+gtkToBoardCoordinates :: BoardState -> DrawingArea -> Double -> Double -> IO (Maybe (Int, Int))
+gtkToBoardCoordinates board drawingArea x y = do
+  drawWindow <- widgetGetDrawWindow drawingArea
+  changeCoords <- applyBoardCoordinates board drawingArea
+  result@(bx, by) <- fmap (mapTuple floor) $
+                     renderWithDrawable drawWindow $
+                     changeCoords >> deviceToUser x y
+  return $ if bx < 0 || bx >= boardWidth board ||
+              by < 0 || by >= boardHeight board
+           then Nothing
+           else Just result
+
+-- | Fully redraws the board based on the current controller and UI state.
+drawBoard :: UiCtrl ui => UiRef ui -> IORef HoverState -> DrawingArea -> IO ()
+drawBoard uiRef hoverStateRef drawingArea = do
+  ui <- readUiRef uiRef
+  cursor <- readCursor ui
+  tool <- fmap uiTool (readModes ui)
+  hoverState <- readIORef hoverStateRef
+
+  let board = cursorBoard cursor
+      cols = fromIntegral $ boardWidth board
+      rows = fromIntegral $ boardHeight board
+
+  drawWindow <- widgetGetDrawWindow drawingArea
+  changeCoords <- applyBoardCoordinates board drawingArea
+  renderWithDrawable drawWindow $ do
+    changeCoords
 
     -- Fill the background a nice woody shade.
     setRgb boardBgColor
@@ -105,11 +211,20 @@ drawBoard uiRef drawingArea = do
     stroke
 
     sequence_ $ flip mapBoardCoords board $
-      drawCoord board gridLineWidth (gridLineWidth * 2)
+      drawCoord board gridLineWidth (gridLineWidth * 2) tool hoverState
   return ()
 
-drawCoord :: BoardState -> Double -> Double -> Int -> Int -> CoordState -> Render ()
-drawCoord board gridWidth gridBorderWidth x y coord = do
+-- | Draws a single point on the board.
+drawCoord :: BoardState -- ^ The board being drawn.
+          -> Double     -- ^ The pixel width of the grid in the board's interior.
+          -> Double     -- ^ The pixel width of the grid on the board's border.
+          -> Tool       -- ^ The current tool.
+          -> HoverState -- ^ The current hover state.
+          -> Int        -- ^ The x-index of the point to be drawn.
+          -> Int        -- ^ The y-index of the point to be drawn.
+          -> CoordState -- ^ The point to be drawn.
+          -> Render ()
+drawCoord board gridWidth gridBorderWidth tool hoverState x y coord = do
   let x' = fromIntegral x
       y' = fromIntegral y
       draw = do
@@ -136,22 +251,38 @@ drawCoord board gridWidth gridBorderWidth x y coord = do
         setAntialias AntialiasDefault
 
         -- Draw a stone if present.
-        case coordStone coord of
-          Just color -> drawStone x' y' color
-          Nothing -> return ()
+        translate x' y'
+        if (tool == ToolBlack || tool == ToolWhite) &&
+           isJust (hoverCoord hoverState) &&
+           fst (fromJust $ hoverCoord hoverState) == x &&
+           snd (fromJust $ hoverCoord hoverState) == y &&
+           coordStone coord /= Just (toolToColor tool)
+          then drawStone (toolToColor tool) True
+          else case coordStone coord of
+            Just color -> drawStone color False
+            Nothing -> fromMaybe (return ()) $
+                       do if tool == ToolPlay then Just () else Nothing
+                          (hx, hy) <- hoverCoord hoverState
+                          if x == hx && y == hy && hoverIsValidMove hoverState then Just () else Nothing
+                          return $ drawStone (boardPlayerTurn board) True
+        translate (-x') (-y')
 
   case coordVisibility coord of
     CoordInvisible -> return ()
     -- TODO CoordDimmed
     CoordVisible -> draw
 
-drawStone :: Double -> Double -> Color -> Render ()
-drawStone x y color = do
-  arc (x + 0.5) (y + 0.5) (0.5 - stoneBorderThickness / 2) 0 (2 * pi)
-  setRgb $ stoneColor color
+-- | Draws a stone from @(0, 0)@ to @(1, 1)@ in user coordinates.
+drawStone :: Color -- ^ The color of stone to draw.
+          -> Bool  -- ^ If true, the stone is transparent; if false, opaque.
+          -> Render ()
+drawStone color transparent = do
+  let opacity = if transparent then transparentStoneOpacity else 1
+  arc 0.5 0.5 (0.5 - stoneBorderThickness / 2) 0 (2 * pi)
+  setRgbA (stoneColor color) opacity
   fillPreserve
   setLineWidth stoneBorderThickness
-  setRgb $ stoneBorderColor color
+  setRgbA (stoneBorderColor color) opacity
   stroke
 
 type Rgb = (Double, Double, Double)
@@ -164,3 +295,6 @@ rgb255 r g b = (r / 255, g / 255, b / 255)
 
 setRgb :: Rgb -> Render ()
 setRgb (r, g, b) = setSourceRGB r g b
+
+setRgbA :: Rgb -> Double -> Render ()
+setRgbA (r, g, b) = setSourceRGBA r g b

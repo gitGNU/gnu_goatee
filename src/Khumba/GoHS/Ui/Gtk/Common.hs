@@ -10,8 +10,9 @@ class UiCtrl a where
   -- | Reads the current UI modes.
   readModes :: a -> IO UiModes
 
-  -- | Modifies the current UI modes with an IO action.
-  internalSetModes :: a -> UiModes -> IO ()
+  -- | Modifies the controller's modes according to the given action, then fires
+  -- a mode change event via 'fireViewModesChanged'.
+  modifyModes :: a -> (UiModes -> IO UiModes) -> IO ()
 
   -- | Returns the current cursor.
   readCursor :: a -> IO Cursor
@@ -43,11 +44,13 @@ class UiCtrl a where
   -- (i.e. whether there was a right sibling).
   goRight :: a -> IO Bool
 
-modifyModes :: UiCtrl ui => ui -> (UiModes -> IO UiModes) -> IO ()
-modifyModes ui f = readModes ui >>= f >>= internalSetModes ui
-
 modifyModesPure :: UiCtrl ui => ui -> (UiModes -> UiModes) -> IO ()
 modifyModesPure ui f = modifyModes ui (return . f)
+
+-- | Assigns to the current tool within the modes of 'ui' (firing any relevant
+-- change handlers).
+setTool :: UiCtrl ui => ui -> Tool -> IO ()
+setTool ui tool = modifyModesPure ui $ \modes -> modes { uiTool = tool }
 
 -- | An IO variable that points to a 'UiCtrl'.
 data UiRef ui = UiRef { getUiRef :: IORef (Maybe ui) }
@@ -126,4 +129,34 @@ data Tool = -- * Game tools
           | ToolVisible
           | ToolDim
           | ToolInvisible
-          deriving (Eq, Show)
+          deriving (Bounded, Enum, Eq, Show)
+
+initialTool :: Tool
+initialTool = ToolPlay
+
+toolLabel :: Tool -> String
+toolLabel tool = case tool of
+  ToolPlay -> "Play"
+  ToolJump -> "Jump to move"
+  ToolScore -> "Score"
+  ToolBlack -> "Paint black stones"
+  ToolWhite -> "Paint white stones"
+  ToolErase -> "Erase stones"
+  ToolArrow -> "Draw arrows"
+  ToolMarkCircle -> "Mark circles"
+  ToolLabel -> "Label points"
+  ToolLine -> "Draw lines"
+  ToolMarkX -> "Mark Xs"
+  ToolMarkSelected -> "Mark selected"
+  ToolMarkSquare -> "Mark squares"
+  ToolMarkTriangle -> "Mark triangles"
+  ToolVisible -> "Set points visible"
+  ToolDim -> "Set points dimmed"
+  ToolInvisible -> "Set points invisible"
+
+-- | Converts 'ToolBlack' and 'ToolWhite' into 'Color's.  Does not accept any
+-- other tools.
+toolToColor :: Tool -> Color
+toolToColor ToolBlack = Black
+toolToColor ToolWhite = White
+toolToColor other = error $ "toolToColor is invalid for " ++ show other ++ "."

@@ -13,6 +13,8 @@ import Data.Tree (drawTree, unfoldTree)
 import Graphics.UI.Gtk
 import Khumba.GoHS.Sgf
 import Khumba.GoHS.Ui.Gtk.Common
+import qualified Khumba.GoHS.Ui.Gtk.Actions as Actions
+import Khumba.GoHS.Ui.Gtk.Actions (Actions)
 import qualified Khumba.GoHS.Ui.Gtk.Goban as Goban
 import Khumba.GoHS.Ui.Gtk.Goban (Goban)
 import qualified Khumba.GoHS.Ui.Gtk.InfoLine as InfoLine
@@ -74,8 +76,18 @@ create uiRef = do
         _ -> return ()
     return True
 
+  actions <- Actions.create uiRef
+
   boardBox <- vBoxNew False 0
   containerAdd window boardBox
+
+  toolbar <- toolbarNew
+  boxPackStart boardBox toolbar PackNatural 0
+  -- TODO Actions should be inserted in order.
+  actionGroupListActions (Actions.myToolActions actions) >>=
+    mapM_ (\action -> do name <- actionGetName action
+                         toolItem <- actionCreateToolItem action
+                         containerAdd toolbar toolItem)
 
   infoLine <- InfoLine.create uiRef
   boxPackStart boardBox (InfoLine.myLabel infoLine) PackNatural 0

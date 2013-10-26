@@ -22,7 +22,10 @@ data UiCtrlImpl = UiCtrlImpl { uiModes :: IORef UiModes
 instance UiCtrl UiCtrlImpl where
   readModes = readIORef . uiModes
 
-  internalSetModes = writeIORef . uiModes
+  modifyModes ui f = do
+    newModes <- f =<< readModes ui
+    writeIORef (uiModes ui) newModes
+    fireViewModesChanged (uiMainWindow ui) newModes
 
   readCursor = readMVar . uiCursor
 
