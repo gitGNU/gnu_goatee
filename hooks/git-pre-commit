@@ -48,7 +48,7 @@ fi
 
 echo "Precommit: Checking that the package builds."
 buildLog="$(mktemp)"
-cabal configure >>"$buildLog" 2>&1
+cabal configure --enable-tests >>"$buildLog" 2>&1
 cabal build >>"$buildLog" 2>&1
 result="$?"
 if test "$result" -ne 0; then
