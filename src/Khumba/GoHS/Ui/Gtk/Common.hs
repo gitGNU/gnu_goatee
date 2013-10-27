@@ -108,6 +108,7 @@ defaultUiModes = UiModes { uiViewMode = ViewRegularMode
                          , uiTool = ToolPlay
                          }
 
+-- | Selectable tools for operating on the board.
 data Tool = -- * Game tools
             ToolPlay
           | ToolJump
@@ -131,8 +132,18 @@ data Tool = -- * Game tools
           | ToolInvisible
           deriving (Bounded, Enum, Eq, Show)
 
+-- | The tool that should be selected when a board first opens in the UI.
 initialTool :: Tool
 initialTool = ToolPlay
+
+-- | The ordering and grouping of tools as they should appear in the UI.
+toolOrdering :: [[Tool]]
+toolOrdering =
+  [[ToolPlay, ToolJump, ToolScore],
+   [ToolBlack, ToolWhite, ToolErase],
+   [ToolArrow, ToolMarkCircle, ToolLabel, ToolLine, ToolMarkX, ToolMarkSelected,
+    ToolMarkSquare, ToolMarkTriangle],
+   [ToolVisible, ToolDim, ToolInvisible]]
 
 toolLabel :: Tool -> String
 toolLabel tool = case tool of

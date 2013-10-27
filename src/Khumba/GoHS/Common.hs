@@ -7,6 +7,7 @@ module Khumba.GoHS.Common ( listReplace
                           , andEithers
                           , mapTuple
                           , whenMaybe
+                          , cond
                           ) where
 
 import Control.Arrow ((***))
@@ -57,3 +58,7 @@ mapTuple = join (***)
 
 whenMaybe :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenMaybe = flip $ maybe (return ())
+
+cond :: a -> [(Bool, a)] -> a
+cond fallback ((test, body):rest) = if test then body else cond fallback rest
+cond fallback _ = fallback

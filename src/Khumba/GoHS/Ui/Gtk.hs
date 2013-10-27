@@ -128,6 +128,9 @@ openBoard rootNode = do
                       }
   writeIORef uiRef' $ Just ui
 
+  -- Do initialization that requires the 'UiCtrl' to be available.
+  MainWindow.initialize mainWindow
+
   fireViewCursorChanged mainWindow cursor
   MainWindow.display mainWindow
   return ui
