@@ -1,5 +1,6 @@
-module Khumba.GoHS.Ui.Gtk ( openBoard
-                          , openFile
+module Khumba.GoHS.Ui.Gtk ( startBoard
+                          , startNewBoard
+                          , startFile
                           ) where
 
 import Control.Concurrent.MVar.Strict
@@ -7,9 +8,9 @@ import Data.IORef
 import Data.List (find)
 import Data.Maybe
 import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), Window, dialogRun, messageDialogNew, widgetDestroy, windowSetTitle)
-import Khumba.GoHS.Sgf
 import qualified Khumba.GoHS.Sgf as Sgf
-import Khumba.GoHS.Sgf.Parser
+import Khumba.GoHS.Sgf
+import Khumba.GoHS.Sgf.Parser (ParseError)
 import Khumba.GoHS.Ui.Gtk.Common
 import qualified Khumba.GoHS.Ui.Gtk.MainWindow as MainWindow
 import Khumba.GoHS.Ui.Gtk.MainWindow (MainWindow)
@@ -86,6 +87,32 @@ instance UiCtrl UiCtrlImpl where
            else let right = cursorChild parentCursor $ index + 1
                 in goToLeft ui right >> return (right, True)
 
+  -- May not use the controller; it is used only for type inference.  It is
+  -- called with @undefined@ in the @start@ functions below.
+  openBoard _ rootNode = do
+    let cursor = either (error . ("Error creating root cursor: " ++)) id $
+                 rootCursor rootNode
+        board = cursorBoard cursor
+    uiRef' <- newIORef Nothing
+    let uiRef = UiRef uiRef'
+
+    modesVar <- newIORef defaultUiModes
+    cursorVar <- newMVar cursor
+    mainWindow <- MainWindow.create uiRef
+
+    let ui = UiCtrlImpl { uiModes = modesVar
+                        , uiCursor = cursorVar
+                        , uiMainWindow = mainWindow
+                        }
+    writeIORef uiRef' $ Just ui
+
+    -- Do initialization that requires the 'UiCtrl' to be available.
+    MainWindow.initialize mainWindow
+
+    fireViewCursorChanged mainWindow cursor
+    MainWindow.display mainWindow
+    return ui
+
 isPropertyBOrW :: Property -> Bool
 isPropertyBOrW prop = case prop of
   B _ -> True
@@ -110,35 +137,11 @@ goReplace = updateUi
 updateUi :: UiCtrlImpl -> Cursor -> IO ()
 updateUi ui = fireViewCursorChanged (uiMainWindow ui)
 
-openBoard :: Node -> IO UiCtrlImpl
-openBoard rootNode = do
-  let cursor = either (error . ("Error creating root cursor: " ++)) id $
-               rootCursor rootNode
-      board = cursorBoard cursor
-  uiRef' <- newIORef Nothing
-  let uiRef = UiRef uiRef'
+startBoard :: Node -> IO UiCtrlImpl
+startBoard = openBoard undefined
 
-  modesVar <- newIORef defaultUiModes
-  cursorVar <- newMVar cursor
-  mainWindow <- MainWindow.create uiRef
+startNewBoard :: Int -> Int -> IO UiCtrlImpl
+startNewBoard = openNewBoard undefined
 
-  let ui = UiCtrlImpl { uiModes = modesVar
-                      , uiCursor = cursorVar
-                      , uiMainWindow = mainWindow
-                      }
-  writeIORef uiRef' $ Just ui
-
-  -- Do initialization that requires the 'UiCtrl' to be available.
-  MainWindow.initialize mainWindow
-
-  fireViewCursorChanged mainWindow cursor
-  MainWindow.display mainWindow
-  return ui
-
-openFile :: String -> IO (Either ParseError UiCtrlImpl)
--- TODO Don't only choose the first tree in the collection.
-openFile file = do
-  result <- parseFile file
-  case result of
-    Right trees -> fmap Right $ openBoard $ head trees
-    Left err -> return $ Left err
+startFile :: String -> IO (Either ParseError UiCtrlImpl)
+startFile = openFile undefined

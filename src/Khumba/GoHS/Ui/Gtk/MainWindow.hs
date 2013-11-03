@@ -92,6 +92,13 @@ create uiRef = do
   menuBar <- menuBarNew
   boxPackStart boardBox menuBar PackNatural 0
 
+  menuFile <- menuItemNewWithMnemonic "_File"
+  menuFileMenu <- menuNew
+  menuShellAppend menuBar menuFile
+  menuItemSetSubmenu menuFile menuFileMenu
+  addActionsToMenu menuFileMenu actions
+    [Actions.myFileNewAction, Actions.myFileOpenAction]
+
   menuTool <- menuItemNewWithMnemonic "_Tool"
   menuToolMenu <- menuNew
   menuShellAppend menuBar menuTool
@@ -134,3 +141,10 @@ initialize = Actions.activateInitialTool . myActions
 -- | Makes a 'MainWindow' visible.
 display :: MainWindow ui -> IO ()
 display = widgetShowAll . myWindow
+
+-- | Takes a object of generic type, extracts a bunch of actions from it, and
+-- adds those actions to a menu.
+addActionsToMenu :: Menu -> a -> [a -> Action] -> IO ()
+addActionsToMenu menu actions accessors =
+  forM_ accessors $ \accessor ->
+  containerAdd menu =<< actionCreateMenuItem (accessor actions)

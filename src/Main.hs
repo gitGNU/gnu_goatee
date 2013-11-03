@@ -22,8 +22,8 @@ mainGtk :: IO ()
 mainGtk = do
   args <- initGUI
   if null args
-    then void $ openBoard $ rootNode 9 9
-    else do result <- openFile $ head args
+    then void $ startNewBoard 19 19
+    else do result <- startFile $ head args
             case result of
               Left msg -> print msg
               _ -> return ()

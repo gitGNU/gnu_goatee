@@ -3,7 +3,9 @@ module Khumba.GoHS.Ui.Gtk.Common where
 import Control.Monad ((<=<), forM_)
 import Data.IORef
 import Data.Maybe
+import Graphics.UI.Gtk hiding (Color, Cursor)
 import Khumba.GoHS.Sgf
+import Khumba.GoHS.Sgf.Parser
 
 -- | A controller for the GTK+ UI.
 class UiCtrl a where
@@ -43,6 +45,19 @@ class UiCtrl a where
   -- of the current one.  Returns whether a move was made
   -- (i.e. whether there was a right sibling).
   goRight :: a -> IO Bool
+
+  openBoard :: a -> Node -> IO a
+
+  openNewBoard :: a -> Int -> Int -> IO a
+  openNewBoard ui width height = openBoard ui (rootNode width height)
+
+  openFile :: a -> String -> IO (Either ParseError a)
+  openFile ui file = do
+    -- TODO Don't only choose the first tree in the collection.
+    result <- parseFile file
+    case result of
+      Right trees -> fmap Right $ openBoard ui $ head trees
+      Left err -> return $ Left err
 
 modifyModesPure :: UiCtrl ui => ui -> (UiModes -> UiModes) -> IO ()
 modifyModesPure ui f = modifyModes ui (return . f)
@@ -171,3 +186,15 @@ toolToColor :: Tool -> Color
 toolToColor ToolBlack = Black
 toolToColor ToolWhite = White
 toolToColor other = error $ "toolToColor is invalid for " ++ show other ++ "."
+
+-- | Creates a list of 'FileFilter's that should be used in 'FileChooser's that
+-- are working with SGF files.
+fileFiltersForSgf :: IO [FileFilter]
+fileFiltersForSgf = do
+  sgf <- fileFilterNew
+  fileFilterSetName sgf "SGF files (*.sgf)"
+  fileFilterAddPattern sgf "*.sgf"
+  all <- fileFilterNew
+  fileFilterSetName all "All files (*)"
+  fileFilterAddPattern all "*"
+  return [sgf, all]
