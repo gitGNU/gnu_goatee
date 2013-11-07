@@ -38,15 +38,13 @@ f `onLeft` e = case e of
   Right y -> Right y
 
 onRight :: (b -> c) -> Either a b -> Either a c
-f `onRight` e = case e of
-  Left x -> Left x
-  Right y -> Right $ f y
+onRight = fmap
 
 -- | If any item is a 'Left', then the list of 'Left's is returned, otherwise
 -- the list of 'Right's is returned.
 andEithers :: [Either a b] -> Either [a] [b]
 andEithers xs = let (as, bs) = andEithers' xs
-                in if not $ null as then Right bs else Left as
+                in if not $ null as then Left as else Right bs
 
 andEithers' :: [Either a b] -> ([a], [b])
 andEithers' (Left a:rest) = let (as, bs) = andEithers' rest in (a:as, bs)
