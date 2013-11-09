@@ -1,6 +1,9 @@
-module Khumba.GoHS.Sgf.Parser (ParseError, parseString, parseFile) where
+module Khumba.GoHS.Sgf.Parser ( ParseError
+                              , parseString
+                              , parseFile
+                              ) where
 
-import Control.Applicative ((<$), (<*), (*>), (<*>))
+import Control.Applicative ((<$), (<$>), (<*), (*>), (<*>))
 import Control.Monad
 import Data.Char
 import Data.Monoid
@@ -8,10 +11,13 @@ import Khumba.GoHS.Sgf
 import Khumba.GoHS.Common
 import Text.ParserCombinators.Parsec
 
-parseString :: String -> Either String [Node]
-parseString str = case parse sgf "<sgf>" str of
+parseString :: String -> Either String Collection
+parseString str = case parse collection "<collection>" str of
   Left err -> Left $ show err
-  Right roots -> onLeft concatErrors $ andEithers $ map ttToPass roots
+  Right (Collection roots) -> onLeft concatErrors $
+                              onRight Collection $
+                              andEithers $
+                              map ttToPass roots
   where -- SGF allows B[tt] and W[tt] to represent passes on boards <=19x19.
         -- Convert any passes from this format to B[] and W[] in a root node and
         -- its descendents.
@@ -20,8 +26,8 @@ parseString str = case parse sgf "<sgf>" str of
             Left $ "Missing size property (SZ) in root node: " ++ show root
           Just (SZ width height) ->
             Right $ if width <= 19 && height <= 19
-                    then root
-                    else ttToPass' width height root
+                    then ttToPass' width height root
+                    else root
         -- Convert a node and its descendents.
         ttToPass' width height node =
           node { nodeProperties = map ttToPass'' $ nodeProperties node
@@ -29,8 +35,8 @@ parseString str = case parse sgf "<sgf>" str of
                }
         -- Convert a property.
         ttToPass'' prop = case prop of
-          B (Just (20, 20)) -> B Nothing
-          W (Just (20, 20)) -> W Nothing
+          B (Just (19, 19)) -> B Nothing
+          W (Just (19, 19)) -> W Nothing
           _ -> prop
         isSZ prop = case prop of
           SZ _ _ -> True
@@ -38,12 +44,12 @@ parseString str = case parse sgf "<sgf>" str of
         concatErrors errs = "The following errors occurred while parsing:" ++
                             concatMap ("\n-> " ++) errs
 
-parseFile :: String -> IO (Either ParseError [Node])
-parseFile = fmap (parse sgf "<sgf>") . readFile
+parseFile :: String -> IO (Either String Collection)
+parseFile = fmap parseString . readFile
 
-sgf :: CharParser () [Node]
-sgf = spaces *> many (gameTree <* spaces) <* eof
-      <?> "sgf"
+collection :: CharParser () Collection
+collection = fmap Collection (spaces *> many (gameTree <* spaces) <* eof)
+             <?> "collection"
 
 gameTree :: CharParser () Node
 gameTree = do
@@ -63,20 +69,22 @@ node = fmap (\props -> emptyNode { nodeProperties = props })
 
 property :: CharParser () Property
 -- TODO Some order on these.
-property = choice [try $ propertyParser "B" $ single $ fmap B move,
-                   try $ propertyParser "W" $ single $ fmap W move,
+property = choice [try $ propertyParser "B" $ single $ B <$> move,
+                   -- TODO Parse KO.  How to parse word boundaries?
+                   try $ propertyParser "MN" $ single $ MN <$> number,
+                   try $ propertyParser "W" $ single $ W <$> move,
 
-                   try $ propertyParser "AB" $ fmap AB listOfPoint,
-                   try $ propertyParser "AE" $ fmap AE listOfPoint,
-                   try $ propertyParser "AW" $ fmap AW listOfPoint,
-                   try $ propertyParser "PL" $ single $ fmap PL color,
+                   try $ propertyParser "AB" $ AB <$> listOfPoint,
+                   try $ propertyParser "AE" $ AE <$> listOfPoint,
+                   try $ propertyParser "AW" $ AW <$> listOfPoint,
+                   try $ propertyParser "PL" $ single $ PL <$> color,
 
-                   try $ propertyParser "SZ" $ single $ fmap (\x -> SZ x x) number,
+                   try $ propertyParser "SZ" $ single $ (\x -> SZ x x) <$> number,
 
-                   try $ propertyParser "BR" $ single $ fmap BR simpleText,
-                   try $ propertyParser "PB" $ single $ fmap PB simpleText,
-                   try $ propertyParser "PW" $ single $ fmap PW simpleText,
-                   try $ propertyParser "WR" $ single $ fmap WR simpleText,
+                   try $ propertyParser "BR" $ single $ BR <$> simpleText,
+                   try $ propertyParser "PB" $ single $ PB <$> simpleText,
+                   try $ propertyParser "PW" $ single $ PW <$> simpleText,
+                   try $ propertyParser "WR" $ single $ WR <$> simpleText,
                    unknownProperty]
 
 unknownProperty :: CharParser () Property
@@ -90,7 +98,7 @@ escapedChar :: CharParser () Char
 escapedChar = char '\\' *> anyChar
 
 propertyParser :: String -> CharParser a Property -> CharParser a Property
-propertyParser name valueParser = string name *> valueParser
+propertyParser name valueParser = string name *> spaces *> valueParser
 
 single :: CharParser a b -> CharParser a b
 single valueParser = char '[' *> valueParser <* char ']'
@@ -105,9 +113,9 @@ elistOf valueParser = try (listOf valueParser)
                       <?> "elist"
 
 listOfPoint :: CharParser () CoordList
-listOfPoint = fmap mconcat $ listOf pointListEntry
-  where pointListEntry = fmap list1 (try point)
-                         <|> fmap listR (compose point point)
+listOfPoint = mconcat <$> listOf pointListEntry
+  where pointListEntry = list1 <$> try point
+                         <|> listR <$> compose point point
                          <?> "point list entry"
         list1 point = CoordList { coordListSingles = [point]
                                 , coordListRects = []
@@ -116,8 +124,8 @@ listOfPoint = fmap mconcat $ listOf pointListEntry
                                      , coordListRects = [(from, to)]
                                      }
 
-number :: CharParser () Int
-number = fmap read number' <?> "number"
+number :: (Num a, Read a) => CharParser () a
+number = read <$> number' <?> "integer"
 
 number' :: CharParser () String
 number' = do

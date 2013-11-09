@@ -36,7 +36,8 @@ mainWx = do
     then start $ boardFrame $ fromRight $ rootCursor $ rootNode 9 9
     else do result <- parseFile $ head args
             case result of
-              Right trees ->
-                start $ boardFrame $ fromRight $ rootCursor $ head trees
+              Right collection ->
+                -- TODO Don't only choose the first tree in the collection.
+                start $ boardFrame $ fromRight $ rootCursor $ head $ collectionTrees collection
               Left err ->
                 putStrLn $ "Error loading file: " ++ show err

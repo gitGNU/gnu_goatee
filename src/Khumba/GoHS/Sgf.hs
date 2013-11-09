@@ -43,6 +43,16 @@ instance NFData CoordList where
   rnf coords = rnf (coordListSingles coords) `seq`
                rnf (coordListRects coords)
 
+coords :: [Coord] -> CoordList
+coords singles = CoordList { coordListSingles = singles
+                           , coordListRects = []
+                           }
+
+coords' :: [Coord] -> [(Coord, Coord)] -> CoordList
+coords' singles rects = CoordList { coordListSingles = singles
+                                  , coordListRects = rects
+                                  }
+
 emptyCoordList :: CoordList
 emptyCoordList = CoordList { coordListSingles = []
                            , coordListRects = []

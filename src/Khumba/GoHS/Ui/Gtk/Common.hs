@@ -51,12 +51,12 @@ class UiCtrl a where
   openNewBoard :: a -> Int -> Int -> IO a
   openNewBoard ui width height = openBoard ui (rootNode width height)
 
-  openFile :: a -> String -> IO (Either ParseError a)
+  openFile :: a -> String -> IO (Either String a)
   openFile ui file = do
-    -- TODO Don't only choose the first tree in the collection.
     result <- parseFile file
     case result of
-      Right trees -> fmap Right $ openBoard ui $ head trees
+      -- TODO Don't only choose the first tree in the collection.
+      Right collection -> fmap Right $ openBoard ui $ head $ collectionTrees collection
       Left err -> return $ Left err
 
 modifyModesPure :: UiCtrl ui => ui -> (UiModes -> UiModes) -> IO ()

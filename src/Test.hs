@@ -2,11 +2,13 @@ module Main (main) where
 
 import qualified Khumba.GoHS.CommonTest
 import qualified Khumba.GoHS.SgfTest
+import qualified Khumba.GoHS.Sgf.ParserTest
 import Test.Framework (defaultMain, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 
 tests = [ Khumba.GoHS.CommonTest.tests
         , Khumba.GoHS.SgfTest.tests
+        , Khumba.GoHS.Sgf.ParserTest.tests
         ]
 
 main :: IO ()

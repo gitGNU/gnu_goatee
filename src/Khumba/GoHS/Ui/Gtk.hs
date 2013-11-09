@@ -143,5 +143,5 @@ startBoard = openBoard undefined
 startNewBoard :: Int -> Int -> IO UiCtrlImpl
 startNewBoard = openNewBoard undefined
 
-startFile :: String -> IO (Either ParseError UiCtrlImpl)
+startFile :: String -> IO (Either String UiCtrlImpl)
 startFile = openFile undefined
