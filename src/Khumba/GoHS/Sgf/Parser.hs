@@ -6,6 +6,7 @@ module Khumba.GoHS.Sgf.Parser ( ParseError
 import Control.Applicative ((<$), (<$>), (<*), (*>), (<*>))
 import Control.Monad
 import Data.Char
+import Data.Maybe
 import Data.Monoid
 import Khumba.GoHS.Sgf
 import Khumba.GoHS.Common
@@ -21,13 +22,12 @@ parseString str = case parse collection "<collection>" str of
   where -- SGF allows B[tt] and W[tt] to represent passes on boards <=19x19.
         -- Convert any passes from this format to B[] and W[] in a root node and
         -- its descendents.
-        ttToPass root = case findProperty root isSZ of
-          Nothing ->
-            Left $ "Missing size property (SZ) in root node: " ++ show root
-          Just (SZ width height) ->
-            Right $ if width <= 19 && height <= 19
-                    then ttToPass' width height root
-                    else root
+        ttToPass root = Right $
+          let SZ width height = fromMaybe (SZ defaultSize defaultSize) $
+                                findProperty root isSZ
+          in if width <= 19 && height <= 19
+             then ttToPass' width height root
+             else root
         -- Convert a node and its descendents.
         ttToPass' width height node =
           node { nodeProperties = map ttToPass'' $ nodeProperties node

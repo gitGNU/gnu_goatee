@@ -16,6 +16,11 @@ import Khumba.GoHS.Common
 
 -- TODO Stop using errors everywhere, they're not testable.
 
+-- | The default size of the board.  The FF[4] SGF spec says that the default Go
+-- board is 19x19 square.
+defaultSize :: Int
+defaultSize = 19
+
 -- | A coordinate on a Go board.  @(0, 0)@ refers to the upper-left corner of
 -- the board.  The first component is the horizontal position; the second
 -- component is the vertical position.
@@ -87,10 +92,10 @@ instance NFData Node where
 emptyNode :: Node
 emptyNode = Node { nodeProperties = [], nodeChildren = [] }
 
-rootNode :: Int -- ^ Board width
-         -> Int -- ^ Board height
-         -> Node
-rootNode width height =
+rootNodeWithSize :: Int -- ^ Board width
+                 -> Int -- ^ Board height
+                 -> Node
+rootNodeWithSize width height =
   Node { nodeProperties = [SZ width height]
        , nodeChildren = []
        }
@@ -735,7 +740,7 @@ rootBoardState rootNode =
   foldr applyProperty
         (emptyBoardState width height)
         (nodeProperties rootNode)
-  where SZ width height = fromMaybe (error $ "rootBoardState given a non-root node: " ++ show rootNode) $
+  where SZ width height = fromMaybe (SZ defaultSize defaultSize) $
                           findProperty rootNode $
                           \prop -> case prop of
                             SZ {} -> True
@@ -1122,22 +1127,14 @@ instance NFData Cursor where
                rnf (cursorNode cursor) `seq`
                rnf (cursorBoard cursor)
 
--- | Returns either a cursor for a root node, or an error message if the node
--- lacks the information needed to create a cursor (e.g. if the node is not a
--- root node).
-rootCursor :: Node -> Either String Cursor
-rootCursor node = do
-  SZ width height <- maybe (Left "No board size property in root node.") Right $
-                     findProperty node $
-                     \prop -> case prop of
-                       SZ {} -> True
-                       _ -> False
-  return Cursor { cursorParent = Nothing
-                , cursorChildIndex = -1
-                , cursorNode = node
-                , cursorBoard = applyProperties node $
-                                emptyBoardState width height
-                }
+-- | Returns a cursor for a root node.
+rootCursor :: Node -> Cursor
+rootCursor node =
+  Cursor { cursorParent = Nothing
+         , cursorChildIndex = -1
+         , cursorNode = node
+         , cursorBoard = rootBoardState node
+         }
 
 cursorRoot :: Cursor -> Cursor
 cursorRoot cursor = case cursorParent cursor of
@@ -1181,9 +1178,7 @@ cursorModifyNode :: (Node -> Node) -> Cursor -> Cursor
 cursorModifyNode fn cursor =
   let node' = fn $ cursorNode cursor
   in case cursorParent cursor of
-    Nothing -> either (\msg -> error $ "Failed to reconstruct root node: " ++ msg)
-                      id
-                      (rootCursor node')
+    Nothing -> rootCursor node'
     Just parentCursor ->
       let index = cursorChildIndex cursor
           parentCursor' = cursorModifyNode (\parentNode ->
@@ -1251,11 +1246,8 @@ putCursor cursor = do
 getNode :: Monad h => GoM h Node
 getNode = liftM cursorNode getCursor
 
-putRoot :: Monad h => Node -> GoM h (Maybe String)
-putRoot node =
-  case rootCursor node of
-    Left errorMessage -> return $ Just errorMessage
-    Right cursor -> putCursor cursor >> return Nothing
+putRoot :: Monad h => Node -> GoM h ()
+putRoot = putCursor . rootCursor
 
 getHandlers :: GoM h [ChangeHandler h]
 getHandlers = GoM $ liftM stateHandlers State.get
@@ -1301,8 +1293,7 @@ foo = do
                MoveEvent from to ->
                  Just $ putStrLn $ "Moved from " ++ show from ++ " to " ++ show to ++ "."
                _ -> Nothing)
-  let Right cursor = rootCursor emptyNode
-  putCursor cursor
+  putCursor $ rootCursor emptyNode
 
 --do
 --  putRoot root

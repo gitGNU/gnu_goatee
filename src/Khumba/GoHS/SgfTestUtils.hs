@@ -22,4 +22,4 @@ node' props children = emptyNode { nodeProperties = props
 
 rootNode :: Int -> Int -> [Property] -> [Node] -> Node
 rootNode width height props =
-  foldr addChild $ foldr addProperty (Sgf.rootNode width height) props
+  foldr addChild $ foldr addProperty (rootNodeWithSize width height) props

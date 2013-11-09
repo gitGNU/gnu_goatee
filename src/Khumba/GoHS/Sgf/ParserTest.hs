@@ -1,6 +1,6 @@
 module Khumba.GoHS.Sgf.ParserTest (tests) where
 
-import Khumba.GoHS.Sgf hiding (rootNode)
+import Khumba.GoHS.Sgf
 import Khumba.GoHS.SgfTestUtils
 import Khumba.GoHS.Sgf.Parser
 import Test.Framework (testGroup)
@@ -21,6 +21,9 @@ tests = testGroup "Khumba.GoHS.Sgf.Parser" [
   ]
 
 baseCaseTests = testGroup "base cases" [
+  testCase "works with the trivial collection" $
+    parseOrFail "(;)" (@?= emptyNode),
+
   testCase "works with only a size property" $ do
     parseOrFail "(;SZ[1])" (@?= rootNode 1 1 [] [])
     parseOrFail "(;SZ[9])" (@?= rootNode 9 9 [] [])

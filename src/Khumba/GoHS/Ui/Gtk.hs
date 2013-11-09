@@ -90,8 +90,7 @@ instance UiCtrl UiCtrlImpl where
   -- May not use the controller; it is used only for type inference.  It is
   -- called with @undefined@ in the @start@ functions below.
   openBoard _ rootNode = do
-    let cursor = either (error . ("Error creating root cursor: " ++)) id $
-                 rootCursor rootNode
+    let cursor = rootCursor rootNode
         board = cursorBoard cursor
     uiRef' <- newIORef Nothing
     let uiRef = UiRef uiRef'
@@ -140,7 +139,7 @@ updateUi ui = fireViewCursorChanged (uiMainWindow ui)
 startBoard :: Node -> IO UiCtrlImpl
 startBoard = openBoard undefined
 
-startNewBoard :: Int -> Int -> IO UiCtrlImpl
+startNewBoard :: Maybe (Int, Int) -> IO UiCtrlImpl
 startNewBoard = openNewBoard undefined
 
 startFile :: String -> IO (Either String UiCtrlImpl)

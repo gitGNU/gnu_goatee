@@ -22,7 +22,7 @@ mainGtk :: IO ()
 mainGtk = do
   args <- initGUI
   if null args
-    then void $ startNewBoard 19 19
+    then void $ startNewBoard Nothing
     else do result <- startFile $ head args
             case result of
               Left msg -> print msg
@@ -33,11 +33,11 @@ mainWx :: IO ()
 mainWx = do
   args <- getArgs
   if null args
-    then start $ boardFrame $ fromRight $ rootCursor $ rootNode 9 9
+    then start $ boardFrame $ rootCursor emptyNode
     else do result <- parseFile $ head args
             case result of
               Right collection ->
                 -- TODO Don't only choose the first tree in the collection.
-                start $ boardFrame $ fromRight $ rootCursor $ head $ collectionTrees collection
+                start $ boardFrame $ rootCursor $ head $ collectionTrees collection
               Left err ->
                 putStrLn $ "Error loading file: " ++ show err

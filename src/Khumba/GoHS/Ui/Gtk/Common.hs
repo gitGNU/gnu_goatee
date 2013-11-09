@@ -48,8 +48,9 @@ class UiCtrl a where
 
   openBoard :: a -> Node -> IO a
 
-  openNewBoard :: a -> Int -> Int -> IO a
-  openNewBoard ui width height = openBoard ui (rootNode width height)
+  openNewBoard :: a -> Maybe (Int, Int) -> IO a
+  openNewBoard ui maybeSize =
+    openBoard ui $ maybe emptyNode (uncurry rootNodeWithSize) maybeSize
 
   openFile :: a -> String -> IO (Either String a)
   openFile ui file = do

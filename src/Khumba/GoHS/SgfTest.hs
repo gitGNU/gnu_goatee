@@ -9,7 +9,7 @@ import Test.HUnit hiding (Test)
 tests = testGroup "Khumba.GoHS.Sgf" [
   expandCoordListTests,
   emptyNodeTests,
-  rootNodeTests,
+  rootNodeWithSizeTests,
   findPropertyTests,
   addPropertyTests,
   addChildTests,
@@ -73,11 +73,11 @@ emptyNodeTests = testGroup "emptyNode" [
   testCase "has no children" $ [] @=? nodeChildren emptyNode
   ]
 
-rootNodeTests = testGroup "rootNode" [
+rootNodeWithSizeTests = testGroup "rootNodeWithSize" [
   testCase "sets SZ correctly" $ do
-    assertElem (SZ 9 9) $ nodeProperties $ rootNode 9 9
-    assertElem (SZ 19 19) $ nodeProperties $ rootNode 19 19
-    assertElem (SZ 9 5) $ nodeProperties $ rootNode 9 5
+    assertElem (SZ 9 9) $ nodeProperties $ rootNodeWithSize 9 9
+    assertElem (SZ 19 19) $ nodeProperties $ rootNodeWithSize 19 19
+    assertElem (SZ 9 5) $ nodeProperties $ rootNodeWithSize 9 5
   ]
 
 findPropertyTests = testGroup "findProperty" [

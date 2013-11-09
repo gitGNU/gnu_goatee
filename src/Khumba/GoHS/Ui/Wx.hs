@@ -154,7 +154,7 @@ boardFrame cursor = do
   -- Create a menubar.
   menuFile <- menuPane [text := "&File"]
   menuFileNew <- menuItem menuFile [text := "&New\tCtrl+N",
-                                    on command := boardFrame $ fromRight $ rootCursor $ rootNode 9 9]
+                                    on command := boardFrame $ rootCursor emptyNode]
   menuLine menuFile
   -- TODO This is close, not quit.
   menuFileQuit <- menuQuit menuFile [on command := close frame]

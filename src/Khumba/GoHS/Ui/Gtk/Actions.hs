@@ -11,6 +11,7 @@ import Control.Monad
 import Data.Map (Map)
 import Data.Maybe
 import Graphics.UI.Gtk
+import Khumba.GoHS.Sgf (defaultSize)
 import Khumba.GoHS.Ui.Gtk.Common
 
 data Actions = Actions { myFileNewAction :: Action
@@ -30,7 +31,7 @@ create uiRef = do
   actionGroupAddActionWithAccel fileActions fileNewAction $ Just "<Control>n"
   on fileNewAction actionActivated $ do
     ui <- readUiRef uiRef
-    void $ openNewBoard ui 19 19
+    void $ openNewBoard ui Nothing
 
   fileOpenAction <- actionNew "FileOpen" "Open file..." Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileOpenAction $ Just "<Control>o"
