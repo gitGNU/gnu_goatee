@@ -1,11 +1,27 @@
 module Khumba.GoHS.Sgf.Parser ( ParseError
                               , parseString
                               , parseFile
+
+                                -- * Visible for testing.
+                              , single
+                              , number
+                              , real
+                              , double
+                              , color
+                              , text
+                              , simpleText
+                              , line
+                              , point
+                              , stone
+                              , move
+                              , compose
                               ) where
 
 import Control.Applicative ((<$), (<$>), (<*), (*>), (<*>))
 import Control.Monad
 import Data.Char
+import qualified Data.Map as Map
+import Data.Map (Map)
 import Data.Maybe
 import Data.Monoid
 import Khumba.GoHS.Sgf
@@ -68,34 +84,47 @@ node = fmap (\props -> emptyNode { nodeProperties = props })
         <?> "node")
 
 property :: CharParser () Property
--- TODO Some order on these.
-property = choice [try $ propertyParser "B" $ single $ B <$> move,
-                   -- TODO Parse KO.  How to parse word boundaries?
-                   try $ propertyParser "MN" $ single $ MN <$> number,
-                   try $ propertyParser "W" $ single $ W <$> move,
-
-                   try $ propertyParser "AB" $ AB <$> listOfPoint,
-                   try $ propertyParser "AE" $ AE <$> listOfPoint,
-                   try $ propertyParser "AW" $ AW <$> listOfPoint,
-                   try $ propertyParser "PL" $ single $ PL <$> color,
-
-                   try $ propertyParser "SZ" $ single $ (\x -> SZ x x) <$> number,
-
-                   try $ propertyParser "BR" $ single $ BR <$> simpleText,
-                   try $ propertyParser "PB" $ single $ PB <$> simpleText,
-                   try $ propertyParser "PW" $ single $ PW <$> simpleText,
-                   try $ propertyParser "WR" $ single $ WR <$> simpleText,
-                   unknownProperty]
-
-unknownProperty :: CharParser () Property
-unknownProperty = do
+property = do
   name <- many1 upper
-  value <- fmap (concatMap $ \x -> "[" ++ x ++ "]") $
-           many (char '[' *> many (try escapedChar <|> noneOf "]") <* char ']')
-  return $ UnknownProperty name value
+  spaces *> fromMaybe (unknownProperty name) (Map.lookup name properties)
 
-escapedChar :: CharParser () Char
-escapedChar = char '\\' *> anyChar
+properties :: Map String (CharParser () Property)
+properties = Map.fromList [
+  ("B", single $ B <$> move),
+  -- TODO Parse KO.  How to parse word boundaries?
+  ("MN", single $ MN <$> number),
+  ("W", single $ W <$> move),
+
+  ("AB", AB <$> listOfPoint),
+  ("AE", AE <$> listOfPoint),
+  ("AW", AW <$> listOfPoint),
+  ("PL", single $ PL <$> color),
+
+  ("SZ", single $ (\x -> SZ x x) <$> number),  -- TODO Support [w:h].
+
+  ("BR", single $ BR <$> simpleText False),
+  ("PB", single $ PB <$> simpleText False),
+  ("PW", single $ PW <$> simpleText False),
+  ("WR", single $ WR <$> simpleText False),
+
+  ("AR", AR <$> listOf (compose point point)),
+  ("CR", CR <$> listOfPoint),
+  ("DD", DD <$> listOfPoint),
+  -- TODO Parse LB.
+  -- TODO Parse LN.
+  ("MA", MA <$> listOfPoint),
+  ("SQ", SQ <$> listOfPoint),
+  ("SL", SL <$> listOfPoint),
+  ("TR", TR <$> listOfPoint),
+
+  ("VW", VW <$> elistOfPoint)
+  ]
+
+unknownProperty :: String -> CharParser () Property
+unknownProperty name = do
+  value <- fmap (concatMap $ \x -> "[" ++ x ++ "]") $
+           many (char '[' *> many (try (char '\\' *> anyChar) <|> noneOf "]") <* char ']')
+  return $ UnknownProperty name value
 
 propertyParser :: String -> CharParser a Property -> CharParser a Property
 propertyParser name valueParser = string name *> spaces *> valueParser
@@ -107,16 +136,11 @@ listOf :: CharParser a b -> CharParser a [b]
 listOf valueParser = many1 (single valueParser <* spaces)
                      <?> "list"
 
-elistOf :: CharParser a b -> CharParser a [b]
-elistOf valueParser = try (listOf valueParser)
-                      <|> ([] <$ string "[]")
-                      <?> "elist"
-
 listOfPoint :: CharParser () CoordList
 listOfPoint = mconcat <$> listOf pointListEntry
-  where pointListEntry = list1 <$> try point
-                         <|> listR <$> compose point point
-                         <?> "point list entry"
+  where pointListEntry = listR <$> try (compose point point)
+                         <|> list1 <$> point
+                         <?> "point list"
         list1 point = CoordList { coordListSingles = [point]
                                 , coordListRects = []
                                 }
@@ -124,28 +148,34 @@ listOfPoint = mconcat <$> listOf pointListEntry
                                      , coordListRects = [(from, to)]
                                      }
 
-number :: (Num a, Read a) => CharParser () a
-number = read <$> number' <?> "integer"
+elistOfPoint :: CharParser () CoordList
+elistOfPoint = try listOfPoint
+               <|> emptyCoordList <$ string "[]"
+               <?> "point elist"
 
-number' :: CharParser () String
+number :: (Num a, Read a) => CharParser () a
+number = read . fst <$> number' <?> "number"
+
+number' :: CharParser () (String, Bool)
 number' = do
   sign <- option "" $ choice ["" <$ char '+',
                               "-" <$ char '-']
   digits <- many1 digit
-  return $ sign ++ digits
+  return (sign ++ digits, not $ null sign)
 
 real :: CharParser () RealValue
-real = fmap read real' <?> "real"
+real = real' <?> "real"
 
-real' :: CharParser () String
+real' :: CharParser () RealValue
 real' = do
-  wholePart <- number'
+  (whole, isNegative) <- number'
+  let wholePart = toRational (read whole :: Integer)
   -- Try to read a fractional part of the number.
   -- If we fail, just return the whole part.
-  option wholePart $ do
-    char '.'
-    fractionalPart <- many1 digit
-    return $ wholePart ++ "." ++ fractionalPart
+  option wholePart $ try $ do
+    fractionalStr <- char '.' *> many1 digit
+    let fractionalPart = toRational (read fractionalStr) / 10 ^ length fractionalStr
+    return $ (if isNegative then (-) else (+)) wholePart fractionalPart
 
 double :: CharParser () DoubleValue
 double = choice [Double1 <$ char '1',
@@ -157,11 +187,29 @@ color = choice [Black <$ char 'B',
                 White <$ char 'W']
         <?> "color"
 
-simpleText :: CharParser () SimpleText
-simpleText = fmap toSimpleText (many (try escapedChar <|> noneOf "]")
-                                <?> "SimpleText")
+-- | A parser for SGF text property values.  Its argument should be true if the
+-- text is inside of a composed property value, so ':' should terminate the
+-- value in addition to ']'.
+text :: Bool -> CharParser () Text
+text isComposed = toText <$> textParser isComposed
+                  <?> "text"
 
--- TODO text
+-- | A parser for SGF SimpleText property values.
+simpleText :: Bool -> CharParser () SimpleText
+simpleText isComposed = toSimpleText <$> textParser isComposed
+                        <?> "simpleText"
+
+textParser :: Bool -> CharParser () String
+textParser isComposed =
+  catMaybes <$> many textChar'
+  where textChar' = textChar (if isComposed then ":]\\" else "]\\")
+
+textChar :: String -> CharParser () (Maybe Char)
+textChar specialChars = choice [Just <$> char '\n',
+                                Just ' ' <$ space,
+                                try (char '\\' *> (Nothing <$ char '\n'
+                                                   <|> Just <$> anyChar)),
+                                Just <$> noneOf specialChars]
 
 line :: CharParser () Int
 line = do
@@ -173,11 +221,11 @@ line = do
 line' :: CharParser () Char
 line' = oneOf $ ['a'..'z'] ++ ['A'..'Z']
 
-point :: CharParser () Coord
-point = liftM2 (,) line line <?> "point"
-
 stone :: CharParser () Coord
 stone = liftM2 (,) line line <?> "stone"
+
+point :: CharParser () Coord
+point = liftM2 (,) line line <?> "point"
 
 move :: CharParser () (Maybe Coord)
 move = try (liftM Just $ liftM2 (,) line line) <|> return Nothing

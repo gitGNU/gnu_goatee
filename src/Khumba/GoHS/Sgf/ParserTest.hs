@@ -1,12 +1,20 @@
 module Khumba.GoHS.Sgf.ParserTest (tests) where
 
+import Control.Applicative ((<$>), (<*), (*>))
+import Control.Monad
+import Data.Maybe
+import Khumba.GoHS.Common
 import Khumba.GoHS.Sgf
 import Khumba.GoHS.SgfTestUtils
 import Khumba.GoHS.Sgf.Parser
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node, Test)
+import Text.ParserCombinators.Parsec (CharParser, char, parse)
 
+-- Parses a string as a complete SGF document.  On success, executes the
+-- continuation function with the result.  Otherwise, causes an assertion
+-- failure.
 parseOrFail :: String -> (Node -> IO ()) -> IO ()
 parseOrFail input cont = case parseString input of
   Left error -> assertFailure $ "Failed to parse SGF: " ++ error
@@ -14,10 +22,43 @@ parseOrFail input cont = case parseString input of
     root:[] -> cont root
     _ -> assertFailure $ "Expected a single root node, got: " ++ show roots
 
+-- Parses a string as a complete SGF document and expects failure.
+parseAndFail :: String -> IO ()
+parseAndFail input = case parseString input of
+  Left error -> return ()
+  Right result -> assertFailure $ "Expected " ++ show input ++
+                  " not to parse.  Parsed to " ++ show result ++ "."
+
+-- Parses a string using the given parser.  On success, executes the
+-- continuation function with the result.  Otherwise, causes an assertion
+-- failure.
+assertParse :: CharParser () a -> String -> (a -> IO ()) -> IO ()
+assertParse parser input cont = case parse parser "<assertParse>" input of
+  Left error -> assertFailure $ "Failed to parse: " ++ show error
+  Right result -> cont result
+
+-- Parses a string using the given parser, and if the parse fails, causes an
+-- assertion failure.
+assertParses :: CharParser () a -> String -> IO ()
+assertParses parser input = case parse parser "<assertParses>" input of
+  Left error -> assertFailure $ "Failed to parse: " ++ show error
+  Right result -> return ()
+
+-- Tries to parse a string using the given parser.  If the parse succeeds then
+-- this function causes an assertion failure, otherwise this function succeeds.
+assertNoParse :: Show a => CharParser () a -> String -> IO ()
+assertNoParse parser input = case parse parser "<assertNoParse>" input of
+  Left error -> return ()
+  Right result -> assertFailure $
+                  "Expected " ++ show input ++ " not to parse.  " ++
+                  "Parsed to " ++ show result ++ "."
+
 tests = testGroup "Khumba.GoHS.Sgf.Parser" [
   baseCaseTests,
   whitespaceTests,
-  passConversionTests
+  passConversionTests,
+  propertyValueArityTests,
+  propertyValueTests
   ]
 
 baseCaseTests = testGroup "base cases" [
@@ -33,7 +74,29 @@ whitespaceTests = testGroup "whitespace handling" [
   testCase "parses with no extra whitespace" $
     parseOrFail "(;SZ[4];AB[aa][bb]AW[cc];W[dd])"
     (@?= rootNode 4 4 [] [node1 [AB $ coords [(0,0), (1,1)], AW $ coords [(2,2)]] $
-                          node [W $ Just (3,3)]])
+                          node [W $ Just (3,3)]]),
+
+  testCase "parses with spaces between nodes" $
+    parseOrFail "(;SZ[1] ;B[])" (@?= rootNode 1 1 [] [node [B Nothing]]),
+
+  testCase "parses with spaces between properties" $
+    parseOrFail "(;SZ[1] AB[aa])" (@?= rootNode 1 1 [AB $ coords [(0,0)]] []),
+
+  testCase "parses with spaces between a property's name and value" $
+    parseOrFail "(;SZ [1])" (@?= rootNode 1 1 [] []),
+
+  testCase "parses with spaces between property values" $
+    parseOrFail "(;SZ[2]AB[aa] [bb])" (@?= rootNode 2 2 [AB $ coords [(0,0), (1,1)]] []),
+
+  testCase "parses with spaces between many elements" $
+    parseOrFail " ( ; SZ [4] ; AB [aa:ad] [bb] AW [cc] ; W [dd] ; B [] ) "
+    (@?= rootNode 4 4 [] [node1 [AB $ coords' [(1,1)] [((0,0), (0,3))],
+                                 AW $ coords [(2,2)]] $
+                          node1 [W $ Just (3,3)] $
+                          node [B Nothing]])
+
+  -- TODO Test handling of whitespace between an unknown property name and
+  -- [value].
   ]
 
 passConversionTests = testGroup "B[tt]/W[tt] pass conversion" [
@@ -55,7 +118,245 @@ passConversionTests = testGroup "B[tt]/W[tt] pass conversion" [
     parseOrFail "(;SZ[20];W[tt])" (@?= rootNode 20 20 [] [node [W $ Just (19, 19)]])
     parseOrFail "(;SZ[21];W[tt])" (@?= rootNode 21 21 [] [node [W $ Just (19, 19)]]),
 
-  testCase "doesn't convert non-move properties" $
+  testCase "doesn't convert non-move properties" $ do
     -- TODO These should error, rather than parsing fine.
     parseOrFail "(;SZ[9];AB[tt])" (@?= rootNode 9 9 [] [node [AB $ coords [(19, 19)]]])
+    parseOrFail "(;SZ[9];TR[tt])" (@?= rootNode 9 9 [] [node [TR $ coords [(19, 19)]]])
   ]
+
+propertyValueArityTests = testGroup "property value arities" [
+  testGroup "single values (single)" [
+    testCase "accepts a property that requires a single number" $
+      parseOrFail "(;SZ[1])" (@?= node [SZ 1 1]),
+
+    testCase "accepts a property that requires a single point" $
+      parseOrFail "(;B[dd])" (@?= node [B $ Just (3, 3)])
+    ],
+
+  testGroup "lists (listOf)" [
+    testCase "doesn't accept an empty list" $
+      parseAndFail "(;AR[])",
+
+    testCase "accepts a single value" $
+      parseOrFail "(;AR[aa:bb])" (@?= node [AR [((0, 0), (1, 1))]]),
+
+    testCase "accepts two values" $
+      parseOrFail "(;AR[aa:bb][cc:de])" (@?= node [AR [((0, 0), (1, 1)),
+                                                       ((2, 2), (3, 4))]])
+    ],
+
+  testGroup "point lists (listOfPoint)" [
+    testCase "doesn't accept an empty list" $
+      parseAndFail "(;AB[])",
+
+    testCase "accepts a single point" $
+      parseOrFail "(;AB[aa])" (@?= node [AB $ coords [(0, 0)]]),
+
+    testCase "accepts two points" $
+      parseOrFail "(;AB[aa][bb])" (@?= node [AB $ coords [(0, 0), (1, 1)]]),
+
+    testCase "accepts a rectangle" $
+      parseOrFail "(;AB[aa:bb])" (@?= node [AB $ coords' [] [((0, 0), (1, 1))]]),
+
+    testCase "accepts two rectangles" $
+      parseOrFail "(;AB[aa:bb][cd:de])" (@?= node [AB $ coords' [] [((0, 0), (1, 1)),
+                                                                    ((2, 3), (3, 4))]])
+    ],
+
+  testGroup "point elists (elistOfPoint)" [
+    testCase "accepts an empty list" $
+      parseOrFail "(;VW[])" (@?= node [VW $ coords []]),
+
+    testCase "accepts single points" $
+      parseOrFail "(;VW[aa][bb])" (@?= node [VW $ coords [(0, 0), (1, 1)]]),
+
+    testCase "accepts a rectangle" $
+      parseOrFail "(;VW[aa:bb])" (@?= node [VW $ coords' [] [((0, 0), (1, 1))]]),
+
+    testCase "accepts two rectangles" $
+      parseOrFail "(;VW[aa:bb][cc:dd])" (@?= node [VW $ coords' [] [((0, 0), (1, 1)),
+                                                                    ((2, 2), (3, 3))]])
+    ]
+  ]
+
+propertyValueTests = testGroup "property values" [
+  testGroup "number" $ integerTestsFor number,
+
+  testGroup "real" $ integerTestsFor real ++ [
+    testCase "parses a decimal zero" $
+      assertParse real "0.0" (@?= 0),
+
+    testCase "parses fractional positive numbers" $ do
+      assertParse real "0.5" (@?= (1/2))
+      assertParse real "0.00125" (@?= (1/800))
+      assertParse real "3.14" (@?= (314/100))
+      assertParse real "10.0" (@?= 10),
+
+    testCase "parses fractional negative numbers" $ do
+      assertParse real "-0.5" (@?= (-1/2))
+      assertParse real "-0.00125" (@?= (-1/800))
+      assertParse real "-3.14" (@?= (-314/100))
+      assertParse real "-10.0" (@?= (-10))
+    ],
+
+  testGroup "double" [
+    testCase "parses 1" $ assertParse double "1" (@?= Double1),
+    testCase "parses 2" $ assertParse double "2" (@?= Double2)
+    ],
+
+  testGroup "color" [
+    testCase "parses B" $ assertParse color "B" (@?= Black),
+    testCase "parses W" $ assertParse color "W" (@?= White)
+    ],
+
+  testGroup "text" $ textTestsFor text fromText False ++
+    textUnescapedNewlinePreservingTests (single $ fromText <$> text False),
+
+  testGroup "text composed" $ textTestsFor text fromText True ++
+    textUnescapedNewlinePreservingTests (single $ fromText <$> text True),
+
+  testGroup "simpleText" $ textTestsFor simpleText fromSimpleText False ++
+    textUnescapedNewlineConvertingTests (single $ fromSimpleText <$> simpleText False),
+
+  testGroup "simpleText composed" $ textTestsFor simpleText fromSimpleText True ++
+    textUnescapedNewlineConvertingTests (single $ fromSimpleText <$> simpleText True),
+
+  testGroup "line" [
+    testCase "parses all valid values" $ do
+      let cases = zip (['a'..'z'] ++ ['A'..'Z']) [0..]
+      forM_ cases $ \(char, expected) ->
+        assertParse line [char] (@?= expected)
+    ],
+
+  testGroup "stone" $ pointTestsFor stone id,
+
+  testGroup "point" $ pointTestsFor point id,
+
+  testGroup "move" $ pointTestsFor move Just ++ [
+    testCase "parses an empty move as a pass" $
+      assertParse move "" (@?= Nothing),
+
+    testCase "doesn't parse a partial move" $
+      assertNoParse (single move) "[a]"
+    ],
+
+  testGroup "compose" [
+    testCase "parses number pairs" $
+      assertParse (compose number number) "0:-5" (@?= (0, -5)),
+
+    testCase "parses point pairs" $
+      assertParse (compose point point) "aa:bb" (@?= ((0, 0), (1, 1)))
+    ]
+  ]
+
+  where integerTestsFor parser = [
+          testCase "parses 0" $ do
+            assertParse number "0" (@?= 0)
+            assertParse number "+0" (@?= 0)
+            assertParse number "-0" (@?= 0),
+
+          testCase "parses positive integers" $ do
+            assertParse number "1" (@=? 1)
+            assertParse number "20" (@=? 20)
+            assertParse number "4294967296" (@=? (2 ^ 32))
+            assertParse number "18446744073709551616" (@=? (2 ^ 64)),
+
+          testCase "parses positive integers with the plus sign" $ do
+            assertParse number "+1" (@=? 1)
+            assertParse number "+20" (@=? 20)
+            assertParse number "+4294967296" (@=? (2 ^ 32))
+            assertParse number "+18446744073709551616" (@=? (2 ^ 64)),
+
+          testCase "parses negative integers" $ do
+            assertParse number "-1" (@=? (-1))
+            assertParse number "-20" (@=? (-20))
+            assertParse number "-4294967296" (@=? (- (2 ^ 32)))
+            assertParse number "-18446744073709551616" (@=? (- (2 ^ 64)))
+          ]
+
+        textTestsFor makeParser toString testComposed =
+          let rawParser = makeParser testComposed
+              parser = single $ toString <$> rawParser
+              composedParser = single $ mapTuple toString <$> compose rawParser rawParser
+          in catMaybes [
+            Just $ testCase "parses an empty string" $
+              assertParse parser "[]" (@?= ""),
+
+            Just $ testCase "parses a short string" $
+              assertParse parser "[Hello, world.]" (@?= "Hello, world."),
+
+            Just $ testCase "preserves leading and trailing whitespace" $
+              assertParse parser "[ \tHi. \t]" (@?= "  Hi.  "),
+
+            Just $ testCase "parses escaped backslashes" $ do
+              assertParse parser "[\\\\]" (@?= "\\")
+              assertParse parser "[\\\\\\\\]" (@?= "\\\\")
+              assertNoParse parser "[\\]"
+              assertNoParse parser "[\\\\\\]",
+
+            Just $ testCase "parses escaped ']'s" $ do
+              assertParse parser "[\\]]" (@?= "]")
+              assertParse parser "[\\]\\\\\\]]" (@?= "]\\]"),
+
+            Just $ if testComposed
+                   then testCase "parses escaped ':'s" $ do
+                     assertParse parser "[\\:]" (@?= ":")
+                     assertParse parser "[\\:\\\\\\:]" (@?= ":\\:")
+                     assertNoParse parser "[:]"
+                   else testCase "parses unescaped ':'s" $ do
+                     assertParse parser "[:]" (@?= ":")
+                     assertParse parser "[::]" (@?= "::")
+                     -- An escaped colon should parse just the same.
+                     assertParse parser "[\\:]" (@?= ":"),
+
+            if not testComposed
+               then Nothing
+               else Just $ testCase "supports composed values" $ do
+                 assertParse composedParser "[:]" (@?= ("", ""))
+                 assertParse composedParser "[a:]" (@?= ("a", ""))
+                 assertParse composedParser "[:z]" (@?= ("", "z"))
+                 assertParse composedParser "[a:z]" (@?= ("a", "z"))
+                 assertParse composedParser "[a\\\\:z]" (@?= ("a\\", "z"))
+                 assertParse composedParser "[a\\:b:y\\:z]" (@?= ("a:b", "y:z"))
+                 assertNoParse composedParser "[]",
+
+            -- Tests non-newline whitespace replacement.  Newline handling is
+            -- specific to individual parsers.
+            Just $ testCase "replaces whitespace with spaces" $
+              assertParse parser "[\t\r\f\v]" (@?= "    "),
+
+            Just $ testCase "removes escaped newlines" $ do
+              assertParse parser "[\\\n]" (@?= "")
+              assertParse parser "[foo\\\nbar]" (@?= "foobar")
+              assertParse parser "[foo \\\n bar]" (@?= "foo  bar")
+            ]
+
+        textUnescapedNewlinePreservingTests parser = [
+          testCase "preserves unescaped newlines" $ do
+            assertParse parser "[\n]" (@?= "\n")
+            assertParse parser "[\n\n]" (@?= "\n\n")
+            assertParse parser "[foo\nbar]" (@?= "foo\nbar")
+            assertParse parser "[foo \n bar]" (@?= "foo \n bar")
+          ]
+
+        textUnescapedNewlineConvertingTests parser = [
+          testCase "converts unescaped newlines to spaces" $ do
+            assertParse parser "[\n]" (@?= " ")
+            assertParse parser "[\n\n]" (@?= "  ")
+            assertParse parser "[foo\nbar]" (@?= "foo bar")
+            assertParse parser "[foo \n bar]" (@?= "foo   bar")
+          ]
+
+        pointTestsFor parser f = [
+          testCase "parses boundary points" $ do
+            assertParse parser "aa" (@?= f (0, 0))
+            assertParse parser "zz" (@?= f (25, 25))
+            assertParse parser "AA" (@?= f (26, 26))
+            assertParse parser "ZZ" (@?= f (51, 51)),
+
+          testCase "parses coordinate order correctly" $ do
+            assertParse parser "ab" (@?= f (0, 1))
+            assertParse parser "ba" (@?= f (1, 0))
+          ]
+
+-- TODO Test parsing the properties themselves.

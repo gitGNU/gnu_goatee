@@ -118,7 +118,7 @@ addPropertyTests = testGroup "addProperty" [
   testCase "adds properties in order" $ do
     let prop1 = B (Just (6,6))
         prop2 = RE GameResultVoid
-        prop3 = C "Game over."
+        prop3 = C (toText "Game over.")
         node1 = addProperty prop1 emptyNode
         node2 = addProperty prop2 node1
         node3 = addProperty prop3 node2
@@ -204,7 +204,7 @@ propertyMetadataTests = testGroup "property metadata" [
         setupProperties = [-- Setup properties.
                            AB cl, AE cl, AW cl, PL Black]
         generalProperties = [-- Node annotation properties.
-                             C "", DM db, GB db, GW db, HO db, N st, UC db, V rv,
+                             C tx, DM db, GB db, GW db, HO db, N st, UC db, V rv,
                              -- Markup properties.
                              AR [], CR cl, DD cl, LB [], LN [], MA cl, SL cl, SQ cl, TR cl,
                              -- Guess this fits here.
@@ -219,6 +219,7 @@ propertyMetadataTests = testGroup "property metadata" [
                         rootProperties ++ gameInfoProperties
         cl = emptyCoordList
         db = Double1
+        tx = toText ""
         st = toSimpleText ""
         rv = 1
         vm = defaultVariationMode

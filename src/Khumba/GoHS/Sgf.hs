@@ -8,6 +8,7 @@ import qualified Data.Set as Set
 import Control.DeepSeq
 import Control.Monad (forM_, liftM, sequence_, unless, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
+import Data.Char (isSpace)
 import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sort, sortBy)
 import Data.Maybe
@@ -176,7 +177,7 @@ data Property =
   | PL Color             -- ^ Player to play.
 
   -- Node annotation properties.
-  | C String             -- ^ Comment.
+  | C Text               -- ^ Comment.
   | DM DoubleValue       -- ^ Even position.
   | GB DoubleValue       -- ^ Good for black.
   | GW DoubleValue       -- ^ Good for white.
@@ -232,6 +233,8 @@ data Property =
   | US SimpleText        -- ^ Name of user or program who entered the game.
   | WR SimpleText        -- ^ Rank of white player.
   | WT SimpleText        -- ^ Name of white team.
+
+  | VW CoordList         -- ^ Set viewing region.
 
   | UnknownProperty String String
 
@@ -303,26 +306,37 @@ instance NFData Property where
   rnf (WR x) = rnf x
   rnf (WT x) = rnf x
 
+  rnf (VW x) = rnf x
+
   rnf (UnknownProperty x y) = rnf x `seq` rnf y
 
 -- | An SGF real value.
 type RealValue = Rational
 
--- | An SGF simple text value.
-data SimpleText = SimpleText String
+-- | An SGF text value.
+data Text = Text { fromText :: String }
+          deriving (Eq, Show)
+
+instance NFData Text where
+  rnf (Text str) = rnf str
+
+toText :: String -> Text
+toText = Text
+
+-- | An SGF SimpleText value.
+data SimpleText = SimpleText { fromSimpleText :: String }
                 deriving (Eq, Show)
 
 instance NFData SimpleText where
   rnf (SimpleText str) = rnf str
 
 sanitizeSimpleText :: String -> String
-sanitizeSimpleText = listReplace '\n' ' '
+sanitizeSimpleText = map (\c -> if isSpace c then ' ' else c)
 
+-- | Converts a string to an SGF 'SimpleText', replacing all whitespaces
+-- (including newlines) with spaces.
 toSimpleText :: String -> SimpleText
 toSimpleText = SimpleText . sanitizeSimpleText
-
-fromSimpleText :: SimpleText -> String
-fromSimpleText (SimpleText str) = sanitizeSimpleText str
 
 -- | An SGF double value: either 1 or 2, nothing else.
 data DoubleValue = Double1
@@ -381,8 +395,6 @@ fromVariationMode mode = case mode of
   VariationMode ShowCurrentVariations True -> 1
   VariationMode ShowChildVariations False -> 2
   VariationMode ShowCurrentVariations False -> 3
-  _ -> error $ "Unsupported variation mode in fromVariationMode: " ++
-       show mode
 
 -- | A list of arrows, each specified as @(startCoord, endCoord)@.
 type ArrowList = [(Coord, Coord)]
@@ -511,6 +523,8 @@ propertyType US {} = GameInfoProperty
 propertyType WR {} = GameInfoProperty
 propertyType WT {} = GameInfoProperty
 
+propertyType VW {} = GeneralProperty
+
 -- TODO Is this correct?
 propertyType UnknownProperty {} = GeneralProperty
 
@@ -519,6 +533,7 @@ propertyType UnknownProperty {} = GeneralProperty
 -- node itself.
 propertyInherited :: Property -> Bool
 propertyInherited DD {} = True
+propertyInherited VW {} = True
 propertyInherited _ = False
 
 data RootInfo = RootInfo { rootInfoWidth :: Int
@@ -904,6 +919,8 @@ applyProperty (WR str) board =
 applyProperty (WT str) board =
   updateBoardInfo (\info -> info { gameInfoWhiteTeamName = Just $ fromSimpleText str })
                   board
+
+applyProperty (VW {}) board = board
 
 applyProperty (UnknownProperty {}) board = board
 
