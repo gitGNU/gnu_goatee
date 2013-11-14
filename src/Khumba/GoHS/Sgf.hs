@@ -209,7 +209,7 @@ data Property =
   | FF Int               -- ^ File format version.
   | GM Int               -- ^ Game (must be 1 = Go).
   | ST VariationMode     -- ^ Variation display format.
-  | SZ Int Int           -- ^ Board size.
+  | SZ Int Int           -- ^ Board size, columns then rows.
 
   -- Game info properties.
   | AN SimpleText        -- ^ Name of annotator.
@@ -404,7 +404,7 @@ type LineList = [(Coord, Coord)]
 
 -- | A list of labels, each specified with a string and a coordinate about which
 -- to center the string.
-type LabelList = [(Coord, String)]
+type LabelList = [(Coord, SimpleText)]
 
 -- | The markings that SGF supports annotating coordinates with.
 data Mark = MarkCircle | MarkSquare | MarkTriangle | MarkX | MarkSelected
@@ -428,7 +428,7 @@ instance NFData GameResult where
   rnf (GameResultOther str) = rnf str
   rnf _ = ()
 
-data WinReason = WinByScore Rational
+data WinReason = WinByScore RealValue
                | WinByResignation
                | WinByTime
                | WinByForfeit

@@ -58,7 +58,12 @@ tests = testGroup "Khumba.GoHS.Sgf.Parser" [
   whitespaceTests,
   passConversionTests,
   propertyValueArityTests,
-  propertyValueTests
+  propertyValueTests,
+  movePropertyTests,
+  setupPropertyTests,
+  nodeAnnotationPropertyTests,
+  moveAnnotationPropertyTests,
+  rootPropertyTests
   ]
 
 baseCaseTests = testGroup "base cases" [
@@ -177,6 +182,9 @@ propertyValueArityTests = testGroup "property value arities" [
       parseOrFail "(;VW[aa:bb][cc:dd])" (@?= node [VW $ coords' [] [((0, 0), (1, 1)),
                                                                     ((2, 2), (3, 3))]])
     ]
+
+  -- TODO Test that invalid rectangles such as cd:dc fail to parse (or rather,
+  -- get corrected with a warning).
   ]
 
 propertyValueTests = testGroup "property values" [
@@ -310,15 +318,15 @@ propertyValueTests = testGroup "property values" [
                      assertParse parser "[\\:]" (@?= ":"),
 
             if not testComposed
-               then Nothing
-               else Just $ testCase "supports composed values" $ do
-                 assertParse composedParser "[:]" (@?= ("", ""))
-                 assertParse composedParser "[a:]" (@?= ("a", ""))
-                 assertParse composedParser "[:z]" (@?= ("", "z"))
-                 assertParse composedParser "[a:z]" (@?= ("a", "z"))
-                 assertParse composedParser "[a\\\\:z]" (@?= ("a\\", "z"))
-                 assertParse composedParser "[a\\:b:y\\:z]" (@?= ("a:b", "y:z"))
-                 assertNoParse composedParser "[]",
+              then Nothing
+              else Just $ testCase "supports composed values" $ do
+                assertParse composedParser "[:]" (@?= ("", ""))
+                assertParse composedParser "[a:]" (@?= ("a", ""))
+                assertParse composedParser "[:z]" (@?= ("", "z"))
+                assertParse composedParser "[a:z]" (@?= ("a", "z"))
+                assertParse composedParser "[a\\\\:z]" (@?= ("a\\", "z"))
+                assertParse composedParser "[a\\:b:y\\:z]" (@?= ("a:b", "y:z"))
+                assertNoParse composedParser "[]",
 
             -- Tests non-newline whitespace replacement.  Newline handling is
             -- specific to individual parsers.
@@ -359,4 +367,140 @@ propertyValueTests = testGroup "property values" [
             assertParse parser "ba" (@?= f (1, 0))
           ]
 
--- TODO Test parsing the properties themselves.
+movePropertyTests = testGroup "move properties" [
+  testGroup "B" [
+    testCase "parses moves" $ do
+      parseOrFail "(;B[aa])" (@?= node [B $ Just (0, 0)])
+      parseOrFail "(;B[cp])" (@?= node [B $ Just (2, 15)]),
+    testCase "parses passes" $
+      parseOrFail "(;B[])" (@?= node [B Nothing])
+    ],
+  testCase "KO parses" $
+    parseOrFail "(;KO)" (@?= node [KO]),
+  -- TODO Test MN (assert positive).
+  testGroup "W" [
+    testCase "parses moves" $ do
+      parseOrFail "(;W[aa])" (@?= node [W $ Just (0, 0)])
+      parseOrFail "(;W[cp])" (@?= node [W $ Just (2, 15)]),
+    testCase "parses passes" $
+      parseOrFail "(;W[])" (@?= node [W Nothing])
+    ]
+  ]
+
+setupPropertyTests = testGroup "setup properties" [
+  testCase "AB parses" $ do
+    parseOrFail "(;AB[ab])" (@?= node [AB $ coords [(0, 1)]])
+    parseOrFail "(;AB[ab][cd:ef])" (@?= node [AB $ coords' [(0, 1)] [((2, 3), (4, 5))]]),
+  testCase "AE parses" $ do
+    parseOrFail "(;AE[ae])" (@?= node [AE $ coords [(0, 4)]])
+    parseOrFail "(;AE[ae][ff:gg])" (@?= node [AE $ coords' [(0, 4)] [((5, 5), (6, 6))]]),
+  testCase "AW parses" $ do
+    parseOrFail "(;AW[aw])" (@?= node [AW $ coords [(0, 22)]])
+    parseOrFail "(;AW[aw][xy:yz])" (@?= node [AW $ coords' [(0, 22)] [((23, 24), (24, 25))]]),
+  testCase "PL parses" $ do
+    parseOrFail "(;PL[B])" (@?= node [PL Black])
+    parseOrFail "(;PL[W])" (@?= node [PL White])
+  ]
+
+nodeAnnotationPropertyTests = testGroup "node annotation properties" [
+  testCase "C parses" $
+    parseOrFail "(;C[Me [30k\\]: What is White doing??\\\n\n:(])"
+      (@?= node [C $ toText "Me [30k]: What is White doing??\n:("]),
+  testCase "DM parses" $ do
+    parseOrFail "(;DM[1])" (@?= node [DM Double1])
+    parseOrFail "(;DM[2])" (@?= node [DM Double2]),
+  testCase "GB parses" $ do
+    parseOrFail "(;GB[1])" (@?= node [GB Double1])
+    parseOrFail "(;GB[2])" (@?= node [GB Double2]),
+  testCase "GW parses" $ do
+    parseOrFail "(;GW[1])" (@?= node [GW Double1])
+    parseOrFail "(;GW[2])" (@?= node [GW Double2]),
+  testCase "HO parses" $ do
+    parseOrFail "(;HO[1])" (@?= node [HO Double1])
+    parseOrFail "(;HO[2])" (@?= node [HO Double2]),
+  testCase "N parses" $
+    parseOrFail "(;N[The best\\\n\nmove])" (@?= node [N $ toSimpleText "The best move"]),
+  testCase "UC parses" $ do
+    parseOrFail "(;UC[1])" (@?= node [UC Double1])
+    parseOrFail "(;UC[2])" (@?= node [UC Double2]),
+  testCase "V parses" $ do
+    parseOrFail "(;V[-34.5])" (@?= node [V (-34.5)])
+    parseOrFail "(;V[50])" (@?= node [V 50])
+  ]
+
+moveAnnotationPropertyTests = testGroup "move annotation properties" [
+  testCase "BM parses" $ do
+    parseOrFail "(;BM[1])" (@?= node [BM Double1])
+    parseOrFail "(;BM[2])" (@?= node [BM Double2]),
+  testCase "DO parses" $
+    parseOrFail "(;DO)" (@?= node [DO]),
+  testCase "IT parses" $
+    parseOrFail "(;IT)" (@?= node [IT]),
+  testCase "TE parses" $ do
+    parseOrFail "(;TE[1])" (@?= node [TE Double1])
+    parseOrFail "(;TE[2])" (@?= node [TE Double2])
+  ]
+
+-- TODO Test markup properties.
+
+rootPropertyTests = testGroup "root properties" [
+  testCase "AP parses" $
+    parseOrFail "(;AP[GoGoGo:1.2.3])" (@?= node [AP (toSimpleText "GoGoGo") (toSimpleText "1.2.3")]),
+  testCase "CA parses" $ do
+    parseOrFail "(;CA[UTF-8])" (@?= node [CA $ toSimpleText "UTF-8"])
+    parseOrFail "(;CA[ISO-8859-1])" (@?= node [CA $ toSimpleText "ISO-8859-1"]),
+  testGroup "FF" [
+    testCase "accepts version 4" $
+      parseOrFail "(;FF[4])" (@?= node [FF 4]),
+    testCase "rejects versions 1-3" $ do
+      parseAndFail "(;FF[1])"
+      parseAndFail "(;FF[2])"
+      parseAndFail "(;FF[3])"
+    ],
+  testGroup "GM" [
+    testCase "parses 1 (Go)" $
+      parseOrFail "(;GM[1])" (@?= node [GM 1]),
+    testCase "rejects unsupported games" $
+      forM_ [2..16] $ \x -> parseAndFail $ "(;GM[" ++ show x ++ "]"
+    ],
+  testGroup "ST" [
+    testCase "parses valid variation modes" $ do
+      parseOrFail "(;ST[0])" (@?= node [ST $ VariationMode ShowChildVariations True])
+      parseOrFail "(;ST[1])" (@?= node [ST $ VariationMode ShowCurrentVariations True])
+      parseOrFail "(;ST[2])" (@?= node [ST $ VariationMode ShowChildVariations False])
+      parseOrFail "(;ST[3])" (@?= node [ST $ VariationMode ShowCurrentVariations False]),
+    testCase "rejects invalid variation modes" $
+      forM_ [4..10] $ \x -> parseAndFail $ "(;ST[" ++ show x ++ "]"
+    ],
+  testGroup "SZ" [
+    testCase "parses square boards" $
+      forM_ [1..52] $ \x ->
+        parseOrFail ("(;SZ[" ++ show x ++ "])") (@?= node [SZ x x]),
+    testCase "parses nonsquare boards" $ do
+      parseOrFail "(;SZ[1:2])" (@?= node [SZ 1 2])
+      parseOrFail "(;SZ[1:9])" (@?= node [SZ 1 9])
+      parseOrFail "(;SZ[1:19])" (@?= node [SZ 1 19])
+      parseOrFail "(;SZ[2:1])" (@?= node [SZ 2 1])
+      parseOrFail "(;SZ[9:1])" (@?= node [SZ 9 1])
+      parseOrFail "(;SZ[19:1])" (@?= node [SZ 19 1])
+      parseOrFail "(;SZ[19:52])" (@?= node [SZ 19 52])
+      parseOrFail "(;SZ[10:16])" (@?= node [SZ 10 16]),
+    testCase "rejects invalid sizes" $ do
+      -- Boards must have length at least 1...
+      parseAndFail "(;SZ[0])"
+      parseAndFail "(;SZ[-1])"
+      -- ...and at most 52.
+      parseAndFail "(;SZ[53])"
+      parseAndFail "(;SZ[54])"
+      parseAndFail "(;SZ[0:19])"
+      parseAndFail "(;SZ[19:0])"
+      parseAndFail "(;SZ[9:53])"
+      parseAndFail "(;SZ[53:9])",
+    -- This is specified by the SGF spec:
+    testCase "rejects square boards defined with two numbers" $ do
+      parseAndFail "(;SZ[1:1])"
+      parseAndFail "(;SZ[19:19])"
+    ]
+  ]
+
+-- TODO Test the test of the properties.

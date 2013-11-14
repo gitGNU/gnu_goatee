@@ -15,6 +15,11 @@ module Khumba.GoHS.Sgf.Parser ( ParseError
                               , stone
                               , move
                               , compose
+                              , gameType
+                              , variationMode
+                              , boardSize
+                              , gameResult
+                              , ruleset
                               ) where
 
 import Control.Applicative ((<$), (<$>), (<*), (*>), (<*>))
@@ -28,35 +33,75 @@ import Khumba.GoHS.Sgf
 import Khumba.GoHS.Common
 import Text.ParserCombinators.Parsec
 
+-- TODO Support FF versions 1-4.
+supportedFormatVersions :: [Int]
+supportedFormatVersions = [4]
+
+-- | The default SGF version to use when @FF[]@ is not specified in a root node.
+--
+-- This value is actually INCORRECT: SGF defines it to be 1, but because we
+-- don't support version 1 yet, for the sake of ignoring this issue (for now!)
+-- in tests, we fix the default to be 4.
+--
+-- TODO Fix the default version to be 1 as SGF mandates.
+defaultFormatVersion :: Int
+defaultFormatVersion = 4
+
+supportedGameTypes :: [Int]
+supportedGameTypes = [1 {- Go -}]
+
+-- | The maximum board size allowed by FF[4].
+maxBoardSize :: Int
+maxBoardSize = 52
+
 parseString :: String -> Either String Collection
 parseString str = case parse collection "<collection>" str of
   Left err -> Left $ show err
   Right (Collection roots) -> onLeft concatErrors $
                               onRight Collection $
                               andEithers $
-                              map ttToPass roots
-  where -- SGF allows B[tt] and W[tt] to represent passes on boards <=19x19.
+                              map processRoot roots
+  where processRoot :: Node -> Either String Node
+        processRoot = checkFormatVersion . ttToPass
+
+        -- Ensures that we are parsing an SGF version that we understand.
+        -- TODO Try to proceed, if it makes sense.
+        checkFormatVersion :: Node -> Either String Node
+        checkFormatVersion root =
+          let version = case findProperty root isFF of
+                Nothing -> defaultFormatVersion
+                Just (FF x) -> x
+          in if version `elem` supportedFormatVersions
+             then Right root
+             else Left $
+                  "Unsupported SGF version " ++ show version ++ ".  Only versions " ++
+                  show supportedFormatVersions ++ " are supported."
+
+        -- SGF allows B[tt] and W[tt] to represent passes on boards <=19x19.
         -- Convert any passes from this format to B[] and W[] in a root node and
         -- its descendents.
-        ttToPass root = Right $
+        ttToPass :: Node -> Node
+        ttToPass root =
           let SZ width height = fromMaybe (SZ defaultSize defaultSize) $
                                 findProperty root isSZ
           in if width <= 19 && height <= 19
              then ttToPass' width height root
              else root
+
         -- Convert a node and its descendents.
         ttToPass' width height node =
           node { nodeProperties = map ttToPass'' $ nodeProperties node
                , nodeChildren = map (ttToPass' width height) $ nodeChildren node
                }
+
         -- Convert a property.
         ttToPass'' prop = case prop of
           B (Just (19, 19)) -> B Nothing
           W (Just (19, 19)) -> W Nothing
           _ -> prop
-        isSZ prop = case prop of
-          SZ _ _ -> True
-          _ -> False
+
+        isFF prop = case prop of { FF {} -> True; _ -> False }
+        isSZ prop = case prop of { SZ {} -> True; _ -> False }
         concatErrors errs = "The following errors occurred while parsing:" ++
                             concatMap ("\n-> " ++) errs
 
@@ -91,7 +136,7 @@ property = do
 properties :: Map String (CharParser () Property)
 properties = Map.fromList [
   ("B", single $ B <$> move),
-  -- TODO Parse KO.  How to parse word boundaries?
+  ("KO", return KO),
   ("MN", single $ MN <$> number),
   ("W", single $ W <$> move),
 
@@ -100,22 +145,58 @@ properties = Map.fromList [
   ("AW", AW <$> listOfPoint),
   ("PL", single $ PL <$> color),
 
-  ("SZ", single $ (\x -> SZ x x) <$> number),  -- TODO Support [w:h].
+  ("C", single $ C <$> text False),
+  ("DM", single $ DM <$> double),
+  ("GB", single $ GB <$> double),
+  ("GW", single $ GW <$> double),
+  ("HO", single $ HO <$> double),
+  ("N", single $ N <$> simpleText False),
+  ("UC", single $ UC <$> double),
+  ("V", single $ V <$> real),
 
-  ("BR", single $ BR <$> simpleText False),
-  ("PB", single $ PB <$> simpleText False),
-  ("PW", single $ PW <$> simpleText False),
-  ("WR", single $ WR <$> simpleText False),
+  ("BM", single $ BM <$> double),
+  ("DO", return DO),
+  ("IT", return IT),
+  ("TE", single $ TE <$> double),
 
   ("AR", AR <$> listOf (compose point point)),
   ("CR", CR <$> listOfPoint),
   ("DD", DD <$> listOfPoint),
-  -- TODO Parse LB.
-  -- TODO Parse LN.
+  ("LB", LB <$> listOf (compose point $ simpleText True)),
+  ("LN", LN <$> listOf (compose point point)),
   ("MA", MA <$> listOfPoint),
   ("SQ", SQ <$> listOfPoint),
   ("SL", SL <$> listOfPoint),
   ("TR", TR <$> listOfPoint),
+
+  ("AP", single $ uncurry AP <$> compose (simpleText True) (simpleText True)),
+  ("CA", single $ CA <$> simpleText False),
+  ("FF", single $ FF <$> number),
+  ("GM", single $ GM <$> gameType),
+  ("ST", single $ ST <$> variationMode),
+  ("SZ", single boardSize),
+
+  ("AN", single $ AN <$> simpleText False),
+  ("BR", single $ BR <$> simpleText False),
+  ("BT", single $ BT <$> simpleText False),
+  ("CP", single $ CP <$> simpleText False),
+  ("DT", single $ DT <$> simpleText False),
+  ("EV", single $ EV <$> simpleText False),
+  ("GC", single $ GC <$> simpleText False),
+  ("GN", single $ GN <$> simpleText False),
+  ("ON", single $ ON <$> simpleText False),
+  ("OT", single $ OT <$> simpleText False),
+  ("PB", single $ PB <$> simpleText False),
+  ("PC", single $ PC <$> simpleText False),
+  ("PW", single $ PW <$> simpleText False),
+  ("RE", single $ RE <$> gameResult),
+  ("RO", single $ RO <$> simpleText False),
+  ("RU", single $ RU <$> ruleset),
+  ("SO", single $ SO <$> simpleText False),
+  ("TM", single $ TM <$> real),
+  ("US", single $ US <$> simpleText False),
+  ("WR", single $ WR <$> simpleText False),
+  ("WT", single $ WT <$> simpleText False),
 
   ("VW", VW <$> elistOfPoint)
   ]
@@ -236,3 +317,61 @@ compose first second = do
   char ':'
   y <- second
   return (x, y)
+
+gameType :: CharParser () Int
+gameType = do
+  game <- number
+  if game `elem` supportedGameTypes
+    then return game
+    else fail $ "Unsupported game type " ++ show game ++ ".  Only " ++
+         show supportedGameTypes ++ " are supported."
+
+variationMode :: CharParser () VariationMode
+variationMode = do
+  value <- number
+  case toVariationMode value of
+    Just mode -> return mode
+    Nothing -> fail $ "Invalid variation mode " ++ show value ++ "."
+
+boardSize :: CharParser () Property
+boardSize = do
+  size@(SZ w h) <- try (do (w, h) <- compose number number
+                           if w /= h
+                             then return $ SZ w h
+                             else fail $
+                                  show w ++ "x" ++ show h ++ " square board dimensions " ++
+                                  "must be specified with a single number.")
+                   <|> (\w -> SZ w w) <$> number
+                   <?> "boardSize"
+  if w < 1 || h < 1 || w > maxBoardSize || h > maxBoardSize
+    then fail $ "Invalid board size " ++ show w ++ "x" ++ show h ++ "."
+    else return size
+
+gameResult :: CharParser () GameResult
+gameResult = GameResultDraw <$ try (string "0")
+             <|> GameResultDraw <$ try (string "Draw")
+             <|> GameResultVoid <$ try (string "Void")
+             <|> GameResultUnknown <$ try (string "?")
+             <|> (do player <- color
+                     char '+'
+                     reason <- winReason
+                     return $ GameResultWin player reason)
+             <?> "gameResult"
+  where winReason = WinByScore <$> try real
+                    <|> WinByResignation <$ try (string "R")
+                    <|> WinByResignation <$ try (string "Resign")
+                    <|> WinByTime <$ try (string "T")
+                    <|> WinByTime <$ try (string "Time")
+                    <|> WinByForfeit <$ try (string "F")
+                    <|> WinByForfeit <$ try (string "Forfeit")
+
+ruleset :: CharParser () Ruleset
+ruleset = do
+  rule <- fromSimpleText <$> simpleText False
+  let ruleLower = map toLower rule
+  return $ case ruleLower of
+    "aga" -> RulesetAga
+    "goe" -> RulesetIng
+    "japanese" -> RulesetJapanese
+    "nz" -> RulesetNewZealand
+    _ -> RulesetOther rule
