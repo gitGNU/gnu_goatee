@@ -12,6 +12,7 @@ module Khumba.GoHS.Common ( listReplace
 
 import Control.Arrow ((***))
 import Control.Monad (join)
+import Data.Either (partitionEithers)
 
 listReplace :: Eq a => a -> a -> [a] -> [a]
 listReplace from to = map $ replace from to
@@ -43,13 +44,8 @@ onRight = fmap
 -- | If any item is a 'Left', then the list of 'Left's is returned, otherwise
 -- the list of 'Right's is returned.
 andEithers :: [Either a b] -> Either [a] [b]
-andEithers xs = let (as, bs) = andEithers' xs
+andEithers xs = let (as, bs) = partitionEithers xs
                 in if not $ null as then Left as else Right bs
-
-andEithers' :: [Either a b] -> ([a], [b])
-andEithers' (Left a:rest) = let (as, bs) = andEithers' rest in (a:as, bs)
-andEithers' (Right b:rest) = let (as, bs) = andEithers' rest in (as, b:bs)
-andEithers' _ = ([], [])
 
 mapTuple :: (a -> b) -> (a, a) -> (b, b)
 mapTuple = join (***)
