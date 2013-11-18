@@ -3,7 +3,7 @@ module Khumba.GoHS.Ui.Gtk ( startBoard
                           , startFile
                           ) where
 
-import Control.Concurrent.MVar.Strict
+import Control.Concurrent.MVar
 import Data.IORef
 import Data.List (find)
 import Data.Maybe
