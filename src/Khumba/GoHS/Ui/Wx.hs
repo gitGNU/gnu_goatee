@@ -1,7 +1,6 @@
 module Khumba.GoHS.Ui.Wx where
 
-import qualified Control.Concurrent.MVar as MV
-import qualified Control.Concurrent.MVar.Strict as MVS
+import Control.Concurrent.MVar
 import Control.DeepSeq
 import Control.Monad
 import Data.Maybe
@@ -70,17 +69,17 @@ boardFrame cursor = do
       info = boardGameInfo board
 
   -- Create variables for UI state.
-  canvasInfoVar <- MV.newMVar CanvasInfo { canvasSize = sizeNull
-                                         , canvasBoardUL = pointNull
-                                         , canvasStoneLength = 0
-                                         , canvasStoneRadius = 0
-                                         }
-  cursorVar <- MVS.newMVar cursor
-  toolVar <- MVS.newMVar ToolPlay
-  mouseVar <- MVS.newMVar MouseState { mouseCoordX = -1
-                                     , mouseCoordY = -1
-                                     , mouseIsValidMove = False
-                                     }
+  canvasInfoVar <- newMVar CanvasInfo { canvasSize = sizeNull
+                                      , canvasBoardUL = pointNull
+                                      , canvasStoneLength = 0
+                                      , canvasStoneRadius = 0
+                                      }
+  cursorVar <- newMVar cursor
+  toolVar <- newMVar ToolPlay
+  mouseVar <- newMVar MouseState { mouseCoordX = -1
+                                 , mouseCoordY = -1
+                                 , mouseIsValidMove = False
+                                 }
 
   -- Create widgets used in the frame.
   frame <- frame [text := "Untitled game"]
@@ -103,7 +102,7 @@ boardFrame cursor = do
 
       onCanvasResize = updateCanvasInfo canvasInfoVar cursorVar boardPanel >> doRedraw
       onBoardChange = do
-        cursor <- MVS.readMVar cursorVar
+        cursor <- readMVar cursorVar
 
         -- Update the navigation buttons.
         let childCount = cursorChildCount cursor
@@ -191,31 +190,31 @@ boardFrame cursor = do
 -- | Applies the given function to the cursor.  Unlike 'goUp', 'goDown',
 -- 'goLeft', 'goRight', etc., this function does not do any on-change event
 -- handling.
-goTo :: (Cursor -> IO Cursor) -> MVS.MVar Cursor -> IO ()
-goTo cursorFn cursorVar = MVS.modifyMVar_ cursorVar cursorFn
+goTo :: (Cursor -> IO Cursor) -> MVar Cursor -> IO ()
+goTo cursorFn cursorVar = modifyMVar_ cursorVar cursorFn
 
-goUp :: MVS.MVar Cursor -> IO () -> IO Bool
-goUp cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
+goUp :: MVar Cursor -> IO () -> IO Bool
+goUp cursorVar onChange = join $ modifyMVar cursorVar $ \cursor ->
   return $ case cursorParent cursor of
     Nothing -> (cursor, return False)
     Just parent -> (parent, onChange >> return True)
 
-goDown :: MVS.MVar Cursor -> IO () -> IO Bool
-goDown cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
+goDown :: MVar Cursor -> IO () -> IO Bool
+goDown cursorVar onChange = join $ modifyMVar cursorVar $ \cursor ->
   return $ case cursorChildren cursor of
     [] -> (cursor, return False)
     child:_ -> (child, onChange >> return True)
 
-goLeft :: MVS.MVar Cursor -> IO () -> IO Bool
-goLeft cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
+goLeft :: MVar Cursor -> IO () -> IO Bool
+goLeft cursorVar onChange = join $ modifyMVar cursorVar $ \cursor ->
   return $ case cursorParent cursor of
     Nothing -> (cursor, return False)
     Just parent -> case cursorChildIndex cursor of
       0 -> (cursor, return False)
       index -> (cursorChild parent (index - 1), onChange >> return True)
 
-goRight :: MVS.MVar Cursor -> IO () -> IO Bool
-goRight cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
+goRight :: MVar Cursor -> IO () -> IO Bool
+goRight cursorVar onChange = join $ modifyMVar cursorVar $ \cursor ->
   return $ case cursorParent cursor of
     Nothing -> (cursor, return False)
     Just parent ->
@@ -225,9 +224,9 @@ goRight cursorVar onChange = join $ MVS.modifyMVar cursorVar $ \cursor ->
          then (cursor, return False)
          else (cursorChild parent (index + 1), onChange >> return True)
 
-updateMouseLocation :: MV.MVar CanvasInfo
-                    -> MVS.MVar Cursor
-                    -> MVS.MVar MouseState
+updateMouseLocation :: MVar CanvasInfo
+                    -> MVar Cursor
+                    -> MVar MouseState
                     -> Bool
                     -> IO ()  -- ^ Action to take when the mouse location changes.
                     -> Point  -- ^ Location of the mouse cursor.
@@ -236,11 +235,11 @@ updateMouseLocation canvasInfoVar cursorVar mouseVar forceStateUpdate onChanged 
   CanvasInfo { canvasBoardUL = Point x0 y0
              , canvasStoneLength = sl
              , canvasStoneRadius = sr
-             } <- MV.readMVar canvasInfoVar
+             } <- readMVar canvasInfoVar
   let ix = (x - x0) `div` sl
       iy = (y - y0) `div` sl
-  cursor <- MVS.readMVar cursorVar
-  join $ MVS.modifyMVar mouseVar $ \mouse ->
+  cursor <- readMVar cursorVar
+  join $ modifyMVar mouseVar $ \mouse ->
     if not forceStateUpdate && ix == mouseCoordX mouse && iy == mouseCoordY mouse
     then return (mouse, return ())
     else let mouse' = mouse { mouseCoordX = ix, mouseCoordY = iy }
@@ -249,12 +248,12 @@ updateMouseLocation canvasInfoVar cursorVar mouseVar forceStateUpdate onChanged 
 -- | Reads the coordinate location of the mouse cursor from the
 -- 'MouseState' and updates the other variables according to the
 -- location.  Returns true if the 'MouseState' changed.
-updateMouseState :: MVS.MVar Cursor
-                 -> MVS.MVar MouseState
+updateMouseState :: MVar Cursor
+                 -> MVar MouseState
                  -> IO Bool
 updateMouseState cursorVar mouseVar = do
-  cursor <- MVS.readMVar cursorVar
-  MVS.modifyMVar mouseVar $ \mouse ->
+  cursor <- readMVar cursorVar
+  modifyMVar mouseVar $ \mouse ->
     let mouse' = updateMouseState' cursor mouse
     in return $ if mouse' == mouse
                 then (mouse, False)
@@ -272,9 +271,9 @@ updateMouseState' cursor mouse =
 -- over a point at which it is valid to place a stone, does so.  If there is
 -- already a child of the current node in which the current player plays at the
 -- clicked point, then we simply navigate to that node instead.
-handleClick :: MV.MVar CanvasInfo
-            -> MVS.MVar Cursor
-            -> MVS.MVar MouseState
+handleClick :: MVar CanvasInfo
+            -> MVar Cursor
+            -> MVar MouseState
             -> IO ()  -- ^ Action to take when the click places a stone, or
                       -- navigates to an existing child node.
             -> Point  -- ^ Location of the mouse cursor
@@ -282,9 +281,9 @@ handleClick :: MV.MVar CanvasInfo
 handleClick canvasInfoVar cursorVar mouseVar onChanged mousePoint = do
   -- First ensure that the info in the mouse state is current.
   updateMouse False
-  mouse <- MVS.readMVar mouseVar
+  mouse <- readMVar mouseVar
   when (mouseIsValidMove mouse) $ do
-    MVS.modifyMVar_ cursorVar $ \cursor -> do
+    modifyMVar_ cursorVar $ \cursor -> do
       let xy = (mouseCoordX mouse, mouseCoordY mouse)
       return $ fromMaybe
         (let board = cursorBoard cursor
@@ -298,17 +297,17 @@ handleClick canvasInfoVar cursorVar mouseVar onChanged mousePoint = do
     onChanged
   where updateMouse force = updateMouseLocation canvasInfoVar cursorVar mouseVar force (return ()) mousePoint
 
-drawBoard :: MVS.MVar Cursor
-          -> MV.MVar CanvasInfo
-          -> MVS.MVar MouseState
+drawBoard :: MVar Cursor
+          -> MVar CanvasInfo
+          -> MVar MouseState
           -> Panel a
           -> DC ()
           -> Rect
           -> IO ()
 drawBoard cursorVar canvasInfoVar mouseVar boardPanel dc _ = do
-  canvasInfo <- MV.readMVar canvasInfoVar
-  cursor <- MVS.readMVar cursorVar
-  mouse <- MVS.readMVar mouseVar
+  canvasInfo <- readMVar canvasInfoVar
+  cursor <- readMVar cursorVar
+  mouse <- readMVar mouseVar
   let board = cursorBoard cursor
       CanvasInfo { canvasSize = canvasSize
                  , canvasBoardUL = topLeft
@@ -378,10 +377,10 @@ drawGrid board canvasInfo dc ix iy isStar =
                  (ceiling $ fromIntegral sl * starRadius)
                  gridStyle
 
-updateCanvasInfo :: MV.MVar CanvasInfo -> MV.MVar Cursor -> Panel a -> IO ()
+updateCanvasInfo :: MVar CanvasInfo -> MVar Cursor -> Panel a -> IO ()
 updateCanvasInfo canvasInfoVar cursorVar boardPanel = do
-  cursor <- MVS.readMVar cursorVar
-  MV.modifyMVar_ canvasInfoVar . const . return =<<
+  cursor <- readMVar cursorVar
+  modifyMVar_ canvasInfoVar . const . return =<<
     canvasInfo boardPanel (cursorBoard cursor)
 
 canvasInfo :: Panel a -> BoardState -> IO CanvasInfo
