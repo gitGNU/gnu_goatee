@@ -9,8 +9,7 @@ description:
 data-dir: ""
 
 executable gohs
-    build-depends: base, cairo, containers, deepseq, gtk, mtl, parsec,
-                   wx, wxcore
+    build-depends: base, cairo, containers, gtk, mtl, parsec, wx, wxcore
     main-is: Main.hs
     buildable: True
     extensions: ExistentialQuantification

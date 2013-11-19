@@ -1,7 +1,6 @@
 module Khumba.GoHS.Ui.Wx where
 
 import Control.Concurrent.MVar
-import Control.DeepSeq
 import Control.Monad
 import Data.Maybe
 import Khumba.GoHS.Sgf
@@ -44,8 +43,6 @@ starRadius = 1/8
 
 data Tool = ToolPlay
 
-instance NFData Tool
-
 data CanvasInfo = CanvasInfo { canvasSize :: Size
                              , canvasBoardUL :: Point
                              , canvasStoneLength :: Int
@@ -58,11 +55,6 @@ data MouseState = MouseState { mouseCoordX :: Int
                              , mouseCoordY :: Int
                              , mouseIsValidMove :: Bool
                              } deriving (Eq)
-
-instance NFData MouseState where
-  rnf mouse = rnf (mouseCoordX mouse) `seq`
-              rnf (mouseCoordY mouse) `seq`
-              rnf (mouseIsValidMove mouse)
 
 boardFrame cursor = do
   let board = cursorBoard cursor
