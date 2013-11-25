@@ -1,3 +1,4 @@
+-- | Test utilities for working with the "Khumba.GoHS.Sgf" module.
 module Khumba.GoHS.SgfTestUtils ( node
                                 , node1
                                 , node'

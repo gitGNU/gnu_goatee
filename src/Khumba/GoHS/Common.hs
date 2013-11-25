@@ -1,3 +1,4 @@
+-- | Common utilities uesd throughout the project.
 module Khumba.GoHS.Common ( listReplace
                           , listUpdate
                           , fromLeft

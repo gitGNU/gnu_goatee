@@ -1,3 +1,4 @@
+-- | A wxWidgets implementation of a Go board UI.
 module Khumba.GoHS.Ui.Wx where
 
 import Control.Concurrent.MVar

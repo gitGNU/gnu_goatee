@@ -1,6 +1,6 @@
-module Main (
-    main
-) where
+-- | Main module, controls application start-up.
+module Main ( main
+            ) where
 
 import Control.Monad
 import Control.Monad.Trans (liftIO)

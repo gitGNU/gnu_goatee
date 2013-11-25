@@ -1,3 +1,4 @@
+-- | Implementation of the main window that contains the game board.
 module Khumba.GoHS.Ui.Gtk.MainWindow ( MainWindow
                                      , create
                                      , initialize

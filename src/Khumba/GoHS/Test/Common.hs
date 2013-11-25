@@ -1,3 +1,4 @@
+-- | Common utilities for testing code.
 module Khumba.GoHS.Test.Common ( assertElem
                                , printableAsciiChars
                                ) where

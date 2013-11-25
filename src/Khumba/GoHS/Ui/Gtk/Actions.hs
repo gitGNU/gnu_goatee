@@ -1,3 +1,4 @@
+-- | GTK+ 'Action' definitions.
 module Khumba.GoHS.Ui.Gtk.Actions ( Actions
                                   , create
                                   , activateInitialTool

@@ -1,3 +1,5 @@
+-- | The core SGF data structures for game tree representation, navigation, and
+-- manipulation.
 module Khumba.GoHS.Sgf where
 
 import qualified Control.Monad.State as State

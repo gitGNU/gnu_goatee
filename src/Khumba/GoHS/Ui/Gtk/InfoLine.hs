@@ -1,3 +1,5 @@
+-- | A text widget that displays information about the game, including some
+-- overall information, as well as the current board position.
 module Khumba.GoHS.Ui.Gtk.InfoLine ( InfoLine
                                    , create
                                    , myLabel

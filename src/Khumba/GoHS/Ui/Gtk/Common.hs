@@ -1,3 +1,5 @@
+-- | Common dependencies among all GTK+ UI code.  Contains class definitions and
+-- some common data declarations.
 module Khumba.GoHS.Ui.Gtk.Common where
 
 import Control.Monad ((<=<), forM_)
@@ -125,27 +127,23 @@ defaultUiModes = UiModes { uiViewMode = ViewRegularMode
                          }
 
 -- | Selectable tools for operating on the board.
-data Tool = -- * Game tools
-            ToolPlay
-          | ToolJump
-          | ToolScore
-            -- * Editing tools
-          | ToolBlack
-          | ToolWhite
-          | ToolErase
-            -- * Markup tools
-          | ToolArrow
-          | ToolMarkCircle
-          | ToolLabel
-          | ToolLine
-          | ToolMarkX
-          | ToolMarkSelected
-          | ToolMarkSquare
-          | ToolMarkTriangle
-            -- * Visibility tools
-          | ToolVisible
-          | ToolDim
-          | ToolInvisible
+data Tool = ToolPlay  -- ^ Game tool.
+          | ToolJump  -- ^ Game tool.
+          | ToolScore  -- ^ Game tool.
+          | ToolBlack  -- ^ Editing tool.
+          | ToolWhite  -- ^ Editing tool.
+          | ToolErase  -- ^ Editing tool.
+          | ToolArrow  -- ^ Markup tool.
+          | ToolMarkCircle  -- ^ Markup tool.
+          | ToolLabel  -- ^ Markup tool.
+          | ToolLine  -- ^ Markup tool.
+          | ToolMarkX  -- ^ Markup tool.
+          | ToolMarkSelected  -- ^ Markup tool.
+          | ToolMarkSquare  -- ^ Markup tool.
+          | ToolMarkTriangle  -- ^ Markup tool.
+          | ToolVisible  -- ^ Visibility tool.
+          | ToolDim  -- ^ Visibility tool.
+          | ToolInvisible  -- ^ Visibility tool.
           deriving (Bounded, Enum, Eq, Show)
 
 -- | The tool that should be selected when a board first opens in the UI.

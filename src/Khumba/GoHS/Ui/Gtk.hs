@@ -1,3 +1,5 @@
+-- | The main module for the GTK+ UI, used by clients of the UI.  Also
+-- implements the UI controller.
 module Khumba.GoHS.Ui.Gtk ( startBoard
                           , startNewBoard
                           , startFile

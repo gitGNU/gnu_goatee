@@ -1,3 +1,4 @@
+-- | A widget that renders an interactive Go board.
 module Khumba.GoHS.Ui.Gtk.Goban ( Goban
                                 , create
                                 , myDrawingArea

@@ -1,3 +1,4 @@
+-- | A parser for reading SGF files.
 module Khumba.GoHS.Sgf.Parser ( ParseError
                               , parseString
                               , parseFile
@@ -269,8 +270,8 @@ color = choice [Black <$ char 'B',
         <?> "color"
 
 -- | A parser for SGF text property values.  Its argument should be true if the
--- text is inside of a composed property value, so ':' should terminate the
--- value in addition to ']'.
+-- text is inside of a composed property value, so @\':\'@ should terminate the
+-- value in addition to @']'@.
 text :: Bool -> CharParser () Text
 text isComposed = toText <$> textParser isComposed
                   <?> "text"
