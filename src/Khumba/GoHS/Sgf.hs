@@ -334,12 +334,36 @@ data WinReason = WinByScore RealValue
                | WinByForfeit
                deriving (Eq, Show)
 
-data Ruleset = RulesetAga
-             | RulesetIng
-             | RulesetJapanese
-             | RulesetNewZealand
-             | RulesetOther String
+-- | A ruleset used for a Go game.  Can be one of the rulesets defined by the
+-- SGF specification, or a custom string.
+data Ruleset = KnownRuleset RulesetType
+             | UnknownRuleset String
              deriving (Eq, Show)
+
+-- | The rulesets defined by the SGF specification, for use with 'Ruleset'.
+data RulesetType = RulesetAga
+                 | RulesetIng
+                 | RulesetJapanese
+                 | RulesetNewZealand
+                 deriving (Bounded, Enum, Eq, Show)
+
+-- | Returns the string representation for a ruleset.
+fromRuleset :: Ruleset -> String
+fromRuleset ruleset = case ruleset of
+  KnownRuleset RulesetAga -> "AGA"
+  KnownRuleset RulesetIng -> "Goe"
+  KnownRuleset RulesetJapanese -> "Japanese"
+  KnownRuleset RulesetNewZealand -> "NZ"
+  UnknownRuleset str -> str
+
+-- | Parses a string representation of a ruleset.
+toRuleset :: String -> Ruleset
+toRuleset str = case str of
+  "AGA" -> KnownRuleset RulesetAga
+  "Goe" -> KnownRuleset RulesetIng
+  "Japanese" -> KnownRuleset RulesetJapanese
+  "NZ" -> KnownRuleset RulesetNewZealand
+  _ -> UnknownRuleset str
 
 -- | The property types that SGF uses to group properties.
 data PropertyType = MoveProperty     -- ^ Cannot mix with setup nodes.

@@ -367,12 +367,4 @@ gameResult = GameResultDraw <$ try (string "0")
                     <|> WinByForfeit <$ try (string "Forfeit")
 
 ruleset :: CharParser () Ruleset
-ruleset = do
-  rule <- fromSimpleText <$> simpleText False
-  let ruleLower = map toLower rule
-  return $ case ruleLower of
-    "aga" -> RulesetAga
-    "goe" -> RulesetIng
-    "japanese" -> RulesetJapanese
-    "nz" -> RulesetNewZealand
-    _ -> RulesetOther rule
+ruleset = toRuleset . fromSimpleText <$> simpleText False

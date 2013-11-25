@@ -213,7 +213,7 @@ propertyMetadataTests = testGroup "property metadata" [
                           AP st st, CA st, FF 1, GM 1, ST vm, SZ 1 1]
         gameInfoProperties = [-- Game info properties.
                               AN st, BR st, BT st, CP st, DT st, EV st, GC st, GN st, ON st, OT st,
-                              PB st, PC st, PW st, RE GameResultVoid, RO st, RU RulesetJapanese,
+                              PB st, PC st, PW st, RE GameResultVoid, RO st, RU ru,
                               SO st, TM rv, US st, WR st, WT st]
         allProperties = moveProperties ++ setupProperties ++ generalProperties ++
                         rootProperties ++ gameInfoProperties
@@ -221,5 +221,6 @@ propertyMetadataTests = testGroup "property metadata" [
         db = Double1
         tx = toText ""
         st = toSimpleText ""
+        ru = KnownRuleset RulesetJapanese
         rv = 1
         vm = defaultVariationMode
