@@ -5,8 +5,8 @@ import Control.Monad
 import Data.Maybe
 import Khumba.GoHS.Common
 import Khumba.GoHS.Sgf
-import Khumba.GoHS.SgfTestUtils
 import Khumba.GoHS.Sgf.Parser
+import Khumba.GoHS.SgfTestUtils
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node, Test)
@@ -264,22 +264,22 @@ propertyValueTests = testGroup "property values" [
             assertParse number "-0" (@?= 0),
 
           testCase "parses positive integers" $ do
-            assertParse number "1" (@=? 1)
-            assertParse number "20" (@=? 20)
-            assertParse number "4294967296" (@=? (2 ^ 32))
-            assertParse number "18446744073709551616" (@=? (2 ^ 64)),
+            assertParse number "1" (@?= 1)
+            assertParse number "20" (@?= 20)
+            assertParse number "4294967296" (@?= (2 ^ 32))
+            assertParse number "18446744073709551616" (@?= (2 ^ 64)),
 
           testCase "parses positive integers with the plus sign" $ do
-            assertParse number "+1" (@=? 1)
-            assertParse number "+20" (@=? 20)
-            assertParse number "+4294967296" (@=? (2 ^ 32))
-            assertParse number "+18446744073709551616" (@=? (2 ^ 64)),
+            assertParse number "+1" (@?= 1)
+            assertParse number "+20" (@?= 20)
+            assertParse number "+4294967296" (@?= (2 ^ 32))
+            assertParse number "+18446744073709551616" (@?= (2 ^ 64)),
 
           testCase "parses negative integers" $ do
-            assertParse number "-1" (@=? (-1))
-            assertParse number "-20" (@=? (-20))
-            assertParse number "-4294967296" (@=? (- (2 ^ 32)))
-            assertParse number "-18446744073709551616" (@=? (- (2 ^ 64)))
+            assertParse number "-1" (@?= (-1))
+            assertParse number "-20" (@?= (-20))
+            assertParse number "-4294967296" (@?= (- (2 ^ 32)))
+            assertParse number "-18446744073709551616" (@?= (- (2 ^ 64)))
           ]
 
         textTestsFor makeParser toString testComposed =
