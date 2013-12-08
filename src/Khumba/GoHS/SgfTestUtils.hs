@@ -6,7 +6,7 @@ module Khumba.GoHS.SgfTestUtils ( node
                                 ) where
 
 import qualified Khumba.GoHS.Sgf as Sgf
-import Khumba.GoHS.Sgf hiding (rootNode)
+import Khumba.GoHS.Sgf
 
 node :: [Property] -> Node
 node props = emptyNode { nodeProperties = props }
