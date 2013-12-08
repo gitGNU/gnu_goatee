@@ -7,12 +7,12 @@ import Control.Monad.Trans (liftIO)
 import Data.IORef
 import Data.Maybe
 import Graphics.UI.Gtk
-import Graphics.UI.WX (start)
+--import Graphics.UI.WX (start)
 import Khumba.GoHS.Common
 import Khumba.GoHS.Sgf
 import Khumba.GoHS.Sgf.Parser
 import Khumba.GoHS.Ui.Gtk
-import Khumba.GoHS.Ui.Wx
+--import Khumba.GoHS.Ui.Wx
 import System.Environment (getArgs)
 
 main :: IO ()
@@ -29,6 +29,7 @@ mainGtk = do
               _ -> return ()
   mainGUI
 
+{-
 mainWx :: IO ()
 mainWx = do
   args <- getArgs
@@ -41,3 +42,4 @@ mainWx = do
                 start $ boardFrame $ rootCursor $ head $ collectionTrees collection
               Left err ->
                 putStrLn $ "Error loading file: " ++ show err
+-}
