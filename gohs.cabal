@@ -12,11 +12,13 @@ executable gohs
     build-depends: base, cairo, containers, gtk, mtl, parsec
     main-is: Main.hs
     buildable: True
-    extensions: ExistentialQuantification
+    extensions: ExistentialQuantification, FlexibleInstances,
+        FunctionalDependencies, MultiParamTypeClasses, UndecidableInstances
     hs-source-dirs: src
     other-modules:
         Khumba.GoHS.Common
         Khumba.GoHS.Sgf
+        Khumba.GoHS.Sgf.Monad
         Khumba.GoHS.Sgf.Parser
         Khumba.GoHS.Ui.Gtk
         Khumba.GoHS.Ui.Gtk.Common
@@ -29,6 +31,8 @@ test-suite test-gohs
     build-depends: base, containers, HUnit, mtl, test-framework,
                    test-framework-hunit
     type: exitcode-stdio-1.0
+    extensions: FlexibleInstances, FunctionalDependencies,
+        MultiParamTypeClasses, UndecidableInstances
     main-is: Test.hs
     buildable: True
     hs-source-dirs: src

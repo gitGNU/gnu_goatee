@@ -1,7 +1,9 @@
 module Khumba.GoHS.CommonTest (tests) where
 
 import qualified Control.Monad.State as State
-import Control.Monad.State (State)
+import Control.Monad.Identity (Identity, runIdentity)
+import Control.Monad.State (StateT, get, put, runStateT)
+import Control.Monad.Writer (execWriter, runWriter, tell)
 import Khumba.GoHS.Common
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
@@ -14,7 +16,9 @@ tests = testGroup "Khumba.GoHS.Common" [
   andEithersTests,
   mapTupleTests,
   whenMaybeTests,
-  condTests
+  condTests,
+  orMTests,
+  whileMTests
   ]
 
 listReplaceTests = testGroup "listReplace" [
@@ -105,4 +109,43 @@ condTests = testGroup "cond" [
     3 @=? cond 0 [(False, 1), (False, 2), (True, 3)]
     2 @=? cond 0 [(False, 1), (True, 2), (True, 3)]
     1 @=? cond 0 [(True, 1), (True, 2), (True, 3)]
+  ]
+
+orMTests = testGroup "orM" [
+  testCase "returns false for an empty list" $
+    False @=? runIdentity (orM ([] :: [Identity Bool])),
+
+  testCase "returns true when true is encountered" $
+    let actions = [tell "0" >> return True,
+                   tell "1" >> return False,
+                   tell "2" >> return False]
+    in (True, "0") @=? runWriter (orM actions),
+
+  testCase "returns when the first true is encountered" $
+    let actions = [tell "0" >> return False,
+                   tell "1" >> return False,
+                   tell "2" >> return True,
+                   tell "3" >> return False]
+    in (True, "012") @=? runWriter (orM actions),
+
+  testCase "returns false when all actions return false" $
+    let actions = [tell "0" >> return False,
+                   tell "1" >> return False,
+                   tell "2" >> return False,
+                   tell "3" >> return False]
+    in (False, "0123") @=? runWriter (orM actions)
+  ]
+
+whileMTests = testGroup "whileM" [
+  testCase "never executes the body if the first test returns false" $
+    "" @=? execWriter (whileM (return False) (tell "x")),
+
+  testCase "executes repeatedly as expected" $
+    let test = do n <- get
+                  tell $ show n
+                  if n > 0
+                    then put (n - 1) >> return True
+                    else return False
+        body = tell "x"
+    in "3x2x1x0" @=? execWriter (runStateT (whileM test body) 3)
   ]

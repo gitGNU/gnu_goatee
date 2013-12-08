@@ -3,6 +3,7 @@ module Khumba.GoHS.SgfTestUtils ( node
                                 , node1
                                 , node'
                                 , rootNode
+                                , child
                                 ) where
 
 import qualified Khumba.GoHS.Sgf as Sgf
@@ -24,3 +25,6 @@ node' props children = emptyNode { nodeProperties = props
 rootNode :: Int -> Int -> [Property] -> [Node] -> Node
 rootNode width height props =
   foldr addChild $ foldr addProperty (rootNodeWithSize width height) props
+
+child :: Int -> Cursor -> Cursor
+child = flip cursorChild

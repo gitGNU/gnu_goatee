@@ -455,7 +455,7 @@ propertyInherited _ = False
 data RootInfo = RootInfo { rootInfoWidth :: Int
                          , rootInfoHeight :: Int
                          , rootInfoVariationMode :: VariationMode
-                         } deriving (Show)
+                         } deriving (Eq, Show)
 
 data GameInfo = GameInfo { gameInfoRootInfo :: RootInfo
 
@@ -518,6 +518,42 @@ emptyGameInfo rootInfo =
            , gameInfoAnnotatorName = Nothing
            , gameInfoEntererName = Nothing
            }
+
+-- | Returns whether a node contains any game info properties.
+internalIsGameInfoNode :: Node -> Bool
+internalIsGameInfoNode = any ((GameInfoProperty ==) . propertyType) . nodeProperties
+
+-- | Converts a 'GameInfo' into a list of 'Property's that can be used to
+-- reconstruct the 'GameInfo'.
+gameInfoToProperties :: GameInfo -> [Property]
+gameInfoToProperties info = execWriter $ do
+  copy (PB . toSimpleText) gameInfoBlackName
+  copy (BT . toSimpleText) gameInfoBlackTeamName
+  copy (BR . toSimpleText) gameInfoBlackRank
+
+  copy (PW . toSimpleText) gameInfoWhiteName
+  copy (WT . toSimpleText) gameInfoWhiteTeamName
+  copy (WR . toSimpleText) gameInfoWhiteRank
+
+  copy RU gameInfoRuleset
+  copy TM gameInfoBasicTimeSeconds
+  copy (OT . toSimpleText) gameInfoOvertime
+  copy RE gameInfoResult
+
+  copy (GN . toSimpleText) gameInfoGameName
+  copy (GC . toSimpleText) gameInfoGameComment
+  copy (ON . toSimpleText) gameInfoOpeningComment
+
+  copy (EV . toSimpleText) gameInfoEvent
+  copy (RO . toSimpleText) gameInfoRound
+  copy (PC . toSimpleText) gameInfoPlace
+  copy (DT . toSimpleText) gameInfoDatesPlayed
+  copy (SO . toSimpleText) gameInfoSource
+  copy (CP . toSimpleText) gameInfoCopyright
+
+  copy (AN . toSimpleText) gameInfoAnnotatorName
+  copy (US . toSimpleText) gameInfoEntererName
+  where copy ctor accessor = whenMaybe (accessor info) $ \x -> tell [ctor x]
 
 -- | An object that corresponds to a node in some game tree, and represents the
 -- state of the game at that node, including board position, player turn and
@@ -1023,6 +1059,7 @@ cursorChild cursor index =
                          advanceMove $
                          cursorBoard cursor
          }
+  -- TODO Better handling or messaging for out-of-bounds:
   where child = (!! index) $ nodeChildren $ cursorNode cursor
 
 cursorChildren :: Cursor -> [Cursor]
@@ -1047,6 +1084,10 @@ cursorChildPlayingAt coord cursor =
       hasMove = elem $ colorToMove color coord
   in find (hasMove . nodeProperties . cursorNode) children
 
+-- | This is simply @'nodeProperties' . 'cursorNode'@.
+cursorProperties :: Cursor -> [Property]
+cursorProperties = nodeProperties . cursorNode
+
 cursorModifyNode :: (Node -> Node) -> Cursor -> Cursor
 cursorModifyNode fn cursor =
   let node' = fn $ cursorNode cursor
@@ -1061,119 +1102,3 @@ cursorModifyNode fn cursor =
                                                         })
                                            parentCursor
       in cursorChild parentCursor' index
-
--- | A state that is transformed inside of a Go monad, 'GoM'.
-data GoState h = GoState { stateCursor :: Cursor
-                         , stateHandlers :: [ChangeHandler h]
-                         , stateHandlerAction :: h ()
-                         }
-
---zz: Old
---emptyGoState :: Monad h => GoState h
---emptyGoState = GoState { stateCursor = rootCursor emptyNode
---                       , stateHandlers = []
---                       , stateHandlerAction = return ()
---                       }
-
--- | A monad for executing Go actions.
---
--- @h@ must be a monad in which event handlers will execute.
-data GoM h a = GoM { goState :: State.State (GoState h) a }
-
-instance Monad h => Monad (GoM h) where
-  return x = GoM { goState = return x }
-
-  -- m :: GoM a
-  -- f :: a -> GoM b
-  --m >>= f = GoM $ let s = runGo m    -- s :: State.State GoState a
-  --                in s >>= (\x -> runGo (f x))
-  m >>= f = GoM $ goState . f =<< goState m
-  --m >>= f = let s1 = goState m
-  --              h1 = goHandlers m
-  --              --go2 = s1 >>= f
-  --              --s2 = goState . f =<< s1
-  --              s2 = goState go2
-  --              h2 = goHandlers go2
-  --          in GoM { goState = s2, goHandlers = h1 ++ h2 }
-
--- h must be a monad.
-type ChangeHandler h = ChangeEvent -> Maybe (h ())
-
-data ChangeEvent = MoveEvent Cursor Cursor
-                 | NodeAddedEvent Cursor
-
-updateState :: (GoState h -> GoState h) -> GoM h ()
-updateState f = GoM $ State.put . f =<< State.get
-
-getCursor :: GoM h Cursor
-getCursor = GoM { goState = liftM stateCursor State.get }
-
-putCursor :: Monad h => Cursor -> GoM h ()
---putCursor cursor = GoM { goState = State.put $ GoState cursor }
-putCursor cursor = do
-  oldCursor <- getCursor
-  updateState (\goState -> goState { stateCursor = cursor })
-  fireEvent (MoveEvent oldCursor cursor)
-
--- Weird that "Monad h =>" is needed here?
-getNode :: Monad h => GoM h Node
-getNode = liftM cursorNode getCursor
-
-putRoot :: Monad h => Node -> GoM h ()
-putRoot = putCursor . rootCursor
-
-getHandlers :: GoM h [ChangeHandler h]
-getHandlers = GoM $ liftM stateHandlers State.get
-
-addHandler :: ChangeHandler h -> GoM h ()
-addHandler h = updateState
-  (\goState -> goState { stateHandlers = stateHandlers goState ++ [h] })
-
-getHandlerAction :: Monad h => GoM h (h ())
-getHandlerAction = GoM $ liftM stateHandlerAction State.get
-
-fireEvent :: Monad h => ChangeEvent -> GoM h ()
-fireEvent e = do
-  handlers <- getHandlers
-  action <- getHandlerAction
-  let newActions = mapMaybe ($ e) handlers
-  let action' = action >> sequence_ newActions
-  updateState (\goState -> goState { stateHandlerAction = action' })
-
----- Fails if already at the root.
---goUp :: Monad h => GoM h ()
---goUp = do
---  cursor <- getCursor
---  case cursorParent cursor of
---    Just parent -> putCursor parent
---    Nothing -> fail ("Could not go up from cursor: " ++ show cursor)
-
---zz: Disabled, emptyGoState is broken.
----- Executes the actions in the Go monad, returning the handler action
----- as well as a Go monad with the current state and no handler action.
---runGo :: Monad h => GoM h a -> (GoM h (), h ())
---runGo go =
---  let (_, state) = State.runState (goState go) emptyGoState
---      action = stateHandlerAction state
---  in (go >> updateState (\goState -> goState { stateHandlerAction = return () }),
---      action)
-
---zz:
-foo :: GoM IO ()
-foo = do
-  addHandler $ const Nothing
-  addHandler (\e -> case e of
-               MoveEvent from to ->
-                 Just $ putStrLn $ "Moved from " ++ show from ++ " to " ++ show to ++ "."
-               _ -> Nothing)
-  putCursor $ rootCursor emptyNode
-
---do
---  putRoot root
---  putCursor . head =<< getChildren
-
--- [(a, 0)]
--- [(a, 1)]
--- [(b, 0), (a, 2)]
--- [(c, 0), (a, 3)]
--- [(c, 1), (a, 3)]

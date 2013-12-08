@@ -9,10 +9,12 @@ module Khumba.GoHS.Common ( listReplace
                           , mapTuple
                           , whenMaybe
                           , cond
+                          , orM
+                          , whileM
                           ) where
 
 import Control.Arrow ((***))
-import Control.Monad (join)
+import Control.Monad (join, when)
 import Data.Either (partitionEithers)
 
 listReplace :: Eq a => a -> a -> [a] -> [a]
@@ -57,3 +59,12 @@ whenMaybe = flip $ maybe (return ())
 cond :: a -> [(Bool, a)] -> a
 cond fallback ((test, body):rest) = if test then body else cond fallback rest
 cond fallback _ = fallback
+
+orM :: Monad m => [m Bool] -> m Bool
+orM (m:ms) = do x <- m
+                if x then return True else orM ms
+orM _ = return False
+
+whileM :: Monad m => m Bool -> m () -> m ()
+whileM test body = do x <- test
+                      when x $ body >> whileM test body
