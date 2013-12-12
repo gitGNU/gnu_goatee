@@ -10,7 +10,7 @@ import Khumba.GoHS.SgfTestUtils
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node, Test)
-import Text.ParserCombinators.Parsec (CharParser, char, parse)
+import Text.ParserCombinators.Parsec (CharParser, char, eof, parse)
 
 -- Parses a string as a complete SGF document.  On success, executes the
 -- continuation function with the result.  Otherwise, causes an assertion
@@ -33,21 +33,21 @@ parseAndFail input = case parseString input of
 -- continuation function with the result.  Otherwise, causes an assertion
 -- failure.
 assertParse :: CharParser () a -> String -> (a -> IO ()) -> IO ()
-assertParse parser input cont = case parse parser "<assertParse>" input of
+assertParse parser input cont = case parse (parser <* eof) "<assertParse>" input of
   Left error -> assertFailure $ "Failed to parse: " ++ show error
   Right result -> cont result
 
 -- Parses a string using the given parser, and if the parse fails, causes an
 -- assertion failure.
 assertParses :: CharParser () a -> String -> IO ()
-assertParses parser input = case parse parser "<assertParses>" input of
+assertParses parser input = case parse (parser <* eof) "<assertParses>" input of
   Left error -> assertFailure $ "Failed to parse: " ++ show error
   Right result -> return ()
 
 -- Tries to parse a string using the given parser.  If the parse succeeds then
 -- this function causes an assertion failure, otherwise this function succeeds.
 assertNoParse :: Show a => CharParser () a -> String -> IO ()
-assertNoParse parser input = case parse parser "<assertNoParse>" input of
+assertNoParse parser input = case parse (parser <* eof) "<assertNoParse>" input of
   Left error -> return ()
   Right result -> assertFailure $
                   "Expected " ++ show input ++ " not to parse.  " ++
@@ -254,6 +254,112 @@ propertyValueTests = testGroup "property values" [
 
     testCase "parses point pairs" $
       assertParse (compose point point) "aa:bb" (@?= ((0, 0), (1, 1)))
+    ],
+
+  testGroup "gameType" [
+    testCase "succeeds for the Go game type" $
+      assertParse gameType "1" (@?= 1),
+
+    testCase "fails for non-Go game types" $
+      forM_ (0:[2..20]) $ \x ->
+        assertNoParse gameType $ show x
+    ],
+
+  testGroup "variationMode" [
+    testCase "mode 0" $
+      assertParse variationMode "0" (@?= VariationMode ShowChildVariations True),
+
+    testCase "mode 1" $
+      assertParse variationMode "1" (@?= VariationMode ShowCurrentVariations True),
+
+    testCase "mode 2" $
+      assertParse variationMode "2" (@?= VariationMode ShowChildVariations False),
+
+    testCase "mode 3" $
+      assertParse variationMode "3" (@?= VariationMode ShowCurrentVariations False)
+    ],
+
+  testGroup "boardSize" [
+    testCase "parses square boards" $ do
+      assertParse boardSize "1" (@?= SZ 1 1)
+      assertParse boardSize "4" (@?= SZ 4 4)
+      assertParse boardSize "9" (@?= SZ 9 9)
+      assertParse boardSize "19" (@?= SZ 19 19)
+      assertParse boardSize "52" (@?= SZ 52 52),
+
+    testCase "parses rectangular boards" $ do
+      assertParse boardSize "1:2" (@?= SZ 1 2)
+      assertParse boardSize "9:5" (@?= SZ 9 5)
+      assertParse boardSize "19:9" (@?= SZ 19 9),
+
+    testCase "rejects boards of non-positive size" $ do
+      assertNoParse boardSize "0"
+      assertNoParse boardSize "-1"
+      assertNoParse boardSize "0:5"
+      assertNoParse boardSize "5:0"
+      assertNoParse boardSize "0:-2",
+
+    testCase "rejects square boards given in rectangular format" $ do
+      assertNoParse boardSize "1:1"
+      assertNoParse boardSize "13:13"
+    ],
+
+  testGroup "gameResult" [
+    testCase "draw" $ do
+      assertParse gameResult "0" (@?= GameResultDraw)
+      assertParse gameResult "Draw" (@?= GameResultDraw),
+
+    testCase "void" $
+      assertParse gameResult "Void" (@?= GameResultVoid),
+
+    testCase "unknown" $
+      assertParse gameResult "?" (@?= GameResultUnknown),
+
+    testCase "Black wins by points" $ do
+      assertParse gameResult "B+0.5" (@?= GameResultWin Black (WinByScore 0.5))
+      assertParse gameResult "B+11" (@?= GameResultWin Black (WinByScore 11))
+      assertParse gameResult "B+354.5" (@?= GameResultWin Black (WinByScore 354.5)),
+
+    testCase "Black wins by resignation" $ do
+      assertParse gameResult "B+R" (@?= GameResultWin Black WinByResignation)
+      assertParse gameResult "B+Resign" (@?= GameResultWin Black WinByResignation),
+
+    testCase "Black wins on time" $ do
+      assertParse gameResult "B+T" (@?= GameResultWin Black WinByTime)
+      assertParse gameResult "B+Time" (@?= GameResultWin Black WinByTime),
+
+    testCase "Black wins by forfeit" $ do
+      assertParse gameResult "B+F" (@?= GameResultWin Black WinByForfeit)
+      assertParse gameResult "B+Forfeit" (@?= GameResultWin Black WinByForfeit),
+
+    testCase "White wins by points" $ do
+      assertParse gameResult "W+0.5" (@?= GameResultWin White (WinByScore 0.5))
+      assertParse gameResult "W+11" (@?= GameResultWin White (WinByScore 11))
+      assertParse gameResult "W+354.5" (@?= GameResultWin White (WinByScore 354.5)),
+
+    testCase "White wins by resignation" $ do
+      assertParse gameResult "W+R" (@?= GameResultWin White WinByResignation)
+      assertParse gameResult "W+Resign" (@?= GameResultWin White WinByResignation),
+
+    testCase "White wins on time" $ do
+      assertParse gameResult "W+T" (@?= GameResultWin White WinByTime)
+      assertParse gameResult "W+Time" (@?= GameResultWin White WinByTime),
+
+    testCase "White wins by forfeit" $ do
+      assertParse gameResult "W+F" (@?= GameResultWin White WinByForfeit)
+      assertParse gameResult "W+Forfeit" (@?= GameResultWin White WinByForfeit)
+    ],
+
+  testGroup "ruleset" [
+    testCase "parses known rules" $ do
+      assertParse ruleset "AGA" (@?= KnownRuleset RulesetAga)
+      assertParse ruleset "Goe" (@?= KnownRuleset RulesetIng)
+      assertParse ruleset "Japanese" (@?= KnownRuleset RulesetJapanese)
+      assertParse ruleset "NZ" (@?= KnownRuleset RulesetNewZealand),
+
+    testCase "parses unknown rules" $ do
+      assertParse ruleset "Foo" (@?= UnknownRuleset "Foo")
+      assertParse ruleset "First capture" (@?= UnknownRuleset "First capture")
     ]
   ]
 

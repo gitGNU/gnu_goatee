@@ -359,12 +359,12 @@ gameResult = GameResultDraw <$ try (string "0")
                      return $ GameResultWin player reason)
              <?> "gameResult"
   where winReason = WinByScore <$> try real
-                    <|> WinByResignation <$ try (string "R")
                     <|> WinByResignation <$ try (string "Resign")
-                    <|> WinByTime <$ try (string "T")
+                    <|> WinByResignation <$ try (string "R")
                     <|> WinByTime <$ try (string "Time")
-                    <|> WinByForfeit <$ try (string "F")
+                    <|> WinByTime <$ try (string "T")
                     <|> WinByForfeit <$ try (string "Forfeit")
+                    <|> WinByForfeit <$ try (string "F")
 
 ruleset :: CharParser () Ruleset
 ruleset = toRuleset . fromSimpleText <$> simpleText False
