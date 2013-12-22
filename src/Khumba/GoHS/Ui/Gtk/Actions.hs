@@ -7,12 +7,9 @@ module Khumba.GoHS.Ui.Gtk.Actions ( Actions
                                   , myToolActions
                                   ) where
 
-import qualified Data.Map as Map
 import Control.Monad
-import Data.Map (Map)
 import Data.Maybe
 import Graphics.UI.Gtk
-import Khumba.GoHS.Sgf (defaultSize)
 import Khumba.GoHS.Ui.Gtk.Common
 
 data Actions = Actions { myFileNewAction :: Action

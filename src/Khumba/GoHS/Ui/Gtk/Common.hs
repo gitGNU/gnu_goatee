@@ -4,7 +4,6 @@ module Khumba.GoHS.Ui.Gtk.Common where
 
 import Control.Monad ((<=<), forM_)
 import Data.IORef
-import Data.Maybe
 import Graphics.UI.Gtk hiding (Color, Cursor)
 import Khumba.GoHS.Sgf
 import Khumba.GoHS.Sgf.Parser

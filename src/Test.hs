@@ -4,8 +4,7 @@ import qualified Khumba.GoHS.CommonTest
 import qualified Khumba.GoHS.SgfTest
 import qualified Khumba.GoHS.Sgf.MonadTest
 import qualified Khumba.GoHS.Sgf.ParserTest
-import Test.Framework (defaultMain, testGroup)
-import Test.Framework.Providers.HUnit (testCase)
+import Test.Framework (defaultMain)
 
 tests = [ Khumba.GoHS.CommonTest.tests
         , Khumba.GoHS.SgfTest.tests

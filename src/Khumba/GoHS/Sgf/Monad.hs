@@ -38,9 +38,8 @@ import Control.Monad.Trans
 import Control.Monad.Writer.Class
 import Control.Applicative
 import qualified Control.Monad.State as State
-import Control.Monad.State (State)
+import Control.Monad.State (StateT)
 import Data.Maybe
-import Data.Monoid (Monoid)
 import Khumba.GoHS.Common
 import Khumba.GoHS.Sgf
 
@@ -143,7 +142,7 @@ class (Monad h, Monad m) => MonadGo h m | m -> h where
   on :: Event h handler -> handler -> m ()
 
 -- | The regular monad transformer for 'MonadGo'.
-data GoT h m a = GoT { goState :: State.StateT (GoState h) m a }
+data GoT h m a = GoT { goState :: StateT (GoState h) m a }
 
 -- | A type synonym for a 'GoT' with no event handler type.
 type BasicGoT m a = GoT Identity m a
@@ -293,7 +292,7 @@ instance (Monad h, Monad m) => MonadGo h (GoT h m) where
     -- following popPosition.
     case statePathStack state of
       x:y:xs -> putState $ state { statePathStack = (x ++ y):xs }
-      x:[] -> putState $ state { statePathStack = [] }
+      _:[] -> putState $ state { statePathStack = [] }
       [] -> fail "dropPosition: No position to drop from the stack."
 
   modifyProperties fn = modifyState $ \state ->
@@ -304,7 +303,7 @@ instance (Monad h, Monad m) => MonadGo h (GoT h m) where
   deleteProperties pred = modifyProperties $ filter $ not . pred
 
   -- TODO Implement putProperties.  But how to dedup?
-  putProperties props = fail "putProperties not implemented."
+  putProperties _ = fail "putProperties not implemented."
 
   modifyGameInfo fn = do
     cursor <- getCursor

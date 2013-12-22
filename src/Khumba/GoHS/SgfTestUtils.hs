@@ -6,7 +6,6 @@ module Khumba.GoHS.SgfTestUtils ( node
                                 , child
                                 ) where
 
-import qualified Khumba.GoHS.Sgf as Sgf
 import Khumba.GoHS.Sgf
 
 node :: [Property] -> Node

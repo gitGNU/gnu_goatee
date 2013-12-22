@@ -5,7 +5,6 @@ module Khumba.GoHS.Ui.Gtk.Goban ( Goban
                                 ) where
 
 import Control.Monad
-import Control.Monad.Trans (liftIO)
 import Data.Maybe
 import Data.IORef
 import Graphics.Rendering.Cairo
@@ -56,7 +55,7 @@ data Goban ui = Goban { myUi :: UiRef ui
                       }
 
 instance UiCtrl ui => UiView (Goban ui) where
-  viewCursorChanged goban cursor =
+  viewCursorChanged goban _ =
     -- TODO Need to update the hover state's validity on cursor and tool (mode?)
     -- changes.
     widgetQueueDraw $ myDrawingArea goban
@@ -83,7 +82,6 @@ create uiRef = do
                                ButtonPressMask,
                                PointerMotionMask]
   on drawingArea exposeEvent $ liftIO $ do
-    cursor <- readCursor =<< readUiRef uiRef
     drawBoard uiRef hoverStateRef drawingArea
     return True
 
@@ -269,9 +267,9 @@ drawCoord board gridWidth gridBorderWidth tool hoverState x y coord = do
         translate (-x') (-y')
 
   case coordVisibility coord of
-    CoordInvisible -> return ()
-    -- TODO CoordDimmed
     CoordVisible -> draw
+    CoordInvisible -> return ()
+    CoordDimmed -> error "TODO: Implement rendering of CoordDimmed."
 
 -- | Draws a stone from @(0, 0)@ to @(1, 1)@ in user coordinates.
 drawStone :: Color -- ^ The color of stone to draw.

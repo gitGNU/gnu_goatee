@@ -7,12 +7,9 @@ module Khumba.GoHS.Ui.Gtk ( startBoard
 
 import Control.Concurrent.MVar
 import Data.IORef
-import Data.List (find)
-import Data.Maybe
-import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), Window, dialogRun, messageDialogNew, widgetDestroy, windowSetTitle)
+import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), dialogRun, messageDialogNew, widgetDestroy)
 import qualified Khumba.GoHS.Sgf as Sgf
 import Khumba.GoHS.Sgf
-import Khumba.GoHS.Sgf.Parser (ParseError)
 import Khumba.GoHS.Ui.Gtk.Common
 import qualified Khumba.GoHS.Ui.Gtk.MainWindow as MainWindow
 import Khumba.GoHS.Ui.Gtk.MainWindow (MainWindow)
@@ -87,15 +84,14 @@ instance UiCtrl UiCtrlImpl where
         in if index == length (nodeChildren $ cursorNode parentCursor) - 1
            then return (cursor, False)
            else let right = cursorChild parentCursor $ index + 1
-                in goToLeft ui right >> return (right, True)
+                in goToRight ui right >> return (right, True)
 
   -- May not use the controller; it is used only for type inference.  It is
   -- called with @undefined@ in the @start@ functions below.
   openBoard _ rootNode = do
-    let cursor = rootCursor rootNode
-        board = cursorBoard cursor
     uiRef' <- newIORef Nothing
     let uiRef = UiRef uiRef'
+        cursor = rootCursor rootNode
 
     modesVar <- newIORef defaultUiModes
     cursorVar <- newMVar cursor
@@ -113,12 +109,6 @@ instance UiCtrl UiCtrlImpl where
     fireViewCursorChanged mainWindow cursor
     MainWindow.display mainWindow
     return ui
-
-isPropertyBOrW :: Property -> Bool
-isPropertyBOrW prop = case prop of
-  B _ -> True
-  W _ -> True
-  _ -> False
 
 goToParent :: UiCtrlImpl -> Cursor -> IO ()
 goToParent = updateUi

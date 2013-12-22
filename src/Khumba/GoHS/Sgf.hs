@@ -2,18 +2,14 @@
 -- manipulation.
 module Khumba.GoHS.Sgf where
 
-import qualified Control.Monad.State as State
-import qualified Data.Foldable as Foldable
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-
-import Control.Monad (forM_, liftM, sequence_, unless, when)
+import Control.Monad (forM_, unless, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Char (isSpace)
 import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sort, sortBy)
 import Data.Maybe
 import Data.Monoid
+import qualified Data.Set as Set
 import Khumba.GoHS.Common
 
 -- TODO Stop using errors everywhere, they're not testable.
@@ -108,7 +104,7 @@ addChild child node = node { nodeChildren = nodeChildren node ++ [child] }
 -- | Returns a list of validation errors for the current node, an
 -- empty list if no errors are detected.
 validateNode :: Bool -> Bool -> Node -> [String]
-validateNode isRoot seenGameNode node = execWriter $ do
+validateNode isRoot _{-seenGameNode-} node = execWriter $ do
   let props = nodeProperties node
   let propTypes = nub $ map propertyType $ nodeProperties node
 
@@ -939,7 +935,7 @@ applyMove params color xy board =
 -- a board.  Removes captures stones from the board and accumulates
 -- points for captured stones.
 maybeCapture :: Color -> Coord -> (BoardState, Int) -> (BoardState, Int)
-maybeCapture color xy result@(board, points) =
+maybeCapture color xy result@(board, _) =
   if coordStone (getCoordState xy board) /= Just color
   then result
   else let group = computeGroup board xy

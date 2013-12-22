@@ -23,7 +23,7 @@ module Khumba.GoHS.Sgf.Parser ( ParseError
                               , ruleset
                               ) where
 
-import Control.Applicative ((<$), (<$>), (<*), (*>), (<*>))
+import Control.Applicative ((<$), (<$>), (<*), (*>))
 import Control.Monad
 import Data.Char
 import qualified Data.Map as Map
@@ -72,6 +72,7 @@ parseString str = case parse collection "<collection>" str of
           let version = case findProperty root isFF of
                 Nothing -> defaultFormatVersion
                 Just (FF x) -> x
+                x -> error $ "Expected FF or nothing, received " ++ show x ++ "."
           in if version `elem` supportedFormatVersions
              then Right root
              else Left $
@@ -207,9 +208,6 @@ unknownProperty name = do
   value <- fmap (concatMap $ \x -> "[" ++ x ++ "]") $
            many (char '[' *> many (try (char '\\' *> anyChar) <|> noneOf "]") <* char ']')
   return $ UnknownProperty name value
-
-propertyParser :: String -> CharParser a Property -> CharParser a Property
-propertyParser name valueParser = string name *> spaces *> valueParser
 
 single :: CharParser a b -> CharParser a b
 single valueParser = char '[' *> valueParser <* char ']'

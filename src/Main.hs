@@ -3,17 +3,13 @@ module Main ( main
             ) where
 
 import Control.Monad
-import Control.Monad.Trans (liftIO)
-import Data.IORef
-import Data.Maybe
 import Graphics.UI.Gtk
 --import Graphics.UI.WX (start)
-import Khumba.GoHS.Common
-import Khumba.GoHS.Sgf
-import Khumba.GoHS.Sgf.Parser
+--import Khumba.GoHS.Sgf
+--import Khumba.GoHS.Sgf.Parser
 import Khumba.GoHS.Ui.Gtk
 --import Khumba.GoHS.Ui.Wx
-import System.Environment (getArgs)
+--import System.Environment (getArgs)
 
 main :: IO ()
 main = mainGtk

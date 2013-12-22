@@ -163,6 +163,7 @@ positionStackTests = testGroup "position stack" [
         log = getCursor >>= \cursor -> case cursorProperties cursor of
           [B (Just x)] -> tell ["B " ++ show x]
           [W (Just x)] -> tell ["W " ++ show x]
+          xs -> error $ "Unexpected properties: " ++ show xs
         navigate = do log >> pushPosition
                       goUp >> goDown 1
                       log >> pushPosition

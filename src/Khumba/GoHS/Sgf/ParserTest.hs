@@ -1,6 +1,6 @@
 module Khumba.GoHS.Sgf.ParserTest (tests) where
 
-import Control.Applicative ((<$>), (<*), (*>))
+import Control.Applicative ((<$>), (<*))
 import Control.Monad
 import Data.Maybe
 import Khumba.GoHS.Common
@@ -10,7 +10,7 @@ import Khumba.GoHS.SgfTestUtils
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node, Test)
-import Text.ParserCombinators.Parsec (CharParser, char, eof, parse)
+import Text.ParserCombinators.Parsec (CharParser, eof, parse)
 
 -- Parses a string as a complete SGF document.  On success, executes the
 -- continuation function with the result.  Otherwise, causes an assertion
@@ -25,7 +25,7 @@ parseOrFail input cont = case parseString input of
 -- Parses a string as a complete SGF document and expects failure.
 parseAndFail :: String -> IO ()
 parseAndFail input = case parseString input of
-  Left error -> return ()
+  Left _ -> return ()
   Right result -> assertFailure $ "Expected " ++ show input ++
                   " not to parse.  Parsed to " ++ show result ++ "."
 
@@ -37,18 +37,11 @@ assertParse parser input cont = case parse (parser <* eof) "<assertParse>" input
   Left error -> assertFailure $ "Failed to parse: " ++ show error
   Right result -> cont result
 
--- Parses a string using the given parser, and if the parse fails, causes an
--- assertion failure.
-assertParses :: CharParser () a -> String -> IO ()
-assertParses parser input = case parse (parser <* eof) "<assertParses>" input of
-  Left error -> assertFailure $ "Failed to parse: " ++ show error
-  Right result -> return ()
-
 -- Tries to parse a string using the given parser.  If the parse succeeds then
 -- this function causes an assertion failure, otherwise this function succeeds.
 assertNoParse :: Show a => CharParser () a -> String -> IO ()
 assertNoParse parser input = case parse (parser <* eof) "<assertNoParse>" input of
-  Left error -> return ()
+  Left _ -> return ()
   Right result -> assertFailure $
                   "Expected " ++ show input ++ " not to parse.  " ++
                   "Parsed to " ++ show result ++ "."
@@ -365,27 +358,27 @@ propertyValueTests = testGroup "property values" [
 
   where integerTestsFor parser = [
           testCase "parses 0" $ do
-            assertParse number "0" (@?= 0)
-            assertParse number "+0" (@?= 0)
-            assertParse number "-0" (@?= 0),
+            assertParse parser "0" (@?= 0)
+            assertParse parser "+0" (@?= 0)
+            assertParse parser "-0" (@?= 0),
 
           testCase "parses positive integers" $ do
-            assertParse number "1" (@?= 1)
-            assertParse number "20" (@?= 20)
-            assertParse number "4294967296" (@?= (2 ^ 32))
-            assertParse number "18446744073709551616" (@?= (2 ^ 64)),
+            assertParse parser "1" (@?= 1)
+            assertParse parser "20" (@?= 20)
+            assertParse parser "4294967296" (@?= (2 ^ 32))
+            assertParse parser "18446744073709551616" (@?= (2 ^ 64)),
 
           testCase "parses positive integers with the plus sign" $ do
-            assertParse number "+1" (@?= 1)
-            assertParse number "+20" (@?= 20)
-            assertParse number "+4294967296" (@?= (2 ^ 32))
-            assertParse number "+18446744073709551616" (@?= (2 ^ 64)),
+            assertParse parser "+1" (@?= 1)
+            assertParse parser "+20" (@?= 20)
+            assertParse parser "+4294967296" (@?= (2 ^ 32))
+            assertParse parser "+18446744073709551616" (@?= (2 ^ 64)),
 
           testCase "parses negative integers" $ do
-            assertParse number "-1" (@?= (-1))
-            assertParse number "-20" (@?= (-20))
-            assertParse number "-4294967296" (@?= (- (2 ^ 32)))
-            assertParse number "-18446744073709551616" (@?= (- (2 ^ 64)))
+            assertParse parser "-1" (@?= (-1))
+            assertParse parser "-20" (@?= (-20))
+            assertParse parser "-4294967296" (@?= (- (2 ^ 32)))
+            assertParse parser "-18446744073709551616" (@?= (- (2 ^ 64)))
           ]
 
         textTestsFor makeParser toString testComposed =
