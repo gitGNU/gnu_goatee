@@ -1,7 +1,6 @@
 #!/bin/sh
 
 set -e
-
 unstagedDiff="$(mktemp)"
 
 die() {
@@ -21,10 +20,13 @@ die() {
 }
 
 cd "$(dirname "$(git rev-parse --git-dir)")"
+set +e
+source ./cabal.sh
+
 echo "Precommit: Stashing unstaged changes in $unstagedDiff."
+set -e
 git diff --full-index --binary >"$unstagedDiff"
 git stash save --keep-index --quiet "GoHS presubmit stash ($(date))."
-
 set +e
 
 echo "Precommit: Linting."
@@ -48,8 +50,8 @@ fi
 
 echo "Precommit: Checking that the package builds."
 buildLog="$(mktemp)"
-cabal configure --enable-tests >>"$buildLog" 2>&1
-cabal build >>"$buildLog" 2>&1
+"$CABAL" configure --enable-tests >>"$buildLog" 2>&1
+"$CABAL" build >>"$buildLog" 2>&1
 result="$?"
 if test "$result" -ne 0; then
     echo

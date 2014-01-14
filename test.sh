@@ -1,3 +1,5 @@
 #!/bin/sh
 
-cabal build && dist/build/test-gohs/test-gohs "$@"
+cd "$(dirname "$(realpath "$0")")"
+source ./cabal.sh
+"$CABAL" build && dist/build/test-gohs/test-gohs "$@"
