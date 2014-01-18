@@ -1,16 +1,17 @@
 -- | GTK+ 'Action' definitions.
-module Khumba.GoHS.Ui.Gtk.Actions ( Actions
-                                  , create
-                                  , initialize
-                                  , myFileNewAction
-                                  , myFileOpenAction
-                                  , myToolActions
-                                  ) where
+module Khumba.Goatee.Ui.Gtk.Actions (
+  Actions
+  , create
+  , initialize
+  , myFileNewAction
+  , myFileOpenAction
+  , myToolActions
+  ) where
 
 import Control.Monad
 import Data.Maybe
 import Graphics.UI.Gtk
-import Khumba.GoHS.Ui.Gtk.Common
+import Khumba.Goatee.Ui.Gtk.Common
 
 data Actions = Actions { myFileNewAction :: Action
                        , myFileOpenAction :: Action

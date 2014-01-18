@@ -1,9 +1,10 @@
 -- | The main module for the GTK+ UI, used by clients of the UI.  Also
 -- implements the UI controller.
-module Khumba.GoHS.Ui.Gtk ( startBoard
-                          , startNewBoard
-                          , startFile
-                          ) where
+module Khumba.Goatee.Ui.Gtk (
+  startBoard
+  , startNewBoard
+  , startFile
+  ) where
 
 import Control.Concurrent.MVar
 import Control.Monad
@@ -13,13 +14,13 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Unique (newUnique)
 import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), dialogRun, messageDialogNew, widgetDestroy)
-import qualified Khumba.GoHS.Sgf as Sgf
-import Khumba.GoHS.Sgf
-import qualified Khumba.GoHS.Sgf.Monad as Monad
-import Khumba.GoHS.Sgf.Monad (on, Event)
-import Khumba.GoHS.Ui.Gtk.Common
-import qualified Khumba.GoHS.Ui.Gtk.MainWindow as MainWindow
-import Khumba.GoHS.Ui.Gtk.MainWindow (MainWindow)
+import qualified Khumba.Goatee.Sgf as Sgf
+import Khumba.Goatee.Sgf
+import qualified Khumba.Goatee.Sgf.Monad as Monad
+import Khumba.Goatee.Sgf.Monad (on, Event)
+import Khumba.Goatee.Ui.Gtk.Common
+import qualified Khumba.Goatee.Ui.Gtk.MainWindow as MainWindow
+import Khumba.Goatee.Ui.Gtk.MainWindow (MainWindow)
 
 data UiHandler = forall handler. UiHandler (Event UiGoM handler) handler
 

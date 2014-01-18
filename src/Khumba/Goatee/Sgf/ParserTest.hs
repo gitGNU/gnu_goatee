@@ -1,12 +1,12 @@
-module Khumba.GoHS.Sgf.ParserTest (tests) where
+module Khumba.Goatee.Sgf.ParserTest (tests) where
 
 import Control.Applicative ((<$>), (<*))
 import Control.Monad
 import Data.Maybe
-import Khumba.GoHS.Common
-import Khumba.GoHS.Sgf
-import Khumba.GoHS.Sgf.Parser
-import Khumba.GoHS.SgfTestUtils
+import Khumba.Goatee.Common
+import Khumba.Goatee.Sgf
+import Khumba.Goatee.Sgf.Parser
+import Khumba.Goatee.SgfTestUtils
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node, Test)
@@ -46,7 +46,7 @@ assertNoParse parser input = case parse (parser <* eof) "<assertNoParse>" input 
                   "Expected " ++ show input ++ " not to parse.  " ++
                   "Parsed to " ++ show result ++ "."
 
-tests = testGroup "Khumba.GoHS.Sgf.Parser" [
+tests = testGroup "Khumba.Goatee.Sgf.Parser" [
   baseCaseTests,
   whitespaceTests,
   passConversionTests,

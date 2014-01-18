@@ -1,12 +1,12 @@
-module Khumba.GoHS.SgfTest (tests) where
+module Khumba.Goatee.SgfTest (tests) where
 
-import Khumba.GoHS.Sgf
-import Khumba.GoHS.Test.Common
+import Khumba.Goatee.Sgf
+import Khumba.Goatee.Test.Common
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Test)
 
-tests = testGroup "Khumba.GoHS.Sgf" [
+tests = testGroup "Khumba.Goatee.Sgf" [
   expandCoordListTests,
   emptyNodeTests,
   rootNodeWithSizeTests,

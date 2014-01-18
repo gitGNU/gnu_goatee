@@ -1,11 +1,11 @@
 -- | A wxWidgets implementation of a Go board UI.
-module Khumba.GoHS.Ui.Wx where
+module Khumba.Goatee.Ui.Wx where
 
 import Control.Concurrent.MVar
 import Control.Monad
 import Data.Maybe
-import Khumba.GoHS.Sgf
-import Khumba.GoHS.Common
+import Khumba.Goatee.Sgf
+import Khumba.Goatee.Common
 import Graphics.UI.WX hiding (Color, when)
 import Graphics.UI.WXCore.WxcDefs (wxBU_EXACTFIT)
 import qualified Graphics.UI.WX as WX

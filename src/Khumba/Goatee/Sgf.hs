@@ -1,6 +1,6 @@
 -- | The core SGF data structures for game tree representation, navigation, and
 -- manipulation.
-module Khumba.GoHS.Sgf where
+module Khumba.Goatee.Sgf where
 
 import Control.Monad (forM_, unless, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
@@ -10,7 +10,7 @@ import Data.List (find, groupBy, intercalate, nub, sort, sortBy)
 import Data.Maybe
 import Data.Monoid
 import qualified Data.Set as Set
-import Khumba.GoHS.Common
+import Khumba.Goatee.Common
 
 -- TODO Stop using errors everywhere, they're not testable.
 

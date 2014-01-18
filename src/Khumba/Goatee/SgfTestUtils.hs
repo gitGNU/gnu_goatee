@@ -1,12 +1,13 @@
--- | Test utilities for working with the "Khumba.GoHS.Sgf" module.
-module Khumba.GoHS.SgfTestUtils ( node
-                                , node1
-                                , node'
-                                , rootNode
-                                , child
-                                ) where
+-- | Test utilities for working with the "Khumba.Goatee.Sgf" module.
+module Khumba.Goatee.SgfTestUtils (
+  node
+  , node1
+  , node'
+  , rootNode
+  , child
+  ) where
 
-import Khumba.GoHS.Sgf
+import Khumba.Goatee.Sgf
 
 node :: [Property] -> Node
 node props = emptyNode { nodeProperties = props }

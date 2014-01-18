@@ -1,17 +1,18 @@
 -- | A text widget that displays information about the game, including some
 -- overall information, as well as the current board position.
-module Khumba.GoHS.Ui.Gtk.InfoLine ( InfoLine
-                                   , create
-                                   , initialize
-                                   , myLabel
-                                   ) where
+module Khumba.Goatee.Ui.Gtk.InfoLine (
+  InfoLine
+  , create
+  , initialize
+  , myLabel
+  ) where
 
 import Data.IORef
 import Data.Maybe
 import Graphics.UI.Gtk hiding (Cursor)
-import Khumba.GoHS.Sgf
-import Khumba.GoHS.Sgf.Monad (getCursor, navigationEvent)
-import Khumba.GoHS.Ui.Gtk.Common
+import Khumba.Goatee.Sgf
+import Khumba.Goatee.Sgf.Monad (getCursor, navigationEvent)
+import Khumba.Goatee.Ui.Gtk.Common
 
 data InfoLine ui = InfoLine { myUi :: UiRef ui
                             , myLabel :: Label

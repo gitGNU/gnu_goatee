@@ -1,10 +1,11 @@
 -- | Implementation of the main window that contains the game board.
-module Khumba.GoHS.Ui.Gtk.MainWindow ( MainWindow
-                                     , create
-                                     , initialize
-                                     , display
-                                     , myWindow
-                                     ) where
+module Khumba.Goatee.Ui.Gtk.MainWindow (
+  MainWindow
+  , create
+  , initialize
+  , display
+  , myWindow
+  ) where
 
 import Control.Monad
 import Control.Monad.Trans (liftIO)
@@ -14,15 +15,15 @@ import Data.Map (Map)
 import Data.Maybe
 import Data.Tree (drawTree, unfoldTree)
 import Graphics.UI.Gtk
-import Khumba.GoHS.Sgf
-import Khumba.GoHS.Common
-import Khumba.GoHS.Ui.Gtk.Common
-import qualified Khumba.GoHS.Ui.Gtk.Actions as Actions
-import Khumba.GoHS.Ui.Gtk.Actions (Actions)
-import qualified Khumba.GoHS.Ui.Gtk.Goban as Goban
-import Khumba.GoHS.Ui.Gtk.Goban (Goban)
-import qualified Khumba.GoHS.Ui.Gtk.InfoLine as InfoLine
-import Khumba.GoHS.Ui.Gtk.InfoLine (InfoLine)
+import Khumba.Goatee.Sgf
+import Khumba.Goatee.Common
+import Khumba.Goatee.Ui.Gtk.Common
+import qualified Khumba.Goatee.Ui.Gtk.Actions as Actions
+import Khumba.Goatee.Ui.Gtk.Actions (Actions)
+import qualified Khumba.Goatee.Ui.Gtk.Goban as Goban
+import Khumba.Goatee.Ui.Gtk.Goban (Goban)
+import qualified Khumba.Goatee.Ui.Gtk.InfoLine as InfoLine
+import Khumba.Goatee.Ui.Gtk.InfoLine (InfoLine)
 
 -- | If false, then the up and down keys will move toward and away
 -- from the game tree root, and left and right will move between

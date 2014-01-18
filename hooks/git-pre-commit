@@ -26,7 +26,7 @@ source ./cabal.sh
 echo "Precommit: Stashing unstaged changes in $unstagedDiff."
 set -e
 git diff --full-index --binary >"$unstagedDiff"
-git stash save --keep-index --quiet "GoHS presubmit stash ($(date))."
+git stash save --keep-index --quiet "Goatee presubmit stash ($(date))."
 set +e
 
 echo "Precommit: Linting."

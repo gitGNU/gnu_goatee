@@ -1,19 +1,20 @@
 -- | A widget that renders an interactive Go board.
-module Khumba.GoHS.Ui.Gtk.Goban ( Goban
-                                , create
-                                , initialize
-                                , myDrawingArea
-                                ) where
+module Khumba.Goatee.Ui.Gtk.Goban (
+  Goban
+  , create
+  , initialize
+  , myDrawingArea
+  ) where
 
 import Control.Monad
 import Data.IORef
 import Data.Maybe
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk hiding (Color, Cursor)
-import Khumba.GoHS.Common
-import Khumba.GoHS.Sgf hiding (isValidMove)
-import Khumba.GoHS.Sgf.Monad (navigationEvent)
-import Khumba.GoHS.Ui.Gtk.Common
+import Khumba.Goatee.Common
+import Khumba.Goatee.Sgf hiding (isValidMove)
+import Khumba.Goatee.Sgf.Monad (navigationEvent)
+import Khumba.Goatee.Ui.Gtk.Common
 
 boardBgColor :: Rgb
 boardBgColor = rgb255 229 178 58

@@ -1,16 +1,16 @@
 -- | Common dependencies among all GTK+ UI code.  Contains class definitions and
 -- some common data declarations.
-module Khumba.GoHS.Ui.Gtk.Common where
+module Khumba.Goatee.Ui.Gtk.Common where
 
 import Control.Monad ((<=<))
 import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.IORef
 import Data.Unique (Unique)
 import Graphics.UI.Gtk hiding (Color, Cursor)
-import Khumba.GoHS.Common (Seq(..))
-import Khumba.GoHS.Sgf
-import Khumba.GoHS.Sgf.Monad (GoT, runGoT, Event)
-import Khumba.GoHS.Sgf.Parser
+import Khumba.Goatee.Common (Seq(..))
+import Khumba.Goatee.Sgf
+import Khumba.Goatee.Sgf.Monad (GoT, runGoT, Event)
+import Khumba.Goatee.Sgf.Parser
 
 -- | A Go monad with handlers in the 'IO' monad.
 type UiGoM = GoT (Writer (Seq IO))
@@ -18,7 +18,7 @@ type UiGoM = GoT (Writer (Seq IO))
 -- | Schedules an IO action to run after the currently-executing Go monad
 -- completes.  The IO action should not attempt to access the cursor, as it may
 -- not be available; instead it should work within the Go monad for cursor
--- manipulation (e.g. 'Khumba.GoHS.Sgf.Monad.getCursor').
+-- manipulation (e.g. 'Khumba.Goatee.Sgf.Monad.getCursor').
 afterGo :: IO () -> UiGoM ()
 afterGo = tell . Seq
 

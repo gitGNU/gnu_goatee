@@ -1,15 +1,15 @@
-module Khumba.GoHS.CommonTest (tests) where
+module Khumba.Goatee.CommonTest (tests) where
 
 import qualified Control.Monad.State as State
 import Control.Monad.State (StateT, get, put, runStateT)
 import Control.Monad.Writer (execWriter, tell)
 import Data.Monoid (mempty, mappend)
-import Khumba.GoHS.Common
+import Khumba.Goatee.Common
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Test)
 
-tests = testGroup "Khumba.GoHS.Common" [
+tests = testGroup "Khumba.Goatee.Common" [
   listReplaceTests,
   onLeftTests,
   onRightTests,

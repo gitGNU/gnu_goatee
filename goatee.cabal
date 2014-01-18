@@ -1,0 +1,25 @@
+name: goatee
+version: 0.0.1
+synopsis: A Go client and SGF library with a focus on flexibility.
+license: AllRightsReserved
+license-file: ""
+cabal-version: >=1.2
+build-type: Simple
+
+executable goatee
+    main-is: Main.hs
+    hs-source-dirs: src
+    build-depends: base, cairo, containers, gtk, mtl, parsec
+    extensions: ExistentialQuantification, FlexibleInstances,
+        MultiParamTypeClasses, UndecidableInstances
+    ghc-options: -W -Werror -fwarn-incomplete-patterns
+
+test-suite test-goatee
+    type: exitcode-stdio-1.0
+    main-is: Test.hs
+    hs-source-dirs: src
+    build-depends: base, containers, HUnit, mtl, test-framework,
+                   test-framework-hunit
+    extensions: FlexibleInstances, FunctionalDependencies,
+        MultiParamTypeClasses, UndecidableInstances
+    ghc-options: -W -Werror -fwarn-incomplete-patterns

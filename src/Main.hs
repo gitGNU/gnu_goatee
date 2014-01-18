@@ -5,10 +5,10 @@ module Main ( main
 import Control.Monad
 import Graphics.UI.Gtk
 --import Graphics.UI.WX (start)
---import Khumba.GoHS.Sgf
---import Khumba.GoHS.Sgf.Parser
-import Khumba.GoHS.Ui.Gtk
---import Khumba.GoHS.Ui.Wx
+--import Khumba.Goatee.Sgf
+--import Khumba.Goatee.Sgf.Parser
+import Khumba.Goatee.Ui.Gtk
+--import Khumba.Goatee.Ui.Wx
 --import System.Environment (getArgs)
 
 main :: IO ()

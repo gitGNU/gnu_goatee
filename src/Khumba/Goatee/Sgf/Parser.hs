@@ -1,27 +1,28 @@
 -- | A parser for reading SGF files.
-module Khumba.GoHS.Sgf.Parser ( ParseError
-                              , parseString
-                              , parseFile
+module Khumba.Goatee.Sgf.Parser (
+  ParseError
+  , parseString
+  , parseFile
 
-                                -- * Visible for testing.
-                              , single
-                              , number
-                              , real
-                              , double
-                              , color
-                              , text
-                              , simpleText
-                              , line
-                              , point
-                              , stone
-                              , move
-                              , compose
-                              , gameType
-                              , variationMode
-                              , boardSize
-                              , gameResult
-                              , ruleset
-                              ) where
+    -- * Visible for testing.
+  , single
+  , number
+  , real
+  , double
+  , color
+  , text
+  , simpleText
+  , line
+  , point
+  , stone
+  , move
+  , compose
+  , gameType
+  , variationMode
+  , boardSize
+  , gameResult
+  , ruleset
+  ) where
 
 import Control.Applicative ((<$), (<$>), (<*), (*>))
 import Control.Monad
@@ -30,8 +31,8 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe
 import Data.Monoid
-import Khumba.GoHS.Sgf
-import Khumba.GoHS.Common
+import Khumba.Goatee.Sgf
+import Khumba.Goatee.Common
 import Text.ParserCombinators.Parsec
 
 -- TODO Support FF versions 1-4.

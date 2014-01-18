@@ -1,9 +1,9 @@
-module Khumba.GoHS.Sgf.MonadTest (tests) where
+module Khumba.Goatee.Sgf.MonadTest (tests) where
 
 import Control.Monad.Writer
-import Khumba.GoHS.Sgf hiding (addChild)
-import Khumba.GoHS.Sgf.Monad
-import Khumba.GoHS.SgfTestUtils
+import Khumba.Goatee.Sgf hiding (addChild)
+import Khumba.Goatee.Sgf.Monad
+import Khumba.Goatee.SgfTestUtils
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node, Test)
@@ -15,7 +15,7 @@ runLoggedGo go cursor =
   let ((value, cursor'), log) = runWriter $ runGoT go cursor
   in (value, cursor', log)
 
-tests = testGroup "Khumba.GoHS.Sgf.Monad" [
+tests = testGroup "Khumba.Goatee.Sgf.Monad" [
   monadTests,
   navigationTests,
   positionStackTests,

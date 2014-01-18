@@ -1,38 +1,39 @@
 -- | A monad for working with a game tree.
-module Khumba.GoHS.Sgf.Monad ( -- * The Go monad
-                               GoT
-                             , GoM
-                             , runGoT
-                             , runGo
-                             , evalGoT
-                             , evalGo
-                             , execGoT
-                             , execGo
-                             , getCursor
-                               -- * Navigation
-                             , Step(..)
-                             , goUp
-                             , goDown
-                             , goToRoot
-                             , goToGameInfoNode
-                               -- * Remembering positions
-                             , pushPosition
-                             , popPosition
-                             , dropPosition
-                               -- * Mutation
-                             , modifyGameInfo
-                             , addChild
-                               -- * Event handling
-                             , Event
-                             , on
-                             , fire
-                             , NavigationHandler
-                             , navigationEvent
-                             , PropertiesChangedHandler
-                             , propertiesChangedEvent
-                             , ChildAddedHandler
-                             , childAddedEvent
-                             ) where
+module Khumba.Goatee.Sgf.Monad (
+  -- * The Go monad
+  GoT
+  , GoM
+  , runGoT
+  , runGo
+  , evalGoT
+  , evalGo
+  , execGoT
+  , execGo
+  , getCursor
+    -- * Navigation
+  , Step(..)
+  , goUp
+  , goDown
+  , goToRoot
+  , goToGameInfoNode
+    -- * Remembering positions
+  , pushPosition
+  , popPosition
+  , dropPosition
+    -- * Mutation
+  , modifyGameInfo
+  , addChild
+    -- * Event handling
+  , Event
+  , on
+  , fire
+  , NavigationHandler
+  , navigationEvent
+  , PropertiesChangedHandler
+  , propertiesChangedEvent
+  , ChildAddedHandler
+  , childAddedEvent
+  ) where
 
 import Control.Monad
 import Control.Monad.Identity (Identity, runIdentity)
@@ -43,8 +44,8 @@ import qualified Control.Monad.State as State
 import Control.Monad.State (StateT)
 import Data.List (mapAccumL)
 import Data.Maybe
-import Khumba.GoHS.Common
-import Khumba.GoHS.Sgf hiding (addChild)
+import Khumba.Goatee.Common
+import Khumba.Goatee.Sgf hiding (addChild)
 
 -- | The internal state of a Go monad transformer.  @go@ is the type of
 -- Go monad or transformer (instance of 'GoMonad').

@@ -1,17 +1,18 @@
 -- | Common utilities uesd throughout the project.
-module Khumba.GoHS.Common ( listReplace
-                          , listUpdate
-                          , fromLeft
-                          , fromRight
-                          , onLeft
-                          , onRight
-                          , andEithers
-                          , mapTuple
-                          , whenMaybe
-                          , cond
-                          , whileM
-                          , Seq(..)
-                          ) where
+module Khumba.Goatee.Common (
+  listReplace
+  , listUpdate
+  , fromLeft
+  , fromRight
+  , onLeft
+  , onRight
+  , andEithers
+  , mapTuple
+  , whenMaybe
+  , cond
+  , whileM
+  , Seq(..)
+  ) where
 
 import Control.Arrow ((***))
 import Control.Monad (join, when)

@@ -1,7 +1,8 @@
 -- | Common utilities for testing code.
-module Khumba.GoHS.Test.Common ( assertElem
-                               , printableAsciiChars
-                               ) where
+module Khumba.Goatee.Test.Common (
+  assertElem
+  , printableAsciiChars
+  ) where
 
 import Control.Monad
 import Test.HUnit
