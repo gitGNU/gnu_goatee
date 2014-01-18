@@ -2,28 +2,38 @@
 -- overall information, as well as the current board position.
 module Khumba.GoHS.Ui.Gtk.InfoLine ( InfoLine
                                    , create
+                                   , initialize
                                    , myLabel
                                    ) where
 
+import Data.IORef
 import Data.Maybe
 import Graphics.UI.Gtk hiding (Cursor)
 import Khumba.GoHS.Sgf
+import Khumba.GoHS.Sgf.Monad (getCursor, navigationEvent)
 import Khumba.GoHS.Ui.Gtk.Common
 
 data InfoLine ui = InfoLine { myUi :: UiRef ui
                             , myLabel :: Label
+                            , myNavigationHandler :: IORef (Maybe Registration)
                             }
-
-instance UiCtrl ui => UiView (InfoLine ui) where
-  viewCursorChanged infoLine cursor =
-    labelSetMarkup (myLabel infoLine) (generateMarkup cursor)
 
 create :: UiCtrl ui => UiRef ui -> IO (InfoLine ui)
 create uiRef = do
   label <- labelNew Nothing
+  navigationHandler <- newIORef Nothing
   return InfoLine { myUi = uiRef
                   , myLabel = label
+                  , myNavigationHandler = navigationHandler
                   }
+
+initialize :: UiCtrl ui => InfoLine ui -> IO ()
+initialize infoLine = do
+  ui <- readUiRef $ myUi infoLine
+  let updateWithCursor cursor = labelSetMarkup (myLabel infoLine) (generateMarkup cursor)
+      onNavigate _ = afterGo . updateWithCursor =<< getCursor
+  writeIORef (myNavigationHandler infoLine) . Just =<< register ui navigationEvent onNavigate
+  updateWithCursor =<< readCursor ui
 
 generateMarkup :: Cursor -> String
 generateMarkup cursor =

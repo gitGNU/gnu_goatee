@@ -1,7 +1,7 @@
 -- | GTK+ 'Action' definitions.
 module Khumba.GoHS.Ui.Gtk.Actions ( Actions
                                   , create
-                                  , activateInitialTool
+                                  , initialize
                                   , myFileNewAction
                                   , myFileOpenAction
                                   , myToolActions
@@ -81,11 +81,10 @@ create uiRef = do
                  , myToolActions = toolActions
                  }
 
--- | Activates the 'initialTool'.
---
--- (This is not done in 'create' because the 'UiCtrl' is not available then.)
-activateInitialTool :: Actions -> IO ()
-activateInitialTool actions =
+initialize :: Actions -> IO ()
+initialize actions =
+  -- Activate 'initialTool' (requires the controller, so we can't do it in the
+  -- construction phase).
   actionActivate =<<
     fmap (fromMaybe $ error $ "Could not find the initial tool " ++ show initialTool ++ ".")
          (actionGroupGetAction (myToolActions actions) $ show initialTool)

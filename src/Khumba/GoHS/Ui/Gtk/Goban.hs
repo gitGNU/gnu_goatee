@@ -1,16 +1,18 @@
 -- | A widget that renders an interactive Go board.
 module Khumba.GoHS.Ui.Gtk.Goban ( Goban
                                 , create
+                                , initialize
                                 , myDrawingArea
                                 ) where
 
 import Control.Monad
-import Data.Maybe
 import Data.IORef
+import Data.Maybe
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk hiding (Color, Cursor)
 import Khumba.GoHS.Common
 import Khumba.GoHS.Sgf hiding (isValidMove)
+import Khumba.GoHS.Sgf.Monad (navigationEvent)
 import Khumba.GoHS.Ui.Gtk.Common
 
 boardBgColor :: Rgb
@@ -52,13 +54,8 @@ transparentStoneOpacity = 0.7
 -- @ui@ should be an instance of 'UiCtrl'.
 data Goban ui = Goban { myUi :: UiRef ui
                       , myDrawingArea :: DrawingArea
+                      , myNavigationHandler :: IORef (Maybe Registration)
                       }
-
-instance UiCtrl ui => UiView (Goban ui) where
-  viewCursorChanged goban _ =
-    -- TODO Need to update the hover state's validity on cursor and tool (mode?)
-    -- changes.
-    widgetQueueDraw $ myDrawingArea goban
 
 -- | Holds data relating to the state of the mouse hovering over the board.
 data HoverState = HoverState { hoverCoord :: Maybe Coord
@@ -98,9 +95,22 @@ create uiRef = do
     liftIO $ doToolAtPoint uiRef drawingArea mouseXy
     return True
 
+  navigationHandler <- newIORef Nothing
+
   return Goban { myUi = uiRef
                , myDrawingArea = drawingArea
+               , myNavigationHandler = navigationHandler
                }
+
+initialize :: UiCtrl ui => Goban ui -> IO ()
+initialize goban = do
+  ui <- readUiRef $ myUi goban
+  let onChange = widgetQueueDraw $ myDrawingArea goban
+  navHandlerRegistration <- register ui navigationEvent $ const $ afterGo onChange
+  writeIORef (myNavigationHandler goban) $ Just navHandlerRegistration
+  -- TODO Need to update the hover state's validity on cursor and tool (mode?)
+  -- changes.
+  onChange
 
 -- | Called when the mouse is moved.  Updates the 'HoverState' according to the
 -- new mouse location, and redraws the board if necessary.

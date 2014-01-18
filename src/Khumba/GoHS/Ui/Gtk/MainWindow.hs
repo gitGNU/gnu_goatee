@@ -37,9 +37,9 @@ keyNavActions = Map.fromList $
                 then [("Up", goLeft),
                       ("Down", goRight),
                       ("Left", goUp),
-                      ("Right", goDown)]
+                      ("Right", flip goDown 0)]
                 else [("Up", goUp),
-                      ("Down", goDown),
+                      ("Down", flip goDown 0),
                       ("Left", goLeft),
                       ("Right", goRight)]
 
@@ -49,10 +49,6 @@ data MainWindow ui = MainWindow { myUi :: UiRef ui
                                 , myInfoLine :: InfoLine ui
                                 , myGoban :: Goban ui
                                 }
-
-instance UiCtrl ui => UiView (MainWindow ui) where
-  viewChildren mainWindow = [View (myInfoLine mainWindow),
-                             View (myGoban mainWindow)]
 
 create :: UiCtrl ui => UiRef ui -> IO (MainWindow ui)
 create uiRef = do
@@ -136,8 +132,11 @@ create uiRef = do
                     }
 
 -- | Initialization that must be done after the 'UiCtrl' is available.
-initialize :: MainWindow ui -> IO ()
-initialize = Actions.activateInitialTool . myActions
+initialize :: UiCtrl ui => MainWindow ui -> IO ()
+initialize window = do
+  Actions.initialize $ myActions window
+  Goban.initialize $ myGoban window
+  InfoLine.initialize $ myInfoLine window
 
 -- | Makes a 'MainWindow' visible.
 display :: MainWindow ui -> IO ()

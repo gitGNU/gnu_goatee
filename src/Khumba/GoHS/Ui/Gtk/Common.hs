@@ -2,11 +2,30 @@
 -- some common data declarations.
 module Khumba.GoHS.Ui.Gtk.Common where
 
-import Control.Monad ((<=<), forM_)
+import Control.Monad ((<=<))
+import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.IORef
+import Data.Unique (Unique)
 import Graphics.UI.Gtk hiding (Color, Cursor)
+import Khumba.GoHS.Common (Seq(..))
 import Khumba.GoHS.Sgf
+import Khumba.GoHS.Sgf.Monad (GoT, runGoT, Event)
 import Khumba.GoHS.Sgf.Parser
+
+-- | A Go monad with handlers in the 'IO' monad.
+type UiGoM = GoT (Writer (Seq IO))
+
+-- | Schedules an IO action to run after the currently-executing Go monad
+-- completes.  The IO action should not attempt to access the cursor, as it may
+-- not be available; instead it should work within the Go monad for cursor
+-- manipulation (e.g. 'Khumba.GoHS.Sgf.Monad.getCursor').
+afterGo :: IO () -> UiGoM ()
+afterGo = tell . Seq
+
+runUiGo :: UiGoM a -> Cursor -> (a, Cursor, IO ())
+runUiGo go cursor =
+  let ((value, cursor'), Seq action) = runWriter $ runGoT go cursor
+  in (value, cursor', action)
 
 -- | A controller for the GTK+ UI.
 class UiCtrl a where
@@ -26,26 +45,41 @@ class UiCtrl a where
   -- | Makes the current player place a stone at the given point.
   playAt :: a -> Coord -> IO ()
 
-  -- | If possible, takes a step up to the parent of the current node
-  -- in the game tree.  Returns whether a move was made (i.e. whether
-  -- the current node is not the root node).
+  -- | If possible, takes a step up to the parent of the current node in the
+  -- game tree.  Returns whether a move was made (i.e. whether the current node
+  -- is not the root node).
   goUp :: a -> IO Bool
 
-  -- | If possible, takes a step down from the current node to the
-  -- last visited child, or the first if no children of this node have
-  -- been visited.  Returns whether a move was made (i.e. whether
-  -- there were any children to go to).
-  goDown :: a -> IO Bool
+  -- | If possible, takes a step down from the current node to its child at the
+  -- given index.  Returns whether a move was made (i.e. whether the node had
+  -- @n+1@ children).
+  goDown :: a -> Int -> IO Bool
 
-  -- | If possible, move to the sibling node immediately to the left
-  -- of the current one.  Returns whether a move was made
-  -- (i.e. whether there was a left sibling).
+  -- | If possible, move to the sibling node immediately to the left of the
+  -- current one.  Returns whether a move was made (i.e. whether there was a
+  -- left sibling).
   goLeft :: a -> IO Bool
 
-  -- | If possible, move to the sibling node immediately to the right
-  -- of the current one.  Returns whether a move was made
-  -- (i.e. whether there was a right sibling).
+  -- | If possible, move to the sibling node immediately to the right of the
+  -- current one.  Returns whether a move was made (i.e. whether there was a
+  -- right sibling).
   goRight :: a -> IO Bool
+
+  -- | Registers a handler for a given 'Event'.  Returns a 'Registration' that
+  -- can be given to 'unregister' to prevent any further calls to the handler.
+  register :: a -> Event UiGoM handler -> handler -> IO Registration
+
+  -- | Unregisters the handler for a 'Registration' that was returned from
+  -- 'register'.  Returns true if such a handler was found and removed.
+  unregister :: a -> Registration -> IO Bool
+
+  -- | Registers a handler that will execute when UI modes change.
+  registerModesChangedHandler :: a -> ModesChangedHandler -> IO Registration
+
+  -- | Unregisters the modes-changed handler for a 'Registration' that was
+  -- returned from 'registerModesChangedHandler'.  Returns true if such a
+  -- handler was found and removed.
+  unregisterModesChangedHandler :: a -> Registration -> IO Bool
 
   openBoard :: a -> Node -> IO a
 
@@ -61,6 +95,14 @@ class UiCtrl a where
       Right collection -> fmap Right $ openBoard ui $ head $ collectionTrees collection
       Left err -> return $ Left err
 
+-- | A key that refers to registration of a handler with a UI controller.  Used
+-- to unregister handlers.
+type Registration = Unique
+
+-- | A handler for taking action when UI modes change.  Passed the old modes and
+-- the new modes, in that order.
+type ModesChangedHandler = UiModes -> UiModes -> IO ()
+
 modifyModesPure :: UiCtrl ui => ui -> (UiModes -> UiModes) -> IO ()
 modifyModesPure ui f = modifyModes ui (return . f)
 
@@ -70,35 +112,11 @@ setTool :: UiCtrl ui => ui -> Tool -> IO ()
 setTool ui tool = modifyModesPure ui $ \modes -> modes { uiTool = tool }
 
 -- | An IO variable that points to a 'UiCtrl'.
-data UiRef ui = UiRef { getUiRef :: IORef (Maybe ui) }
+newtype UiRef ui = UiRef { getUiRef :: IORef (Maybe ui) }
 
 readUiRef :: UiCtrl ui => UiRef ui -> IO ui
-readUiRef = maybe (fail "readUiRef failed.") return <=< readIORef . getUiRef
-
-data View = forall a. UiView a => View a
-
--- | A class for implementations of widgets that render boards.
-class UiView a where
-  viewModesChanged :: a -> UiModes -> IO ()
-  viewModesChanged _ _ = return ()
-
-  viewCursorChanged :: a -> Cursor -> IO ()
-  viewCursorChanged _ _ = return ()
-
-  viewChildren :: a -> [View]
-  viewChildren _ = []
-
-fireViewModesChanged :: UiView a => a -> UiModes -> IO ()
-fireViewModesChanged view modes = do
-  viewModesChanged view modes
-  forM_ (viewChildren view) $ \(View child) ->
-    fireViewModesChanged child modes
-
-fireViewCursorChanged :: UiView a => a -> Cursor -> IO ()
-fireViewCursorChanged view cursor = do
-  viewCursorChanged view cursor
-  forM_ (viewChildren view) $ \(View child) ->
-    fireViewCursorChanged child cursor
+readUiRef = maybe (fail message) return <=< readIORef . getUiRef
+  where message = "readUiRef failed; can't call me during initial UI setup."
 
 data UiModes = UiModes { uiViewMode :: ViewMode
                        , uiViewOneColorModeColor :: Color

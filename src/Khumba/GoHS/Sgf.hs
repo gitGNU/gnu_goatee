@@ -98,8 +98,20 @@ addProperty :: Property -> Node -> Node
 addProperty prop node = node { nodeProperties = nodeProperties node ++ [prop] }
 
 -- | Appends a child node to a node's child list.
+--
+-- @addChild child parent@
 addChild :: Node -> Node -> Node
 addChild child node = node { nodeChildren = nodeChildren node ++ [child] }
+
+-- | Inserts a child node into a node's child list at the given index, shifting
+-- all nodes at or after the given index to the right.  The index must be in the
+-- range @[0, numberOfChildren]@.
+--
+-- @addChild index child parent@
+addChildAt :: Int -> Node -> Node -> Node
+addChildAt index child node =
+  let (before, after) = splitAt index $ nodeChildren node
+  in node { nodeChildren = before ++ child:after }
 
 -- | Returns a list of validation errors for the current node, an
 -- empty list if no errors are detected.
@@ -235,15 +247,15 @@ data Property =
 type RealValue = Rational
 
 -- | An SGF text value.
-data Text = Text { fromText :: String }
-          deriving (Eq, Show)
+newtype Text = Text { fromText :: String }
+             deriving (Eq, Show)
 
 toText :: String -> Text
 toText = Text
 
 -- | An SGF SimpleText value.
-data SimpleText = SimpleText { fromSimpleText :: String }
-                deriving (Eq, Show)
+newtype SimpleText = SimpleText { fromSimpleText :: String }
+                   deriving (Eq, Show)
 
 sanitizeSimpleText :: String -> String
 sanitizeSimpleText = map (\c -> if isSpace c then ' ' else c)
