@@ -3,6 +3,7 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   Actions
   , create
   , initialize
+  , destruct
   , myFileNewAction
   , myFileOpenAction
   , myToolActions
@@ -30,7 +31,7 @@ create uiRef = do
   actionGroupAddActionWithAccel fileActions fileNewAction $ Just "<Control>n"
   on fileNewAction actionActivated $ do
     ui <- readUiRef uiRef
-    void $ openNewBoard ui Nothing
+    void $ openNewBoard (Just ui) Nothing
 
   fileOpenAction <- actionNew "FileOpen" "Open file..." Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileOpenAction $ Just "<Control>o"
@@ -48,7 +49,7 @@ create uiRef = do
       maybePath <- fileChooserGetFilename dialog
       when (isJust maybePath) $ do
         let path = fromJust maybePath
-        loadResult <- openFile ui path
+        loadResult <- openFile (Just ui) path
         case loadResult of
           Left parseError -> do
             errorDialog <- messageDialogNew
@@ -89,3 +90,6 @@ initialize actions =
   actionActivate =<<
     fmap (fromMaybe $ error $ "Could not find the initial tool " ++ show initialTool ++ ".")
          (actionGroupGetAction (myToolActions actions) $ show initialTool)
+
+destruct :: Actions -> IO ()
+destruct _ = return ()

@@ -2,6 +2,7 @@
 module Khumba.Goatee.Ui.Gtk.Goban (
   Goban
   , create
+  , destruct
   , initialize
   , myDrawingArea
   ) where
@@ -112,6 +113,14 @@ initialize goban = do
   -- TODO Need to update the hover state's validity on cursor and tool (mode?)
   -- changes.
   onChange
+
+destruct :: UiCtrl ui => Goban ui -> IO ()
+destruct goban = do
+  ui <- readUiRef (myUi goban)
+  navHandler <- readIORef (myNavigationHandler goban)
+  case navHandler of
+    Just registration -> void $ unregister ui registration
+    Nothing -> fail "Goban.destruct: No navigation handler to unregister."
 
 -- | Called when the mouse is moved.  Updates the 'HoverState' according to the
 -- new mouse location, and redraws the board if necessary.

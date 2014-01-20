@@ -1,6 +1,5 @@
 -- | Main module, controls application start-up.
-module Main ( main
-            ) where
+module Main (main) where
 
 import Control.Monad
 import Graphics.UI.Gtk

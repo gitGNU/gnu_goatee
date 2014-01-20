@@ -1,7 +1,30 @@
 -- | Common dependencies among all GTK+ UI code.  Contains class definitions and
 -- some common data declarations.
-module Khumba.Goatee.Ui.Gtk.Common where
+module Khumba.Goatee.Ui.Gtk.Common (
+  AppState(appWindowCount)
+  , newAppState
+  , UiGoM
+  , afterGo
+  , runUiGo
+  , UiCtrl(..)
+  , Registration
+  , ModesChangedHandler
+  , modifyModesPure
+  , setTool
+  , UiRef(UiRef)
+  , readUiRef
+  , UiModes(..)
+  , ViewMode(..)
+  , defaultUiModes
+  , Tool(..)
+  , initialTool
+  , toolOrdering
+  , toolLabel
+  , toolToColor
+  , fileFiltersForSgf
+  ) where
 
+import Control.Concurrent.MVar
 import Control.Monad ((<=<))
 import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.IORef
@@ -11,6 +34,17 @@ import Khumba.Goatee.Common (Seq(..))
 import Khumba.Goatee.Sgf
 import Khumba.Goatee.Sgf.Monad (GoT, runGoT, Event)
 import Khumba.Goatee.Sgf.Parser
+
+-- | A structure for holding global UI information.
+data AppState = AppState { appWindowCount :: MVar Int
+                           -- ^ The number of open windows.  When this reaches
+                           -- zero, the UI will exit.
+                         }
+
+newAppState :: IO AppState
+newAppState = do
+  windowCount <- newMVar 0
+  return AppState { appWindowCount = windowCount }
 
 -- | A Go monad with handlers in the 'IO' monad.
 type UiGoM = GoT (Writer (Seq IO))
@@ -73,6 +107,9 @@ class UiCtrl a where
   -- 'register'.  Returns true if such a handler was found and removed.
   unregister :: a -> Registration -> IO Bool
 
+  -- | Returns the number of handlers that are registered.
+  registeredHandlerCount :: a -> IO Int
+
   -- | Registers a handler that will execute when UI modes change.
   registerModesChangedHandler :: a -> ModesChangedHandler -> IO Registration
 
@@ -81,13 +118,24 @@ class UiCtrl a where
   -- handler was found and removed.
   unregisterModesChangedHandler :: a -> Registration -> IO Bool
 
-  openBoard :: a -> Node -> IO a
+  -- | Returns the number of 'ModesChangedHandler's that are registered.
+  registeredModesChangedHandlerCount :: a -> IO Int
 
-  openNewBoard :: a -> Maybe (Int, Int) -> IO a
+  -- | Increments a counter for the number of open windows.  When this reaches
+  -- zero, the UI will exit.
+  windowCountInc :: a -> IO ()
+
+  -- | Decrements a counter for the number of open windows.  When this reaches
+  -- zero, the UI will exit.
+  windowCountDec :: a -> IO ()
+
+  openBoard :: Maybe a -> Node -> IO a
+
+  openNewBoard :: Maybe a -> Maybe (Int, Int) -> IO a
   openNewBoard ui maybeSize =
     openBoard ui $ maybe emptyNode (uncurry rootNodeWithSize) maybeSize
 
-  openFile :: a -> String -> IO (Either String a)
+  openFile :: Maybe a -> String -> IO (Either String a)
   openFile ui file = do
     result <- parseFile file
     case result of

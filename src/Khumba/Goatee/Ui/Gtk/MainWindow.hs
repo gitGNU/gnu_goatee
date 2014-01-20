@@ -3,6 +3,7 @@ module Khumba.Goatee.Ui.Gtk.MainWindow (
   MainWindow
   , create
   , initialize
+  , destruct
   , display
   , myWindow
   ) where
@@ -24,6 +25,7 @@ import qualified Khumba.Goatee.Ui.Gtk.Goban as Goban
 import Khumba.Goatee.Ui.Gtk.Goban (Goban)
 import qualified Khumba.Goatee.Ui.Gtk.InfoLine as InfoLine
 import Khumba.Goatee.Ui.Gtk.InfoLine (InfoLine)
+import System.IO (hPutStrLn, stderr)
 
 -- | If false, then the up and down keys will move toward and away
 -- from the game tree root, and left and right will move between
@@ -55,10 +57,6 @@ create :: UiCtrl ui => UiRef ui -> IO (MainWindow ui)
 create uiRef = do
   window <- windowNew
   windowSetDefaultSize window 640 480
-
-  -- TODO Don't quit if other windows are open.
-  -- TODO Return false??
-  on window deleteEvent $ liftIO mainQuit >> return False
 
   on window keyPressEvent $ do
     key <- eventKeyName
@@ -125,12 +123,16 @@ create uiRef = do
   goban <- Goban.create uiRef
   boxPackStart boardBox (Goban.myDrawingArea goban) PackGrow 0
 
-  return MainWindow { myUi = uiRef
-                    , myWindow = window
-                    , myActions = actions
-                    , myInfoLine = infoLine
-                    , myGoban = goban
-                    }
+  let mw = MainWindow { myUi = uiRef
+                      , myWindow = window
+                      , myActions = actions
+                      , myInfoLine = infoLine
+                      , myGoban = goban
+                      }
+
+  on window deleteEvent $ liftIO $ destruct mw >> return False
+
+  return mw
 
 -- | Initialization that must be done after the 'UiCtrl' is available.
 initialize :: UiCtrl ui => MainWindow ui -> IO ()
@@ -138,6 +140,29 @@ initialize window = do
   Actions.initialize $ myActions window
   Goban.initialize $ myGoban window
   InfoLine.initialize $ myInfoLine window
+  ui <- readUiRef (myUi window)
+  windowCountInc ui
+
+destruct :: UiCtrl ui => MainWindow ui -> IO ()
+destruct window = do
+  Actions.destruct $ myActions window
+  Goban.destruct $ myGoban window
+  InfoLine.destruct $ myInfoLine window
+
+  -- A main window owns a UI controller.  Once a main window is destructed,
+  -- there should be no remaining handlers registered.
+  -- TODO Revisit this if we have multiple windows under a controller.
+  ui <- readUiRef (myUi window)
+  registeredHandlerCount ui >>= \count -> when (count > 0) $ hPutStrLn stderr $
+    "MainWindow.destruct: Warning, there " ++
+    (if count == 1 then "is still 1 handler" else "are still " ++ show count ++ " handers")
+    ++ " registered."
+  registeredModesChangedHandlerCount ui >>= \count -> when (count > 0) $ hPutStrLn stderr $
+    "MainWindow.destruct: Warning, there " ++
+    (if count == 1 then "is still 1" else "are still " ++ show count) ++
+    " modes changed handler" ++ (if count == 1 then "" else "s") ++ " registered."
+
+  windowCountDec ui
 
 -- | Makes a 'MainWindow' visible.
 display :: MainWindow ui -> IO ()

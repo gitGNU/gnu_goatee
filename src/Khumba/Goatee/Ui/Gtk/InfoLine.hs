@@ -3,10 +3,12 @@
 module Khumba.Goatee.Ui.Gtk.InfoLine (
   InfoLine
   , create
+  , destruct
   , initialize
   , myLabel
   ) where
 
+import Control.Monad (void)
 import Data.IORef
 import Data.Maybe
 import Graphics.UI.Gtk hiding (Cursor)
@@ -35,6 +37,14 @@ initialize infoLine = do
       onNavigate _ = afterGo . updateWithCursor =<< getCursor
   writeIORef (myNavigationHandler infoLine) . Just =<< register ui navigationEvent onNavigate
   updateWithCursor =<< readCursor ui
+
+destruct :: UiCtrl ui => InfoLine ui -> IO ()
+destruct infoLine = do
+  ui <- readUiRef (myUi infoLine)
+  navHandler <- readIORef (myNavigationHandler infoLine)
+  case navHandler of
+    Just registration -> void $ unregister ui registration
+    Nothing -> fail "InfoLine.destruct: No navigation handler to unregister."
 
 generateMarkup :: Cursor -> String
 generateMarkup cursor =

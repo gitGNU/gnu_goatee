@@ -13,20 +13,19 @@ import Data.IORef
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Unique (newUnique)
-import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), dialogRun, messageDialogNew, widgetDestroy)
+import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), dialogRun, mainQuit, messageDialogNew, widgetDestroy)
 import qualified Khumba.Goatee.Sgf as Sgf
 import Khumba.Goatee.Sgf
 import qualified Khumba.Goatee.Sgf.Monad as Monad
 import Khumba.Goatee.Sgf.Monad (on, Event)
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Khumba.Goatee.Ui.Gtk.MainWindow as MainWindow
-import Khumba.Goatee.Ui.Gtk.MainWindow (MainWindow)
 
 data UiHandler = forall handler. UiHandler (Event UiGoM handler) handler
 
-data UiCtrlImpl = UiCtrlImpl { uiModes :: IORef UiModes
+data UiCtrlImpl = UiCtrlImpl { uiAppState :: AppState
+                             , uiModes :: IORef UiModes
                              , uiCursor :: MVar Cursor
-                             , uiMainWindow :: MainWindow UiCtrlImpl
 
                                -- Go monad action-related properties:
                              , uiHandlers :: IORef (Map Registration UiHandler)
@@ -55,7 +54,7 @@ instance UiCtrl UiCtrlImpl where
   playAt ui coord = modifyMVar_ (uiCursor ui) $ \cursor ->
     if not $ Sgf.isCurrentValidMove (cursorBoard cursor) coord
     then do
-      dialog <- messageDialogNew (Just $ MainWindow.myWindow $ uiMainWindow ui)
+      dialog <- messageDialogNew Nothing
                                  [DialogModal, DialogDestroyWithParent]
                                  MessageError
                                  ButtonsOk
@@ -115,6 +114,8 @@ instance UiCtrl UiCtrlImpl where
       rebuildBaseAction ui
     return found
 
+  registeredHandlerCount = liftM Map.size . readIORef . uiHandlers
+
   registerModesChangedHandler ui handler = do
     unique <- newUnique
     modifyIORef (uiModesChangedHandlers ui) $ Map.insert unique handler
@@ -128,13 +129,25 @@ instance UiCtrl UiCtrlImpl where
     when found $ writeIORef (uiModesChangedHandlers ui) handlers'
     return found
 
-  -- May not use the controller; it is used only for type inference.  It is
-  -- called with @undefined@ in the @start@ functions below.
-  openBoard _ rootNode = do
+  registeredModesChangedHandlerCount =
+    liftM Map.size . readIORef . uiModesChangedHandlers
+
+  windowCountInc ui =
+    modifyMVar_ (appWindowCount $ uiAppState ui) (return . (+ 1))
+
+  windowCountDec ui = do
+    count <- modifyMVar (appWindowCount $ uiAppState ui) $
+             \n -> let m = n - 1 in return (m, m)
+    when (count == 0) mainQuit
+
+  openBoard maybeUi rootNode = do
     uiRef' <- newIORef Nothing
     let uiRef = UiRef uiRef'
         cursor = rootCursor rootNode
 
+    appState <- case maybeUi of
+      Nothing -> newAppState
+      Just ui -> return $ uiAppState ui
     modesVar <- newIORef defaultUiModes
     cursorVar <- newMVar cursor
     mainWindow <- MainWindow.create uiRef
@@ -142,9 +155,9 @@ instance UiCtrl UiCtrlImpl where
     uiHandlers <- newIORef Map.empty
     baseAction <- newIORef $ return ()
     modesChangedHandlers <- newIORef Map.empty
-    let ui = UiCtrlImpl { uiModes = modesVar
+    let ui = UiCtrlImpl { uiAppState = appState
+                        , uiModes = modesVar
                         , uiCursor = cursorVar
-                        , uiMainWindow = mainWindow
                         , uiHandlers = uiHandlers
                         , uiBaseAction = baseAction
                         , uiModesChangedHandlers = modesChangedHandlers
@@ -153,6 +166,8 @@ instance UiCtrl UiCtrlImpl where
 
     -- Do initialization that requires the 'UiCtrl' to be available.
     MainWindow.initialize mainWindow
+    readMVar (appWindowCount appState) >>= \n -> unless (n > 0) $
+      fail "UiCtrlImpl expected MainWindow to increment the open window count."
 
     --fireViewCursorChanged mainWindow cursor
     MainWindow.display mainWindow
@@ -166,13 +181,13 @@ execute ui cursor action = do
   return (cursor', True)
 
 startBoard :: Node -> IO UiCtrlImpl
-startBoard = openBoard undefined
+startBoard = openBoard Nothing
 
 startNewBoard :: Maybe (Int, Int) -> IO UiCtrlImpl
-startNewBoard = openNewBoard undefined
+startNewBoard = openNewBoard Nothing
 
 startFile :: String -> IO (Either String UiCtrlImpl)
-startFile = openFile undefined
+startFile = openFile Nothing
 
 rebuildBaseAction :: UiCtrlImpl -> IO ()
 rebuildBaseAction ui = do
