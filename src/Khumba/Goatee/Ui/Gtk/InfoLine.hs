@@ -13,38 +13,52 @@ import Data.IORef
 import Data.Maybe
 import Graphics.UI.Gtk hiding (Cursor)
 import Khumba.Goatee.Sgf
-import Khumba.Goatee.Sgf.Monad (getCursor, navigationEvent)
+import Khumba.Goatee.Sgf.Monad (getCursor, childAddedEvent, navigationEvent, propertiesChangedEvent)
 import Khumba.Goatee.Ui.Gtk.Common
 
 data InfoLine ui = InfoLine { myUi :: UiRef ui
                             , myLabel :: Label
+                            , myChildAddedHandler :: IORef (Maybe Registration)
                             , myNavigationHandler :: IORef (Maybe Registration)
+                            , myPropertiesChangedHandler :: IORef (Maybe Registration)
                             }
 
 create :: UiCtrl ui => UiRef ui -> IO (InfoLine ui)
 create uiRef = do
   label <- labelNew Nothing
+  childAddedHandler <- newIORef Nothing
   navigationHandler <- newIORef Nothing
+  propertiesChangedHandler <- newIORef Nothing
   return InfoLine { myUi = uiRef
                   , myLabel = label
+                  , myChildAddedHandler = childAddedHandler
                   , myNavigationHandler = navigationHandler
+                  , myPropertiesChangedHandler = propertiesChangedHandler
                   }
 
 initialize :: UiCtrl ui => InfoLine ui -> IO ()
 initialize infoLine = do
   ui <- readUiRef $ myUi infoLine
   let updateWithCursor cursor = labelSetMarkup (myLabel infoLine) (generateMarkup cursor)
-      onNavigate _ = afterGo . updateWithCursor =<< getCursor
-  writeIORef (myNavigationHandler infoLine) . Just =<< register ui navigationEvent onNavigate
+      onNavigate = afterGo . updateWithCursor =<< getCursor
+      doRegister event registrationAccessor handlerTransformer =
+        writeIORef (registrationAccessor infoLine) . Just =<<
+        register ui "InfoLine" event (handlerTransformer onNavigate)
+  doRegister childAddedEvent myChildAddedHandler (const . const)
+  doRegister navigationEvent myNavigationHandler const
+  doRegister propertiesChangedEvent myPropertiesChangedHandler const
   updateWithCursor =<< readCursor ui
 
 destruct :: UiCtrl ui => InfoLine ui -> IO ()
 destruct infoLine = do
   ui <- readUiRef (myUi infoLine)
-  navHandler <- readIORef (myNavigationHandler infoLine)
-  case navHandler of
-    Just registration -> void $ unregister ui registration
-    Nothing -> fail "InfoLine.destruct: No navigation handler to unregister."
+  let doUnregister event handlerAccessor =
+        readIORef (handlerAccessor infoLine) >>=
+        maybe (fail $ "InfoLine.destruct: No " ++ show event ++ " to unregister.")
+              (void . unregister ui)
+  doUnregister childAddedEvent myChildAddedHandler
+  doUnregister navigationEvent myNavigationHandler
+  doUnregister propertiesChangedEvent myPropertiesChangedHandler
 
 generateMarkup :: Cursor -> String
 generateMarkup cursor =

@@ -363,7 +363,11 @@ fire event handlerGenerator = do
 -- | A type of event in the Go monad transformer that can be handled by
 -- executing an action.  @go@ is the type of the type of the Go
 -- monad/transformer.  @h@ is the type of monad or monadic function which will
--- be used by Go actions that can trigger the event.
+-- be used by Go actions that can trigger the event.  For example, a navigation
+-- event is characterized by a 'Step' that cannot easily be recovered from the
+-- regular monad state, and comparing before-and-after states would be a pain.
+-- So @h@ for navigation events is @'Step' -> go ()@; a handler takes a 'Step'
+-- and returns a Go action to run as a result.
 data Event go h = Event { eventName :: String
                         , eventStateGetter :: GoState go -> [h]
                         , eventStateSetter :: [h] -> GoState go -> GoState go

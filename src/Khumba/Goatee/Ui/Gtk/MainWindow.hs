@@ -153,14 +153,12 @@ destruct window = do
   -- there should be no remaining handlers registered.
   -- TODO Revisit this if we have multiple windows under a controller.
   ui <- readUiRef (myUi window)
-  registeredHandlerCount ui >>= \count -> when (count > 0) $ hPutStrLn stderr $
-    "MainWindow.destruct: Warning, there " ++
-    (if count == 1 then "is still 1 handler" else "are still " ++ show count ++ " handers")
-    ++ " registered."
-  registeredModesChangedHandlerCount ui >>= \count -> when (count > 0) $ hPutStrLn stderr $
-    "MainWindow.destruct: Warning, there " ++
-    (if count == 1 then "is still 1" else "are still " ++ show count) ++
-    " modes changed handler" ++ (if count == 1 then "" else "s") ++ " registered."
+  registeredHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
+    "MainWindow.destruct: Warning, there are still handler(s) registered:" ++
+    concatMap (\handler -> "\n- " ++ show handler) handlers
+  registeredModesChangedHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
+    "MainWindow.destruct: Warning, there are still modes changed handler(s) registered:" ++
+    concatMap (\handler -> "\n- " ++ show handler) handlers
 
   windowCountDec ui
 

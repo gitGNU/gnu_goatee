@@ -21,7 +21,12 @@ import Khumba.Goatee.Sgf.Monad (on, Event)
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Khumba.Goatee.Ui.Gtk.MainWindow as MainWindow
 
-data UiHandler = forall handler. UiHandler (Event UiGoM handler) handler
+data UiHandler = forall handler. UiHandler String (Event UiGoM handler) handler
+
+data ModesChangedHandlerRecord =
+  ModesChangedHandlerRecord { modesChangedHandlerOwner :: String
+                            , modesChangedHandlerFn :: UiModes -> UiModes -> IO ()
+                            }
 
 data UiCtrlImpl = UiCtrlImpl { uiAppState :: AppState
                              , uiModes :: IORef UiModes
@@ -32,7 +37,8 @@ data UiCtrlImpl = UiCtrlImpl { uiAppState :: AppState
                              , uiBaseAction :: IORef (UiGoM ())
 
                                -- Ui action-related properties:
-                             , uiModesChangedHandlers :: IORef (Map Registration ModesChangedHandler)
+                             , uiModesChangedHandlers ::
+                               IORef (Map Registration ModesChangedHandlerRecord)
                              }
 
 instance UiCtrl UiCtrlImpl where
@@ -51,7 +57,7 @@ instance UiCtrl UiCtrlImpl where
     cursor <- readMVar $ uiCursor ui
     return $ Sgf.isCurrentValidMove (cursorBoard cursor) coord
 
-  playAt ui coord = modifyMVar_ (uiCursor ui) $ \cursor ->
+  playAt ui coord = modifyMVar (uiCursor ui) $ \cursor ->
     if not $ Sgf.isCurrentValidMove (cursorBoard cursor) coord
     then do
       dialog <- messageDialogNew Nothing
@@ -61,26 +67,27 @@ instance UiCtrl UiCtrlImpl where
                                  "Illegal move."
       dialogRun dialog
       widgetDestroy dialog
-      return cursor
+      return (cursor, ())
     else case cursorChildPlayingAt coord cursor of
-      Just child -> goDown ui (cursorChildIndex child) >> return child
-      Nothing -> do
+      Just child -> goDown ui (cursorChildIndex child) >> return (child, ())
+      Nothing ->
         let board = cursorBoard cursor
             player = boardPlayerTurn board
+            index = length $ cursorChildren cursor
             child = emptyNode { nodeProperties = [colorToMove player coord] }
-            cursor' = cursorModifyNode (addChild child) cursor  -- TODO WIP, should fire some event...
-        goDown ui $ length (nodeChildren $ cursorNode cursor') - 1
-        readCursor ui
+        in execute ui cursor $ do
+          Monad.addChild index child
+          Monad.goDown index
 
   goUp ui = modifyMVar (uiCursor ui) $ \cursor ->
     case cursorParent cursor of
       Nothing -> return (cursor, False)
-      Just _ -> execute ui cursor Monad.goUp
+      Just _ -> execute ui cursor $ Monad.goUp >> return True
 
   goDown ui index = modifyMVar (uiCursor ui) $ \cursor ->
     if null $ drop index $ cursorChildren cursor
       then return (cursor, False)
-      else execute ui cursor $ Monad.goDown index
+      else execute ui cursor $ Monad.goDown index >> return True
 
   -- TODO Don't queue a second draw because of the intermediate parent state
   -- (maybe only one draw is actually queued?).
@@ -88,7 +95,8 @@ instance UiCtrl UiCtrlImpl where
     case (cursorParent cursor, cursorChildIndex cursor) of
       (Nothing, _) -> return (cursor, False)
       (Just _, 0) -> return (cursor, False)
-      (Just _, n) -> execute ui cursor $ Monad.goUp >> Monad.goDown (n - 1)
+      (Just _, n) -> execute ui cursor $
+                     Monad.goUp >> Monad.goDown (n - 1) >> return True
 
   -- TODO Don't queue a second draw because of the intermediate parent state
   -- (maybe only one draw is actually queued?).
@@ -96,11 +104,12 @@ instance UiCtrl UiCtrlImpl where
     case (cursorParent cursor, cursorChildIndex cursor) of
       (Nothing, _) -> return (cursor, False)
       (Just parent, n) | n == cursorChildCount parent - 1 -> return (cursor, False)
-      (Just _, n) -> execute ui cursor $ Monad.goUp >> Monad.goDown (n + 1)
+      (Just _, n) -> execute ui cursor $
+                     Monad.goUp >> Monad.goDown (n + 1) >> return True
 
-  register ui event handler = do
+  register ui caller event handler = do
     unique <- newUnique
-    modifyIORef (uiHandlers ui) $ Map.insert unique $ UiHandler event handler
+    modifyIORef (uiHandlers ui) $ Map.insert unique $ UiHandler caller event handler
     modifyIORef (uiBaseAction ui) (>> on event handler)
     return unique
 
@@ -114,11 +123,17 @@ instance UiCtrl UiCtrlImpl where
       rebuildBaseAction ui
     return found
 
-  registeredHandlerCount = liftM Map.size . readIORef . uiHandlers
+  registeredHandlers =
+    liftM (map (\(UiHandler owner event _) -> (owner, show event)) . Map.elems) .
+    readIORef .
+    uiHandlers
 
-  registerModesChangedHandler ui handler = do
+  registerModesChangedHandler ui owner handler = do
     unique <- newUnique
-    modifyIORef (uiModesChangedHandlers ui) $ Map.insert unique handler
+    modifyIORef (uiModesChangedHandlers ui) $ Map.insert unique
+      ModesChangedHandlerRecord { modesChangedHandlerOwner = owner
+                                , modesChangedHandlerFn = handler
+                                }
     return unique
 
   unregisterModesChangedHandler ui unique = do
@@ -129,8 +144,8 @@ instance UiCtrl UiCtrlImpl where
     when found $ writeIORef (uiModesChangedHandlers ui) handlers'
     return found
 
-  registeredModesChangedHandlerCount =
-    liftM Map.size . readIORef . uiModesChangedHandlers
+  registeredModesChangedHandlers =
+    liftM (map modesChangedHandlerOwner . Map.elems) . readIORef . uiModesChangedHandlers
 
   windowCountInc ui =
     modifyMVar_ (appWindowCount $ uiAppState ui) (return . (+ 1))
@@ -169,16 +184,15 @@ instance UiCtrl UiCtrlImpl where
     readMVar (appWindowCount appState) >>= \n -> unless (n > 0) $
       fail "UiCtrlImpl expected MainWindow to increment the open window count."
 
-    --fireViewCursorChanged mainWindow cursor
     MainWindow.display mainWindow
     return ui
 
-execute :: UiCtrlImpl -> Cursor -> UiGoM () -> IO (Cursor, Bool)
+execute :: UiCtrlImpl -> Cursor -> UiGoM a -> IO (Cursor, a)
 execute ui cursor action = do
   baseAction <- readIORef $ uiBaseAction ui
-  let (_, cursor', handlers) = runUiGo (baseAction >> action) cursor
+  let (value, cursor', handlers) = runUiGo (baseAction >> action) cursor
   handlers
-  return (cursor', True)
+  return (cursor', value)
 
 startBoard :: Node -> IO UiCtrlImpl
 startBoard = openBoard Nothing
@@ -193,10 +207,12 @@ rebuildBaseAction :: UiCtrlImpl -> IO ()
 rebuildBaseAction ui = do
   handlers <- readIORef $ uiHandlers ui
   writeIORef (uiBaseAction ui) $
-    foldl' (\io (UiHandler event handler) -> io >> on event handler)
+    foldl' (\io (UiHandler _ event handler) -> io >> on event handler)
            (return ())
            handlers
 
 fireModesChangedHandlers :: UiCtrlImpl -> UiModes -> UiModes -> IO ()
-fireModesChangedHandlers ui oldModes newModes =
-  mapM_ (\f -> f oldModes newModes) . Map.elems =<< readIORef (uiModesChangedHandlers ui)
+fireModesChangedHandlers ui oldModes newModes = do
+  handlers <- readIORef (uiModesChangedHandlers ui)
+  forM_ (Map.elems handlers) $ \handler ->
+    modesChangedHandlerFn handler oldModes newModes

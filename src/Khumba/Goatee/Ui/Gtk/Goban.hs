@@ -14,7 +14,7 @@ import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk hiding (Color, Cursor)
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf hiding (isValidMove)
-import Khumba.Goatee.Sgf.Monad (navigationEvent)
+import Khumba.Goatee.Sgf.Monad (childAddedEvent, navigationEvent, propertiesChangedEvent)
 import Khumba.Goatee.Ui.Gtk.Common
 
 boardBgColor :: Rgb
@@ -56,7 +56,9 @@ transparentStoneOpacity = 0.7
 -- @ui@ should be an instance of 'UiCtrl'.
 data Goban ui = Goban { myUi :: UiRef ui
                       , myDrawingArea :: DrawingArea
+                      , myChildAddedHandler :: IORef (Maybe Registration)
                       , myNavigationHandler :: IORef (Maybe Registration)
+                      , myPropertiesChangedHandler :: IORef (Maybe Registration)
                       }
 
 -- | Holds data relating to the state of the mouse hovering over the board.
@@ -97,19 +99,27 @@ create uiRef = do
     liftIO $ doToolAtPoint uiRef drawingArea mouseXy
     return True
 
+  childAddedHandler <- newIORef Nothing
   navigationHandler <- newIORef Nothing
+  propertiesChangedHandler <- newIORef Nothing
 
   return Goban { myUi = uiRef
                , myDrawingArea = drawingArea
+               , myChildAddedHandler = childAddedHandler
                , myNavigationHandler = navigationHandler
+               , myPropertiesChangedHandler = propertiesChangedHandler
                }
 
 initialize :: UiCtrl ui => Goban ui -> IO ()
 initialize goban = do
   ui <- readUiRef $ myUi goban
   let onChange = widgetQueueDraw $ myDrawingArea goban
-  navHandlerRegistration <- register ui navigationEvent $ const $ afterGo onChange
-  writeIORef (myNavigationHandler goban) $ Just navHandlerRegistration
+      doRegister event registrationAccessor handlerTransformer =
+        writeIORef (registrationAccessor goban) . Just =<<
+        register ui "Goban" event (handlerTransformer $ afterGo onChange)
+  doRegister childAddedEvent myChildAddedHandler (const . const)
+  doRegister navigationEvent myNavigationHandler const
+  doRegister propertiesChangedEvent myPropertiesChangedHandler const
   -- TODO Need to update the hover state's validity on cursor and tool (mode?)
   -- changes.
   onChange
@@ -117,10 +127,13 @@ initialize goban = do
 destruct :: UiCtrl ui => Goban ui -> IO ()
 destruct goban = do
   ui <- readUiRef (myUi goban)
-  navHandler <- readIORef (myNavigationHandler goban)
-  case navHandler of
-    Just registration -> void $ unregister ui registration
-    Nothing -> fail "Goban.destruct: No navigation handler to unregister."
+  let doUnregister event handlerAccessor =
+        readIORef (handlerAccessor goban) >>=
+        maybe (fail $ "Goban.destruct: No " ++ show event ++ " to unregister.")
+              (void . unregister ui)
+  doUnregister childAddedEvent myChildAddedHandler
+  doUnregister navigationEvent myNavigationHandler
+  doUnregister propertiesChangedEvent myPropertiesChangedHandler
 
 -- | Called when the mouse is moved.  Updates the 'HoverState' according to the
 -- new mouse location, and redraws the board if necessary.

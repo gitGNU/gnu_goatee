@@ -99,27 +99,29 @@ class UiCtrl a where
   -- right sibling).
   goRight :: a -> IO Bool
 
-  -- | Registers a handler for a given 'Event'.  Returns a 'Registration' that
-  -- can be given to 'unregister' to prevent any further calls to the handler.
-  register :: a -> Event UiGoM handler -> handler -> IO Registration
+  -- | Registers a handler for a given 'Event'.  The string is the name of the
+  -- caller, used to keep track of what components registered what handlers.
+  -- Returns a 'Registration' that can be given to 'unregister' to prevent any
+  -- further calls to the handler.
+  register :: a -> String -> Event UiGoM handler -> handler -> IO Registration
 
   -- | Unregisters the handler for a 'Registration' that was returned from
   -- 'register'.  Returns true if such a handler was found and removed.
   unregister :: a -> Registration -> IO Bool
 
-  -- | Returns the number of handlers that are registered.
-  registeredHandlerCount :: a -> IO Int
+  -- | Returns the currently registered handlers, as (owner, event name) pairs.
+  registeredHandlers :: a -> IO [(String, String)]
 
   -- | Registers a handler that will execute when UI modes change.
-  registerModesChangedHandler :: a -> ModesChangedHandler -> IO Registration
+  registerModesChangedHandler :: a -> String -> ModesChangedHandler -> IO Registration
 
   -- | Unregisters the modes-changed handler for a 'Registration' that was
   -- returned from 'registerModesChangedHandler'.  Returns true if such a
   -- handler was found and removed.
   unregisterModesChangedHandler :: a -> Registration -> IO Bool
 
-  -- | Returns the number of 'ModesChangedHandler's that are registered.
-  registeredModesChangedHandlerCount :: a -> IO Int
+  -- | Returns the owners of the currently registered 'ModesChangedHandler's.
+  registeredModesChangedHandlers :: a -> IO [String]
 
   -- | Increments a counter for the number of open windows.  When this reaches
   -- zero, the UI will exit.
