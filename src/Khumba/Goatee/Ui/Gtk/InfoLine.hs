@@ -46,7 +46,7 @@ initialize infoLine = do
         register ui "InfoLine" event (handlerTransformer onNavigate)
   doRegister childAddedEvent myChildAddedHandler (const . const)
   doRegister navigationEvent myNavigationHandler const
-  doRegister propertiesChangedEvent myPropertiesChangedHandler const
+  doRegister propertiesChangedEvent myPropertiesChangedHandler (const . const)
   updateWithCursor =<< readCursor ui
 
 destruct :: UiCtrl ui => InfoLine ui -> IO ()

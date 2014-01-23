@@ -19,6 +19,7 @@ tests = testGroup "Khumba.Goatee.Sgf.Monad" [
   monadTests,
   navigationTests,
   positionStackTests,
+  propertiesTests,
   addChildTests
   ]
 
@@ -171,6 +172,67 @@ positionStackTests = testGroup "position stack" [
                       goUp >> goDown 1
                       log >> pushPosition
                       goUp >> goUp >> goDown 1 >> goDown 0
+
+propertiesTests = testGroup "properties" [
+  testGroup "getProperties" [
+    testCase "returns an empty list" $
+      let cursor = rootCursor $ node []
+      in evalGo getProperties cursor @?= [],
+
+    testCase "returns a non-empty list" $
+      let properties = [PB $ toSimpleText "Foo", B Nothing]
+          cursor = rootCursor $ node properties
+      in evalGo getProperties cursor @?= properties
+    ],
+
+  testGroup "modifyProperties" [
+    testCase "adds properties" $
+      let cursor = rootCursor $ node [FF 1]
+          action = do modifyProperties $ \props -> return $ props ++ [B Nothing, W Nothing]
+                      getProperties
+      in evalGo action cursor @?= [FF 1, B Nothing, W Nothing],
+
+    testCase "removes properties" $
+      let cursor = rootCursor $ node [W Nothing, FF 1, B Nothing]
+          action = do modifyProperties $ \props -> return $ filter (not . isMoveProperty) props
+                      getProperties
+      in evalGo action cursor @?= [FF 1],
+
+    testCase "fires a properties changed event" $
+      let cursor = rootCursor $ node [FF 1]
+          action = do on propertiesChangedEvent $ \old new -> tell [(old, new)]
+                      modifyProperties $ const $ return [FF 2]
+          log = execWriter (runGoT action cursor)
+      in log @?= [([FF 1], [FF 2])]
+    ],
+
+  testGroup "deleteProperties" [
+    testCase "leaves non-matching properties" $
+      let cursor = rootCursor $ node [FF 4, GM 1]
+          action = do deleteProperties isMoveProperty
+                      getProperties
+      in evalGo action cursor @?= [FF 4, GM 1],
+
+    testCase "removes matching properties" $
+      let cursor = rootCursor $ node [B Nothing, FF 4, GM 1, W $ Just (1,1)]
+          action = do deleteProperties isMoveProperty
+                      getProperties
+      in evalGo action cursor @?= [FF 4, GM 1],
+
+    testCase "fires a properties changed event" $
+      let cursor = rootCursor $ node [B Nothing, FF 4, GM 1, W $ Just (1,1)]
+          action = do on propertiesChangedEvent $ \old new -> tell [(old, new)]
+                      deleteProperties isMoveProperty
+                      getProperties
+          (_, log) = runWriter (runGoT action cursor)
+      in log @?= [([B Nothing, FF 4, GM 1, W $ Just (1,1)],
+                   [FF 4, GM 1])]
+    ]
+  ]
+  where isMoveProperty prop = case prop of
+          B _ -> True
+          W _ -> True
+          _ -> False
 
 addChildTests = testGroup "addChild" [
   testCase "adds an only child" $

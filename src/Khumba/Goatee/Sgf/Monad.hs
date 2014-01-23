@@ -20,8 +20,12 @@ module Khumba.Goatee.Sgf.Monad (
   , pushPosition
   , popPosition
   , dropPosition
-    -- * Mutation
+    -- * Properties
+  , getProperties
+  , modifyProperties
+  , deleteProperties
   , modifyGameInfo
+    -- * Children
   , addChild
     -- * Event handling
   , Event
@@ -129,15 +133,16 @@ class Monad go => MonadGo go where
   -- off of the stack.  This action must be balanced by a 'pushPosition'.
   dropPosition :: go ()
 
+  -- | Returns the set of properties on the current node.
+  getProperties :: go [Property]
+  getProperties = liftM (nodeProperties . cursorNode) getCursor
+
   -- | Modifies the set of properties on the current node.
-  modifyProperties :: ([Property] -> [Property]) -> go ()
+  modifyProperties :: ([Property] -> go [Property]) -> go ()
 
   -- | Deletes properties from the current node for which the predicate returns
   -- true.
   deleteProperties :: (Property -> Bool) -> go ()
-
-  -- TODO putProperties
-  putProperties :: [Property] -> go ()
 
   -- | Mutates the game info for the current path, returning the new info.  If
   -- the current node or one of its ancestors has game info properties, then
@@ -294,15 +299,17 @@ instance Monad m => MonadGo (GoT m) where
       _:[] -> putState $ state { statePathStack = [] }
       [] -> fail "dropPosition: No position to drop from the stack."
 
-  modifyProperties fn = modifyState $ \state ->
-    state { stateCursor = cursorModifyNode (\node -> node { nodeProperties = fn $ nodeProperties node })
-                                           (stateCursor state)
-          }
+  modifyProperties fn = do
+    oldProperties <- getProperties
+    newProperties <- fn oldProperties
+    modifyState $ \state ->
+      state { stateCursor = cursorModifyNode
+                            (\node -> node { nodeProperties = newProperties })
+                            (stateCursor state)
+            }
+    fire propertiesChangedEvent (\f -> f oldProperties newProperties)
 
-  deleteProperties pred = modifyProperties $ filter $ not . pred
-
-  -- TODO Implement putProperties.  But how to dedup?
-  putProperties _ = fail "putProperties not implemented."
+  deleteProperties pred = modifyProperties $ return . filter (not . pred)
 
   modifyGameInfo fn = do
     cursor <- getCursor
@@ -312,8 +319,8 @@ instance Monad m => MonadGo (GoT m) where
       fail "Illegal modification of root info in modifyGameInfo."
     pushPosition
     goToGameInfoNode True
-    deleteProperties ((GameInfoProperty ==) . propertyType)
-    putProperties $ gameInfoToProperties info'
+    modifyProperties $ \props ->
+      return $ gameInfoToProperties info' ++ filter ((GameInfoProperty /=) . propertyType) props
     popPosition
     return info'
 
@@ -390,9 +397,9 @@ navigationEvent = Event { eventName = "navigationEvent"
                         , eventStateSetter = \handlers state -> state { stateNavigationHandlers = handlers }
                         }
 
--- TODO Include old properties?  Don't include new properties, since those are
--- accessible from the monad?
-type PropertiesChangedHandler go = [Property] -> go ()
+-- | An event that is fired when the set of properties on a node change.  It is
+-- called with the old property list then the new property list.
+type PropertiesChangedHandler go = [Property] -> [Property] -> go ()
 
 -- | An event corresponding to a change to the properties list of the current
 -- node.

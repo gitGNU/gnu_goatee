@@ -119,7 +119,7 @@ initialize goban = do
         register ui "Goban" event (handlerTransformer $ afterGo onChange)
   doRegister childAddedEvent myChildAddedHandler (const . const)
   doRegister navigationEvent myNavigationHandler const
-  doRegister propertiesChangedEvent myPropertiesChangedHandler const
+  doRegister propertiesChangedEvent myPropertiesChangedHandler (const . const)
   -- TODO Need to update the hover state's validity on cursor and tool (mode?)
   -- changes.
   onChange
