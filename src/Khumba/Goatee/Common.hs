@@ -11,6 +11,7 @@ module Khumba.Goatee.Common (
   , whenMaybe
   , cond
   , whileM
+  , whileM'
   , Seq(..)
   ) where
 
@@ -65,6 +66,12 @@ cond fallback _ = fallback
 whileM :: Monad m => m Bool -> m () -> m ()
 whileM test body = do x <- test
                       when x $ body >> whileM test body
+
+whileM' :: Monad m => m (Maybe a) -> (a -> m ()) -> m ()
+whileM' test body = do x <- test
+                       case x of
+                         Nothing -> return ()
+                         Just y -> body y >> whileM' test body
 
 -- | This sequences @()@-valued monadic actions as a monoid.  If @m@ is some
 -- monad, then @Seq m@ is a monoid where 'mempty' does nothing and 'mappend'

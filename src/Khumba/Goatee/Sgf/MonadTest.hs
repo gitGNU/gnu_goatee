@@ -52,15 +52,15 @@ navigationTests = testGroup "navigation" [
   testCase "invokes handlers when navigating" $
     let cursor = rootCursor $ node1 [B Nothing] $ node [W Nothing]
         action = do on navigationEvent $ \step -> case step of
-                      GoUp -> tell ["Up"]
+                      GoUp index -> tell ["Up " ++ show index]
                       _ -> return ()
                     on navigationEvent $ \step -> case step of
-                      GoDown childIndex -> tell ["Down " ++ show childIndex]
+                      GoDown index -> tell ["Down " ++ show index]
                       _ -> return ()
                     goDown 0
                     goUp
         (_, _, log) = runLoggedGo action cursor
-    in log @?= ["Down 0", "Up"],
+    in log @?= ["Down 0", "Up 0"],
 
   testCase "navigates to the root of a tree, invoking handlers" $ do
     let cursor = child 0 $ child 0 $ rootCursor $
@@ -71,7 +71,7 @@ navigationTests = testGroup "navigation" [
                     goToRoot
         (_, cursor', log) = runLoggedGo action cursor
     cursorProperties cursor' @?= [B $ Just (0,0)]
-    log @?= ["GoUp", "GoUp"],
+    log @?= ["GoUp 0", "GoUp 0"],
 
   testGroup "goToGameInfoNode" [
     testCase "can navigate up to find game info" $
@@ -156,7 +156,15 @@ positionStackTests = testGroup "position stack" [
                     log >> dropPosition
                     log
     execWriter (runGoT action cursor) @?=
-      ["B (2,2)", "B (3,3)", "B (5,5)", "B (5,5)", "B (5,5)"]
+      ["B (2,2)", "B (3,3)", "B (5,5)", "B (5,5)", "B (5,5)"],
+
+  testCase "should fire navigation handlers while popping" $ do
+    let cursor = rootCursor $ node1 [B Nothing] $ node [W Nothing]
+        action = do pushPosition
+                    goDown 0 >> goUp
+                    on navigationEvent $ \step -> tell [step]
+                    popPosition
+    execWriter (runGoT action cursor) @?= [GoDown 0, GoUp 0]
   ]
   where commonCursor = rootCursor $
                        node' [B $ Just (0,0)]
@@ -302,6 +310,17 @@ addChildTests = testGroup "addChild" [
                       goDown 0 >> goDown 0
                       goToRoot
                       popPosition
-      in cursorNode (execGo action $ rootCursor level0Node) @?= node [B $ Just (3,3)]
+      in cursorNode (execGo action $ rootCursor level0Node) @?= node [B $ Just (3,3)],
+
+    testCase "updates paths with GoUp correctly" $
+      let cursor = rootCursor $ node1 [B $ Just (0,0)] $ node [W $ Just (1,1)]
+          action = do pushPosition
+                      goDown 0
+                      goUp
+                      addChild 0 $ node [B $ Just (2,2)]
+                      on navigationEvent $ \step -> tell [step]
+                      popPosition
+          (_, log) = runWriter (runGoT action cursor)
+      in log @?= [GoDown 1, GoUp 1]
     ]
   ]

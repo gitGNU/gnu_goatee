@@ -80,14 +80,22 @@ initialState cursor = GoState { stateCursor = cursor
                               }
 
 -- | A single step along a game tree.  Either up or down.
-data Step = GoUp
+data Step = GoUp Int
+            -- ^ Represents a step up from a child with the given index.
           | GoDown Int
+            -- ^ Represents a step down to the child with the given index.
           deriving (Eq, Show)
+
+-- | Reverses a step, such that taking a step then it's reverse will leave you
+-- where you started.
+reverseStep step = case step of
+  GoUp index -> GoDown index
+  GoDown index -> GoUp index
 
 -- | Takes a 'Step' from a 'Cursor', returning a new 'Cursor'.
 takeStep :: Step -> Cursor -> Cursor
-takeStep GoUp cursor = fromMaybe (error $ "takeStep: Can't go up from " ++ show cursor ++ ".") $
-                       cursorParent cursor
+takeStep (GoUp _) cursor = fromMaybe (error $ "takeStep: Can't go up from " ++ show cursor ++ ".") $
+                           cursorParent cursor
 takeStep (GoDown index) cursor = cursorChild cursor index
 
 -- | A monad (transformer) for navigating and mutating 'Cursor's, and
@@ -236,12 +244,13 @@ instance Monad m => MonadGo (GoT m) where
                    }) <- getState
     case cursorParent cursor of
       Nothing -> fail $ "Can't go up from a root cursor: " ++ show cursor
-      Just parent -> do putState state { stateCursor = parent
+      Just parent -> do let index = cursorChildIndex cursor
+                        putState state { stateCursor = parent
                                        , statePathStack = case pathStack of
                                          [] -> []
-                                         path:paths -> (GoDown (cursorChildIndex cursor):path):paths
+                                         path:paths -> (GoDown index:path):paths
                                        }
-                        fire navigationEvent ($ GoUp)
+                        fire navigationEvent ($ GoUp index)
 
   goDown childIndex = do
     state@(GoState { stateCursor = cursor
@@ -252,7 +261,7 @@ instance Monad m => MonadGo (GoT m) where
       child:_ -> do putState state { stateCursor = child
                                    , statePathStack = case pathStack of
                                      [] -> []
-                                     path:paths -> (GoUp:path):paths
+                                     path:paths -> (GoUp childIndex:path):paths
                                    }
                     fire navigationEvent ($ GoDown childIndex)
 
@@ -273,20 +282,27 @@ instance Monad m => MonadGo (GoT m) where
     state { statePathStack = []:statePathStack state }
 
   popPosition = do
-    state@(GoState { stateCursor = cursor
-                   , statePathStack = pathStack
-                   }) <- getState
-    when (null pathStack) $ fail "popPosition: No position to pop from the stack."
-    putState state { stateCursor =
-                       -- TODO Hmm, should this be firing navigation handlers?
-                       foldl (\cursor step -> case step of
-                               GoUp -> fromMaybe (error "popPosition: Reverse path is invalid, can't go up.")
-                                                 (cursorParent cursor)
-                               GoDown childIndex -> cursorChild cursor childIndex)
-                             cursor
-                             (head pathStack)
-                   , statePathStack = tail pathStack
-                   }
+    getPathStack >>= \stack -> when (null stack) $
+      fail "popPosition: No position to pop from the stack."
+
+    -- Drop each step in the top list of the path stack one at a time, until the
+    -- top list is empty.
+    whileM' (do stack@(popping:_) <- getPathStack
+                return $ if null popping then Nothing else Just stack) $ \((step:steps):rest) -> do
+      state <- getState
+      let cursor = stateCursor state
+      putState $ state { stateCursor = case step of
+                            GoUp _ -> fromMaybe (error "popPosition: Can't go up.") $
+                                      cursorParent cursor
+                            GoDown index -> cursorChild cursor index
+                       , statePathStack = steps:rest
+                       }
+      fire navigationEvent ($ step)
+
+    -- Finally, drop the empty top of the path stack.
+    modifyState $ \state -> case statePathStack state of
+      []:rest -> state { statePathStack = rest }
+      _ -> error "popPosition: Internal failure, top of path stack is not empty."
 
   dropPosition = do
     state <- getState
@@ -333,7 +349,10 @@ instance Monad m => MonadGo (GoT m) where
     modifyState $ \state -> state { stateCursor = cursor'
                                   , statePathStack = updatePathStackCurrentNode
                                                      (\step -> case step of
-                                                         GoUp -> GoUp
+                                                         GoUp n -> GoUp $ if n < index then n else n + 1
+                                                         down@(GoDown _) -> down)
+                                                     (\step -> case step of
+                                                         up@(GoUp _) -> up
                                                          GoDown n -> GoDown $ if n < index then n else n + 1)
                                                      cursor'
                                                      (statePathStack state)
@@ -342,21 +361,30 @@ instance Monad m => MonadGo (GoT m) where
 
   on event handler = modifyState $ addHandler event handler
 
--- | Maps over a path stack, updating with the given function all steps that
--- leave the cursor's node.
-updatePathStackCurrentNode :: (Step -> Step) -> Cursor -> [[Step]] -> [[Step]]
-updatePathStackCurrentNode _ _ [] = []
-updatePathStackCurrentNode fn cursor0 paths = snd $ mapAccumL updatePath (cursor0, []) paths
-  where updatePath = mapAccumL updateStep
-        updateStep (cursor, []) step = ((takeStep step cursor, [reverseStep cursor step]), fn step)
+-- | Returns the current path stack.
+getPathStack :: Monad m => GoT m [[Step]]
+getPathStack = liftM statePathStack getState
+
+-- | Maps over a path stack, updating with the given functions all steps that
+-- enter and leave the cursor's current node.
+updatePathStackCurrentNode :: (Step -> Step)
+                           -> (Step -> Step)
+                           -> Cursor
+                           -> [[Step]]
+                           -> [[Step]]
+updatePathStackCurrentNode _ _ _ [] = []
+updatePathStackCurrentNode onEnter onExit cursor0 paths =
+  snd $ mapAccumL updatePath (cursor0, []) paths
+  where updatePath :: (Cursor, [Step]) -> [Step] -> ((Cursor, [Step]), [Step])
+        updatePath = mapAccumL updateStep
+        updateStep :: (Cursor, [Step]) -> Step -> ((Cursor, [Step]), Step)
+        updateStep (cursor, []) step = ((takeStep step cursor, [reverseStep step]), onExit step)
         updateStep (cursor, pathToInitial@(stepToInitial:restToInitial)) step =
           let pathToInitial' = if stepToInitial == step
                                then restToInitial
-                               else reverseStep cursor step:pathToInitial
-          in ((takeStep step cursor, pathToInitial'), step)
-        reverseStep cursor step = case step of
-          GoUp -> GoDown $ cursorChildIndex cursor
-          GoDown _ -> GoUp
+                               else reverseStep step:pathToInitial
+          in ((takeStep step cursor, pathToInitial'),
+              if null pathToInitial' then onEnter step else step)
 
 -- | Fires all of the handlers for the given event, using the given function to
 -- create a Go action from each of the handlers (normally themselves functions

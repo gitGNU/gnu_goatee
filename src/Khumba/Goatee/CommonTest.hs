@@ -18,6 +18,7 @@ tests = testGroup "Khumba.Goatee.Common" [
   whenMaybeTests,
   condTests,
   whileMTests,
+  whileM'Tests,
   seqTests
   ]
 
@@ -123,6 +124,17 @@ whileMTests = testGroup "whileM" [
                     else return False
         body = tell "x"
     in "3x2x1x0" @=? execWriter (runStateT (whileM test body) 3)
+  ]
+
+whileM'Tests = testGroup "whileM'" [
+  testCase "never executes the body if the first test returns Nothing" $
+    "" @=? execWriter (whileM' (return Nothing) (const $ tell "x")),
+
+  testCase "executes repeatedly as expected" $
+    let test = get >>= \n -> return $ if n > 0 then Just n else Nothing
+        body n = do tell $ show n
+                    put (n - 1)
+    in "321" @=? execWriter (runStateT (whileM' test body) 3)
   ]
 
 seqTests = testGroup "Seq" [
