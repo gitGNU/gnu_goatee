@@ -8,6 +8,8 @@ import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node, Test)
 
+{-# ANN module "HLint: ignore Reduce duplication" #-}
+
 type LoggedGoM = GoT (Writer [String])
 
 runLoggedGo :: LoggedGoM a -> Cursor -> (a, Cursor, [String])
@@ -20,7 +22,8 @@ tests = testGroup "Khumba.Goatee.Sgf.Monad" [
   navigationTests,
   positionStackTests,
   propertiesTests,
-  addChildTests
+  addChildTests,
+  gameInfoChangedTests
   ]
 
 monadTests = testGroup "monad properties" [
@@ -161,7 +164,8 @@ positionStackTests = testGroup "position stack" [
   testCase "should fire navigation handlers while popping" $ do
     let cursor = rootCursor $ node1 [B Nothing] $ node [W Nothing]
         action = do pushPosition
-                    goDown 0 >> goUp
+                    goDown 0
+                    goUp
                     on navigationEvent $ \step -> tell [step]
                     popPosition
     execWriter (runGoT action cursor) @?= [GoDown 0, GoUp 0]
@@ -324,3 +328,43 @@ addChildTests = testGroup "addChild" [
       in log @?= [GoDown 1, GoUp 1]
     ]
   ]
+
+gameInfoChangedTests = testGroup "gameInfoChangedEvent" [
+  testCase "fires when navigating down" $
+    let cursor = rootCursor $
+                 node1 [B $ Just (0,0)] $
+                 node [W $ Just (0,0), GN $ toSimpleText "Foo"]
+        action = do on gameInfoChangedEvent onInfo
+                    goDown 0
+    in execWriter (runGoT action cursor) @?= [(Nothing, Just "Foo")],
+
+  testCase "fires when navigating up" $
+    let cursor = child 0 $ rootCursor $
+                 node1 [B $ Just (0,0)] $
+                 node [W $ Just (0,0), GN $ toSimpleText "Foo"]
+        action = do on gameInfoChangedEvent onInfo
+                    goUp
+    in execWriter (runGoT action cursor) @?= [(Just "Foo", Nothing)],
+
+  testCase "fires from within popPosition" $
+    let cursor = rootCursor $
+                 node1 [B $ Just (0,0)] $
+                 node [W $ Just (0,0), GN $ toSimpleText "Foo"]
+        action = do pushPosition
+                    goDown 0
+                    goUp
+                    on gameInfoChangedEvent onInfo
+                    popPosition
+    in execWriter (runGoT action cursor) @?=
+       [(Nothing, Just "Foo"), (Just "Foo", Nothing)],
+
+  testCase "fires when modifying properties" $
+    let cursor = rootCursor $ node []
+        action = do on gameInfoChangedEvent onInfo
+                    modifyProperties $ const $ return [GN $ toSimpleText "Foo"]
+                    modifyProperties $ const $ return [GN $ toSimpleText "Bar"]
+                    modifyProperties $ const $ return []
+    in execWriter (runGoT action cursor) @?=
+       [(Nothing, Just "Foo"), (Just "Foo", Just "Bar"), (Just "Bar", Nothing)]
+  ]
+  where onInfo old new = tell [(gameInfoGameName old, gameInfoGameName new)]

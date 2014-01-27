@@ -31,12 +31,15 @@ module Khumba.Goatee.Sgf.Monad (
   , Event
   , on
   , fire
-  , NavigationHandler
-  , navigationEvent
-  , PropertiesChangedHandler
-  , propertiesChangedEvent
-  , ChildAddedHandler
+    -- * Events
   , childAddedEvent
+  , ChildAddedHandler
+  , gameInfoChangedEvent
+  , GameInfoChangedHandler
+  , navigationEvent
+  , NavigationHandler
+  , propertiesChangedEvent
+  , PropertiesChangedHandler
   ) where
 
 import Control.Monad
@@ -46,7 +49,7 @@ import Control.Monad.Writer.Class
 import Control.Applicative
 import qualified Control.Monad.State as State
 import Control.Monad.State (StateT)
-import Data.List (mapAccumL)
+import Data.List (mapAccumL, nub)
 import Data.Maybe
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf hiding (addChild)
@@ -55,28 +58,37 @@ import Khumba.Goatee.Sgf hiding (addChild)
 -- Go monad or transformer (instance of 'GoMonad').
 data GoState go = GoState { stateCursor :: Cursor
                             -- ^ The current position in the game tree.
-                          , statePathStack :: [[Step]]
-                            -- ^ The positions saved in calls to 'pushPosition' correspond to
-                            -- entries in the outer list here, with the first sublist representing
-                            -- the last call.  The sublist contains the steps in order that will
-                            -- trace the path back to the saved position.
+                          , statePathStack :: PathStack
+                            -- ^ The current path stack.
 
                           -- Event handlers.
+                          , stateChildAddedHandlers :: [ChildAddedHandler go]
+                            -- ^ Handlers for 'childAddedEvent'.
+                          , stateGameInfoChangedHandlers :: [GameInfoChangedHandler go]
+                            -- ^ Handlers for 'gameInfoChangedEvent'.
                           , stateNavigationHandlers :: [NavigationHandler go]
                             -- ^ Handlers for 'navigationEvent'.
                           , statePropertiesChangedHandlers :: [PropertiesChangedHandler go]
                             -- ^ Handlers for 'propertiesChangedEvent'.
-                          , stateChildAddedHandlers :: [ChildAddedHandler go]
-                            -- ^ Handlers for 'childAddedEvent'.
                           }
+
+-- | A path stack is a record of previous places visited in a game tree.  It is
+-- encoded a list of paths (steps) to each previous memorized position.
+--
+-- The positions saved in calls to 'pushPosition' correspond to entries in the
+-- outer list here, with the first sublist representing the last call.  The
+-- sublist contains the steps in order that will trace the path back to the
+-- saved position.
+type PathStack = [[Step]]
 
 -- | A simplified constructor function for 'GoState'.
 initialState :: Cursor -> GoState m
 initialState cursor = GoState { stateCursor = cursor
                               , statePathStack = []
+                              , stateChildAddedHandlers = []
+                              , stateGameInfoChangedHandlers = []
                               , stateNavigationHandlers = []
                               , statePropertiesChangedHandlers = []
-                              , stateChildAddedHandlers = []
                               }
 
 -- | A single step along a game tree.  Either up or down.
@@ -97,6 +109,13 @@ takeStep :: Step -> Cursor -> Cursor
 takeStep (GoUp _) cursor = fromMaybe (error $ "takeStep: Can't go up from " ++ show cursor ++ ".") $
                            cursorParent cursor
 takeStep (GoDown index) cursor = cursorChild cursor index
+
+-- | Internal function.  Takes a 'Step' in the Go monad.  Updates the path stack
+-- accordingly.
+takeStepM :: Monad m => Step -> (PathStack -> PathStack) -> GoT m ()
+takeStepM step = case step of
+  GoUp _ -> goUp'
+  GoDown index -> goDown' index
 
 -- | A monad (transformer) for navigating and mutating 'Cursor's, and
 -- remembering previous locations.  See 'GoT' and 'GoM'.
@@ -146,6 +165,8 @@ class Monad go => MonadGo go where
   getProperties = liftM (nodeProperties . cursorNode) getCursor
 
   -- | Modifies the set of properties on the current node.
+  --
+  -- The given function must end on the same node on which it started.
   modifyProperties :: ([Property] -> go [Property]) -> go ()
 
   -- | Deletes properties from the current node for which the predicate returns
@@ -239,31 +260,14 @@ instance Monad m => MonadGo (GoT m) where
   getCursor = liftM stateCursor getState
 
   goUp = do
-    state@(GoState { stateCursor = cursor
-                   , statePathStack = pathStack
-                   }) <- getState
-    case cursorParent cursor of
-      Nothing -> fail $ "Can't go up from a root cursor: " ++ show cursor
-      Just parent -> do let index = cursorChildIndex cursor
-                        putState state { stateCursor = parent
-                                       , statePathStack = case pathStack of
-                                         [] -> []
-                                         path:paths -> (GoDown index:path):paths
-                                       }
-                        fire navigationEvent ($ GoUp index)
+    index <- liftM cursorChildIndex getCursor
+    goUp' $ \pathStack -> case pathStack of
+      [] -> pathStack
+      path:paths -> (GoDown index:path):paths
 
-  goDown childIndex = do
-    state@(GoState { stateCursor = cursor
-                   , statePathStack = pathStack
-                   }) <- getState
-    case drop childIndex $ cursorChildren cursor of
-      [] -> fail $ "Cursor does not have a child #" ++ show childIndex ++ ": " ++ show cursor
-      child:_ -> do putState state { stateCursor = child
-                                   , statePathStack = case pathStack of
-                                     [] -> []
-                                     path:paths -> (GoUp childIndex:path):paths
-                                   }
-                    fire navigationEvent ($ GoDown childIndex)
+  goDown index = goDown' index $ \pathStack -> case pathStack of
+    [] -> pathStack
+    path:paths -> (GoUp index:path):paths
 
   goToRoot = whileM (liftM (isJust . cursorParent) getCursor) goUp
 
@@ -287,17 +291,9 @@ instance Monad m => MonadGo (GoT m) where
 
     -- Drop each step in the top list of the path stack one at a time, until the
     -- top list is empty.
-    whileM' (do stack@(popping:_) <- getPathStack
-                return $ if null popping then Nothing else Just stack) $ \((step:steps):rest) -> do
-      state <- getState
-      let cursor = stateCursor state
-      putState $ state { stateCursor = case step of
-                            GoUp _ -> fromMaybe (error "popPosition: Can't go up.") $
-                                      cursorParent cursor
-                            GoDown index -> cursorChild cursor index
-                       , statePathStack = steps:rest
-                       }
-      fire navigationEvent ($ step)
+    whileM' (do path:_ <- getPathStack
+                return $ if null path then Nothing else Just $ head path) $
+      flip takeStepM $ \((_:steps):paths) -> steps:paths
 
     -- Finally, drop the empty top of the path stack.
     modifyState $ \state -> case statePathStack state of
@@ -316,14 +312,26 @@ instance Monad m => MonadGo (GoT m) where
       [] -> fail "dropPosition: No position to drop from the stack."
 
   modifyProperties fn = do
-    oldProperties <- getProperties
+    oldCursor <- getCursor
+    let oldProperties = cursorProperties oldCursor
     newProperties <- fn oldProperties
     modifyState $ \state ->
       state { stateCursor = cursorModifyNode
                             (\node -> node { nodeProperties = newProperties })
-                            (stateCursor state)
+                            oldCursor
             }
     fire propertiesChangedEvent (\f -> f oldProperties newProperties)
+
+    -- The current game info changes when modifying game info properties on the
+    -- current node.  I think comparing game info properties should be faster
+    -- than comparing 'GameInfo's.
+    let filterToGameInfo = nub . filter ((GameInfoProperty ==) . propertyType)
+        oldGameInfo = filterToGameInfo oldProperties
+        newGameInfo = filterToGameInfo newProperties
+    when (newGameInfo /= oldGameInfo) $ do
+      newCursor <- getCursor
+      fire gameInfoChangedEvent (\f -> f (boardGameInfo $ cursorBoard oldCursor)
+                                         (boardGameInfo $ cursorBoard newCursor))
 
   deleteProperties pred = modifyProperties $ return . filter (not . pred)
 
@@ -361,8 +369,53 @@ instance Monad m => MonadGo (GoT m) where
 
   on event handler = modifyState $ addHandler event handler
 
+-- | Takes a step up the game tree, updates the path stack according to the
+-- given function, then fires navigation and game info changed events as
+-- appropriate.
+goUp' :: Monad m => (PathStack -> PathStack) -> GoT m ()
+goUp' pathStackFn = do
+  state@(GoState { stateCursor = cursor
+                 , statePathStack = pathStack
+                 }) <- getState
+  case cursorParent cursor of
+    Nothing -> fail $ "goUp': Can't go up from a root cursor: " ++ show cursor
+    Just parent -> do
+      let index = cursorChildIndex cursor
+      putState state { stateCursor = parent
+                     , statePathStack = pathStackFn pathStack
+                     }
+      fire navigationEvent ($ GoUp index)
+
+      -- The current game info changes when navigating up from a node that has
+      -- game info properties.
+      when (any ((GameInfoProperty ==) . propertyType) $ cursorProperties cursor) $
+        fire gameInfoChangedEvent (\f -> f (boardGameInfo $ cursorBoard cursor)
+                                           (boardGameInfo $ cursorBoard parent))
+
+-- | Takes a step down the game tree, updates the path stack according to the
+-- given function, then fires navigation and game info changed events as
+-- appropriate.
+goDown' :: Monad m => Int -> (PathStack -> PathStack) -> GoT m ()
+goDown' index pathStackFn = do
+  state@(GoState { stateCursor = cursor
+                 , statePathStack = pathStack
+                 }) <- getState
+  case drop index $ cursorChildren cursor of
+    [] -> fail $ "goDown': Cursor does not have a child #" ++ show index ++ ": " ++ show cursor
+    child:_ -> do
+      putState state { stateCursor = child
+                     , statePathStack = pathStackFn pathStack
+                     }
+      fire navigationEvent ($ GoDown index)
+
+      -- The current game info changes when navigating down to a node that has
+      -- game info properties.
+      when (any ((GameInfoProperty ==) . propertyType) $ cursorProperties child) $
+        fire gameInfoChangedEvent (\f -> f (boardGameInfo $ cursorBoard cursor)
+                                           (boardGameInfo $ cursorBoard child))
+
 -- | Returns the current path stack.
-getPathStack :: Monad m => GoT m [[Step]]
+getPathStack :: Monad m => GoT m PathStack
 getPathStack = liftM statePathStack getState
 
 -- | Maps over a path stack, updating with the given functions all steps that
@@ -370,8 +423,8 @@ getPathStack = liftM statePathStack getState
 updatePathStackCurrentNode :: (Step -> Step)
                            -> (Step -> Step)
                            -> Cursor
-                           -> [[Step]]
-                           -> [[Step]]
+                           -> PathStack
+                           -> PathStack
 updatePathStackCurrentNode _ _ _ [] = []
 updatePathStackCurrentNode onEnter onExit cursor0 paths =
   snd $ mapAccumL updatePath (cursor0, []) paths
@@ -415,7 +468,25 @@ addHandler :: Event go h -> h -> GoState go -> GoState go
 addHandler event handler state =
   eventStateSetter event (eventStateGetter event state ++ [handler]) state
 
-type NavigationHandler go = Step -> go ()
+-- | An event corresponding to a child node being added to the current node.
+childAddedEvent :: Event go (ChildAddedHandler go)
+childAddedEvent = Event { eventName = "childAddedEvent"
+                        , eventStateGetter = stateChildAddedHandlers
+                        , eventStateSetter = \handlers state -> state { stateChildAddedHandlers = handlers }
+                        }
+
+-- | A handler for a 'childAddedEvent'.
+type ChildAddedHandler go = Int -> Cursor -> go ()
+
+gameInfoChangedEvent :: Event go (GameInfoChangedHandler go)
+gameInfoChangedEvent = Event { eventName = "gameInfoChangedEvent"
+                             , eventStateGetter = stateGameInfoChangedHandlers
+                             , eventStateSetter = \handlers state -> state { stateGameInfoChangedHandlers = handlers }
+                             }
+
+-- | A handler for a 'gameInfoChangedEvent'.  It is called with the old game
+-- info then the new game info.
+type GameInfoChangedHandler go = GameInfo -> GameInfo -> go ()
 
 -- | An event that is fired when a single step up or down in a game tree is
 -- made.
@@ -425,9 +496,11 @@ navigationEvent = Event { eventName = "navigationEvent"
                         , eventStateSetter = \handlers state -> state { stateNavigationHandlers = handlers }
                         }
 
--- | An event that is fired when the set of properties on a node change.  It is
--- called with the old property list then the new property list.
-type PropertiesChangedHandler go = [Property] -> [Property] -> go ()
+-- | A handler for a 'navigationEvent'.
+--
+-- A navigation handler may navigate further, but beware infinite recursion.  A
+-- navigation handler must end on the same node on which it started.
+type NavigationHandler go = Step -> go ()
 
 -- | An event corresponding to a change to the properties list of the current
 -- node.
@@ -437,11 +510,6 @@ propertiesChangedEvent = Event { eventName = "propertiesChangedEvent"
                                , eventStateSetter = \handlers state -> state { statePropertiesChangedHandlers = handlers }
                                }
 
-type ChildAddedHandler go = Int -> Cursor -> go ()
-
--- | An event corresponding to a child node being added to the current node.
-childAddedEvent :: Event go (ChildAddedHandler go)
-childAddedEvent = Event { eventName = "childAddedEvent"
-                        , eventStateGetter = stateChildAddedHandlers
-                        , eventStateSetter = \handlers state -> state { stateChildAddedHandlers = handlers }
-                        }
+-- | A handler for a 'propertiesChangedEvent'.  It is called with the old
+-- property list then the new property list.
+type PropertiesChangedHandler go = [Property] -> [Property] -> go ()

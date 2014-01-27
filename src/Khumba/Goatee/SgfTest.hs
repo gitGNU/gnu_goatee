@@ -1,6 +1,7 @@
 module Khumba.Goatee.SgfTest (tests) where
 
 import Khumba.Goatee.Sgf
+import Khumba.Goatee.SgfTestUtils
 import Khumba.Goatee.Test.Common
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
@@ -17,7 +18,8 @@ tests = testGroup "Khumba.Goatee.Sgf" [
   fromSimpleTextTests,
   cnotTests,
   colorToMoveTests,
-  propertyMetadataTests
+  propertyMetadataTests,
+  cursorModifyNodeTests
   ]
 
 expandCoordListTests = testGroup "expandCoordList" [
@@ -224,3 +226,17 @@ propertyMetadataTests = testGroup "property metadata" [
         ru = KnownRuleset RulesetJapanese
         rv = 1
         vm = defaultVariationMode
+
+cursorModifyNodeTests = testGroup "cursorModifyNode" [
+  testCase "updates the BoardState" $
+    let cursor = child 0 $ rootCursor $
+                 node1 [SZ 3 1, B $ Just (0,0)] $
+                 node [W $ Just (1,0)]
+        modifyProperty prop = case prop of
+          W (Just (1,0)) -> W $ Just (2,0)
+          _ -> prop
+        modifyNode node = node { nodeProperties = map modifyProperty $ nodeProperties node }
+        result = cursorModifyNode modifyNode cursor
+    in map (map coordStone) (boardCoordStates $ cursorBoard result) @?=
+       [[Just Black, Nothing, Just White]]
+  ]
