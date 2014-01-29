@@ -51,7 +51,7 @@ initialize infoLine = do
 
 destruct :: UiCtrl ui => InfoLine ui -> IO ()
 destruct infoLine = do
-  ui <- readUiRef (myUi infoLine)
+  ui <- readUiRef $ myUi infoLine
   let doUnregister event handlerAccessor =
         readIORef (handlerAccessor infoLine) >>=
         maybe (fail $ "InfoLine.destruct: No " ++ show event ++ " to unregister.")

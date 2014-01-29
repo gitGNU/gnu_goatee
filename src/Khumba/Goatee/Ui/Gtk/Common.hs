@@ -5,7 +5,7 @@ module Khumba.Goatee.Ui.Gtk.Common (
   , newAppState
   , UiGoM
   , afterGo
-  , runUiGo
+  , runUiGoPure
   , UiCtrl(..)
   , Registration
   , ModesChangedHandler
@@ -56,8 +56,12 @@ type UiGoM = GoT (Writer (Seq IO))
 afterGo :: IO () -> UiGoM ()
 afterGo = tell . Seq
 
-runUiGo :: UiGoM a -> Cursor -> (a, Cursor, IO ())
-runUiGo go cursor =
+-- | Applies a 'UiGoM' to a 'Cursor' purely, as opposed to 'runUiGo' which works
+-- with the UI controller's cursor.  Returns a tuple containing the Go action's
+-- result, the final cursor, and the IO action resulting from all handlers being
+-- run.
+runUiGoPure :: UiGoM a -> Cursor -> (a, Cursor, IO ())
+runUiGoPure go cursor =
   let ((value, cursor'), Seq action) = runWriter $ runGoT go cursor
   in (value, cursor', action)
 
@@ -69,6 +73,10 @@ class UiCtrl a where
   -- | Modifies the controller's modes according to the given action, then fires
   -- a mode change event via 'fireViewModesChanged'.
   modifyModes :: a -> (UiModes -> IO UiModes) -> IO ()
+
+  -- | Runs a Go monad on the current cursor, updating the cursor and firing
+  -- handlers as necessary.
+  runUiGo :: a -> UiGoM b -> IO b
 
   -- | Returns the current cursor.
   readCursor :: a -> IO Cursor

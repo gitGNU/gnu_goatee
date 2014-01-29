@@ -12,6 +12,7 @@ import Data.Foldable (foldl')
 import Data.IORef
 import qualified Data.Map as Map
 import Data.Map (Map)
+import Data.Maybe (isNothing)
 import Data.Unique (newUnique)
 import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), dialogRun, mainQuit, messageDialogNew, widgetDestroy)
 import qualified Khumba.Goatee.Sgf as Sgf
@@ -51,61 +52,66 @@ instance UiCtrl UiCtrlImpl where
       writeIORef (uiModes ui) newModes
       fireModesChangedHandlers ui oldModes newModes
 
+  runUiGo ui go = do
+    cursor <- takeMVar (uiCursor ui)
+    runUiGo' ui go cursor
+
   readCursor = readMVar . uiCursor
 
   isValidMove ui coord = do
     cursor <- readMVar $ uiCursor ui
     return $ Sgf.isCurrentValidMove (cursorBoard cursor) coord
 
-  playAt ui coord = modifyMVar (uiCursor ui) $ \cursor ->
+  playAt ui coord = do
+    cursor <- takeMVar $ uiCursor ui
     if not $ Sgf.isCurrentValidMove (cursorBoard cursor) coord
-    then do
-      dialog <- messageDialogNew Nothing
-                                 [DialogModal, DialogDestroyWithParent]
-                                 MessageError
-                                 ButtonsOk
-                                 "Illegal move."
-      dialogRun dialog
-      widgetDestroy dialog
-      return (cursor, ())
-    else case cursorChildPlayingAt coord cursor of
-      Just child -> goDown ui (cursorChildIndex child) >> return (child, ())
-      Nothing ->
-        let board = cursorBoard cursor
-            player = boardPlayerTurn board
-            index = length $ cursorChildren cursor
-            child = emptyNode { nodeProperties = [colorToMove player coord] }
-        in execute ui cursor $ do
-          Monad.addChild index child
-          Monad.goDown index
+      then do
+        dialog <- messageDialogNew Nothing
+                                   [DialogModal, DialogDestroyWithParent]
+                                   MessageError
+                                   ButtonsOk
+                                   "Illegal move."
+        dialogRun dialog
+        widgetDestroy dialog
+        putMVar (uiCursor ui) cursor
+      else case cursorChildPlayingAt coord cursor of
+        Just child -> runUiGo' ui (Monad.goDown $ cursorChildIndex child) cursor
+        Nothing ->
+          let board = cursorBoard cursor
+              player = boardPlayerTurn board
+              index = length $ cursorChildren cursor
+              child = emptyNode { nodeProperties = [colorToMove player coord] }
+          in runUiGo' ui (Monad.addChild index child >> Monad.goDown index) cursor
 
-  goUp ui = modifyMVar (uiCursor ui) $ \cursor ->
-    case cursorParent cursor of
-      Nothing -> return (cursor, False)
-      Just _ -> execute ui cursor $ Monad.goUp >> return True
+  goUp ui = runUiGo ui $ do
+    cursor <- Monad.getCursor
+    if isNothing $ cursorParent cursor
+      then return False
+      else Monad.goUp >> return True
 
-  goDown ui index = modifyMVar (uiCursor ui) $ \cursor ->
+  goDown ui index = runUiGo ui $ do
+    cursor <- Monad.getCursor
     if null $ drop index $ cursorChildren cursor
-      then return (cursor, False)
-      else execute ui cursor $ Monad.goDown index >> return True
+      then return False
+      else Monad.goDown index >> return True
 
-  -- TODO Don't queue a second draw because of the intermediate parent state
-  -- (maybe only one draw is actually queued?).
-  goLeft ui = modifyMVar (uiCursor ui) $ \cursor ->
+  goLeft ui = runUiGo ui $ do
+    cursor <- Monad.getCursor
     case (cursorParent cursor, cursorChildIndex cursor) of
-      (Nothing, _) -> return (cursor, False)
-      (Just _, 0) -> return (cursor, False)
-      (Just _, n) -> execute ui cursor $
-                     Monad.goUp >> Monad.goDown (n - 1) >> return True
+      (Nothing, _) -> return False
+      (Just _, 0) -> return False
+      (Just _, n) -> do Monad.goUp
+                        Monad.goDown $ n - 1
+                        return True
 
-  -- TODO Don't queue a second draw because of the intermediate parent state
-  -- (maybe only one draw is actually queued?).
-  goRight ui = modifyMVar (uiCursor ui) $ \cursor ->
+  goRight ui = runUiGo ui $ do
+    cursor <- Monad.getCursor
     case (cursorParent cursor, cursorChildIndex cursor) of
-      (Nothing, _) -> return (cursor, False)
-      (Just parent, n) | n == cursorChildCount parent - 1 -> return (cursor, False)
-      (Just _, n) -> execute ui cursor $
-                     Monad.goUp >> Monad.goDown (n + 1) >> return True
+      (Nothing, _) -> return False
+      (Just parent, n) | n == cursorChildCount parent - 1 -> return False
+      (Just _, n) -> do Monad.goUp
+                        Monad.goDown $ n + 1
+                        return True
 
   register ui caller event handler = do
     unique <- newUnique
@@ -187,12 +193,18 @@ instance UiCtrl UiCtrlImpl where
     MainWindow.display mainWindow
     return ui
 
-execute :: UiCtrlImpl -> Cursor -> UiGoM a -> IO (Cursor, a)
-execute ui cursor action = do
+-- | 'runUiGo' for 'UiCtrlImpl' is implemented by taking the cursor MVar,
+-- running a Go action, putting the MVar, then running handlers.  Many types of
+-- actions the UI wants to perform need to be able to take the cursor
+-- themselves, do some logic, then pass it off to run a Go action, re-put, and
+-- call handlers.  This function is a helper for such UI code.
+runUiGo' :: UiCtrlImpl -> UiGoM a -> Cursor -> IO a
+runUiGo' ui go cursor = do
   baseAction <- readIORef $ uiBaseAction ui
-  let (value, cursor', handlers) = runUiGo (baseAction >> action) cursor
+  let (value, cursor', handlers) = runUiGoPure (baseAction >> go) cursor
+  putMVar (uiCursor ui) cursor'
   handlers
-  return (cursor', value)
+  return value
 
 startBoard :: Node -> IO UiCtrlImpl
 startBoard = openBoard Nothing
