@@ -21,6 +21,8 @@ import Khumba.Goatee.Common
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Khumba.Goatee.Ui.Gtk.Actions as Actions
 import Khumba.Goatee.Ui.Gtk.Actions (Actions)
+import qualified Khumba.Goatee.Ui.Gtk.GamePropertiesPanel as GamePropertiesPanel
+import Khumba.Goatee.Ui.Gtk.GamePropertiesPanel (GamePropertiesPanel)
 import qualified Khumba.Goatee.Ui.Gtk.Goban as Goban
 import Khumba.Goatee.Ui.Gtk.Goban (Goban)
 import qualified Khumba.Goatee.Ui.Gtk.InfoLine as InfoLine
@@ -49,8 +51,9 @@ keyNavActions = Map.fromList $
 data MainWindow ui = MainWindow { myUi :: UiRef ui
                                 , myWindow :: Window
                                 , myActions :: Actions
-                                , myInfoLine :: InfoLine ui
+                                , myGamePropertiesPanel :: GamePropertiesPanel ui
                                 , myGoban :: Goban ui
+                                , myInfoLine :: InfoLine ui
                                 }
 
 create :: UiCtrl ui => UiRef ui -> IO (MainWindow ui)
@@ -120,14 +123,30 @@ create uiRef = do
   infoLine <- InfoLine.create uiRef
   boxPackStart boardBox (InfoLine.myLabel infoLine) PackNatural 0
 
+  hPaned <- hPanedNew
+  boxPackStart boardBox hPaned PackGrow 0
+
+  --hPanedMin <- get hPaned panedMinPosition
+  --hPanedMax <- get hPaned panedMaxPosition
+  --putStrLn $ "Paned position in [" ++ show hPanedMin ++ ", " ++ show hPanedMax ++ "]."
+  -- TODO Don't hard-code the pane width.
+  panedSetPosition hPaned 400 -- $ truncate (fromIntegral hPanedMax * 0.8)
+
   goban <- Goban.create uiRef
-  boxPackStart boardBox (Goban.myDrawingArea goban) PackGrow 0
+  panedAdd1 hPaned $ Goban.myDrawingArea goban
+
+  controlsBook <- notebookNew
+  panedAdd2 hPaned controlsBook
+
+  gamePropertiesPanel <- GamePropertiesPanel.create uiRef
+  notebookAppendPage controlsBook (GamePropertiesPanel.myWidget gamePropertiesPanel) "Properties"
 
   let mw = MainWindow { myUi = uiRef
                       , myWindow = window
                       , myActions = actions
-                      , myInfoLine = infoLine
+                      , myGamePropertiesPanel = gamePropertiesPanel
                       , myGoban = goban
+                      , myInfoLine = infoLine
                       }
 
   on window deleteEvent $ liftIO $ destruct mw >> return False
@@ -138,6 +157,7 @@ create uiRef = do
 initialize :: UiCtrl ui => MainWindow ui -> IO ()
 initialize window = do
   Actions.initialize $ myActions window
+  GamePropertiesPanel.initialize $ myGamePropertiesPanel window
   Goban.initialize $ myGoban window
   InfoLine.initialize $ myInfoLine window
   ui <- readUiRef (myUi window)
@@ -146,6 +166,7 @@ initialize window = do
 destruct :: UiCtrl ui => MainWindow ui -> IO ()
 destruct window = do
   Actions.destruct $ myActions window
+  GamePropertiesPanel.destruct $ myGamePropertiesPanel window
   Goban.destruct $ myGoban window
   InfoLine.destruct $ myInfoLine window
 
