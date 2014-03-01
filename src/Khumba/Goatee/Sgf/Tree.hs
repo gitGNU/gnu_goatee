@@ -1,0 +1,109 @@
+module Khumba.Goatee.Sgf.Tree (
+  Collection(..),
+  Node(..), emptyNode, rootNodeWithSize,
+  findProperty, addProperty, addChild, addChildAt,
+  validateNode
+  ) where
+
+import Control.Monad
+import Control.Monad.Writer (Writer, execWriter, tell)
+import Data.Function (on)
+import Data.List (find, groupBy, intercalate, nub, sortBy)
+import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.Types
+
+-- | An SGF collection of game trees.
+data Collection = Collection { collectionTrees :: [Node]
+                             } deriving (Show)
+
+-- | An SGF game tree node.  Unlike in the SGF spec, we represent a game tree
+-- with nodes uniformly, rather than having the separation between sequences and
+-- nodes.
+data Node = Node { nodeProperties :: [Property]
+                 , nodeChildren :: [Node]
+                 } deriving (Eq, Show)
+
+-- | A node with no properties and no children.
+emptyNode :: Node
+emptyNode = Node { nodeProperties = [], nodeChildren = [] }
+
+rootNodeWithSize :: Int -- ^ Board width
+                 -> Int -- ^ Board height
+                 -> Node
+rootNodeWithSize width height =
+  Node { nodeProperties = [SZ width height]
+       , nodeChildren = []
+       }
+
+findProperty :: Node -> (Property -> Bool) -> Maybe Property
+findProperty node pred = find pred $ nodeProperties node
+
+-- | Appends a property to a node's property list.
+addProperty :: Property -> Node -> Node
+addProperty prop node = node { nodeProperties = nodeProperties node ++ [prop] }
+
+-- | Appends a child node to a node's child list.
+--
+-- @addChild child parent@
+addChild :: Node -> Node -> Node
+addChild child node = node { nodeChildren = nodeChildren node ++ [child] }
+
+-- | Inserts a child node into a node's child list at the given index, shifting
+-- all nodes at or after the given index to the right.  The index must be in the
+-- range @[0, numberOfChildren]@.
+--
+-- @addChild index child parent@
+addChildAt :: Int -> Node -> Node -> Node
+addChildAt index child node =
+  let (before, after) = splitAt index $ nodeChildren node
+  in node { nodeChildren = before ++ child:after }
+
+-- | Returns a list of validation errors for the current node, an
+-- empty list if no errors are detected.
+validateNode :: Bool -> Bool -> Node -> [String]
+validateNode isRoot _{-seenGameNode-} node = execWriter $ do
+  let props = nodeProperties node
+  let propTypes = nub $ map propertyType $ nodeProperties node
+
+  -- Check for move and setup properties in a single node.
+  when (MoveProperty `elem` propTypes && SetupProperty `elem` propTypes) $
+    tell ["Node contains move and setup properties."]
+
+  -- Check for root properties in non-root nodes.
+  let rootProps = filter ((RootProperty ==) . propertyType) props
+  when (not isRoot && not (null rootProps)) $
+    tell $ map (\p -> "Root property found on non-root node: " ++
+                      show p ++ ".")
+           rootProps
+
+  -- TODO Check for game-info properties.
+
+  -- Check for coordinates marked multiple times.
+  validateNodeDuplicates props getMarkedCoords $ \group ->
+    tell ["Coordinate " ++ show (fst $ head group) ++
+          " is specified multiple times in properties " ++
+          intercalate ", " (map snd group) ++ "."]
+
+  -- TODO Validate recursively.
+
+  where getMarkedCoords (CR cs) = tagMarkedCoords cs "CR"
+        getMarkedCoords (MA cs) = tagMarkedCoords cs "MA"
+        getMarkedCoords (SL cs) = tagMarkedCoords cs "SL"
+        getMarkedCoords (SQ cs) = tagMarkedCoords cs "SQ"
+        getMarkedCoords (TR cs) = tagMarkedCoords cs "TR"
+        getMarkedCoords _ = []
+
+        tagMarkedCoords cs tag = map (\x -> (x, tag)) $ expandCoordList cs
+
+validateNodeDuplicates :: (Eq v, Ord v)
+                          => [Property]
+                          -> (Property -> [(v, t)])
+                          -> ([(v, t)] -> Writer [String] ())
+                          -> Writer [String] ()
+validateNodeDuplicates props getTaggedElts errAction =
+  let groups = groupBy ((==) `on` fst) $
+               sortBy (compare `on` fst) $
+               concatMap getTaggedElts props
+  in forM_ groups $ \group ->
+       unless (null $ tail group) $
+         errAction group

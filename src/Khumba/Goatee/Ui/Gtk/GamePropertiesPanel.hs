@@ -8,13 +8,16 @@ module Khumba.Goatee.Ui.Gtk.GamePropertiesPanel (
   , myWidget
   ) where
 
+import Control.Applicative ((<$>))
 import Control.Monad
 import Data.IORef
 import Data.List (find)
 import Data.Maybe
 import Graphics.UI.Gtk hiding (Cursor)
-import Khumba.Goatee.Sgf
+import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad hiding (on)
+import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Ui.Gtk.Common
 
 data GamePropertiesPanel ui =
@@ -143,7 +146,7 @@ initialize me = do
   commentBuffer <- textViewGetBuffer $ myComment me
   void $ on commentBuffer bufferChanged $ do
     newComment <- get commentBuffer textBufferText
-    props <- fmap cursorProperties $ readCursor ui
+    props <- cursorProperties <$> readCursor ui
     let oldComment = find isComment props
         hasOld = isJust oldComment
         hasNew = not $ null newComment

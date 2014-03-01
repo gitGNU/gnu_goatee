@@ -31,9 +31,11 @@ import Data.IORef
 import Data.Unique (Unique)
 import Graphics.UI.Gtk hiding (Color, Cursor)
 import Khumba.Goatee.Common (Seq(..))
-import Khumba.Goatee.Sgf
+import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad (GoT, runGoT, Event)
 import Khumba.Goatee.Sgf.Parser
+import Khumba.Goatee.Sgf.Tree
+import Khumba.Goatee.Sgf.Types
 
 -- | A structure for holding global UI information.
 data AppState = AppState { appWindowCount :: MVar Int

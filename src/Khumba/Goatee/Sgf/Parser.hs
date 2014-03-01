@@ -4,7 +4,7 @@ module Khumba.Goatee.Sgf.Parser (
   , parseString
   , parseFile
 
-    -- * Visible for testing.
+    -- * Visible for testing
   , single
   , number
   , real
@@ -31,7 +31,10 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe
 import Data.Monoid
-import Khumba.Goatee.Sgf
+import Khumba.Goatee.Sgf.Board
+import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.Tree
+import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Common
 import Text.ParserCombinators.Parsec
 
@@ -206,7 +209,7 @@ properties = Map.fromList [
 
 unknownProperty :: String -> CharParser () Property
 unknownProperty name = do
-  value <- fmap (concatMap $ \x -> "[" ++ x ++ "]") $
+  value <- concatMap (\x -> "[" ++ x ++ "]") <$>
            many (char '[' *> many (try (char '\\' *> anyChar) <|> noneOf "]") <* char ']')
   return $ UnknownProperty name value
 

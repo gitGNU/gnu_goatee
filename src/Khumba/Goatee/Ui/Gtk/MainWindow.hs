@@ -8,6 +8,7 @@ module Khumba.Goatee.Ui.Gtk.MainWindow (
   , myWindow
   ) where
 
+import Control.Applicative ((<$>))
 import Control.Monad
 import Control.Monad.Trans (liftIO)
 import Data.List (intersperse)
@@ -16,8 +17,9 @@ import Data.Map (Map)
 import Data.Maybe
 import Data.Tree (drawTree, unfoldTree)
 import Graphics.UI.Gtk
-import Khumba.Goatee.Sgf
 import Khumba.Goatee.Common
+import Khumba.Goatee.Sgf.Board
+import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Khumba.Goatee.Ui.Gtk.Actions as Actions
 import Khumba.Goatee.Ui.Gtk.Actions (Actions)
@@ -113,7 +115,7 @@ create uiRef = do
                     containerAdd toolbar toolSep) $
     flip map toolOrdering $ \toolGroup ->
     forM_ toolGroup $ \tool -> do
-      action <- fmap (fromMaybe $ error $ "Tool has no action: " ++ show tool) $
+      action <- fromMaybe (error $ "Tool has no action: " ++ show tool) <$>
                 actionGroupGetAction (Actions.myToolActions actions) (show tool)
       menuItem <- actionCreateMenuItem action
       toolItem <- actionCreateToolItem action

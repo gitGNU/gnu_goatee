@@ -1,5 +1,5 @@
--- | Test utilities for working with the "Khumba.Goatee.Sgf" module.
-module Khumba.Goatee.SgfTestUtils (
+-- | Test utilities for working with the SGF modules.
+module Khumba.Goatee.Sgf.TestUtils (
   node
   , node1
   , node'
@@ -7,7 +7,9 @@ module Khumba.Goatee.SgfTestUtils (
   , child
   ) where
 
-import Khumba.Goatee.Sgf
+import Khumba.Goatee.Sgf.Board
+import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.Tree
 
 node :: [Property] -> Node
 node props = emptyNode { nodeProperties = props }

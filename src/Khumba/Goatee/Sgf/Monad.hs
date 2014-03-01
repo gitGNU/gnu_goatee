@@ -52,7 +52,9 @@ import Control.Monad.State (StateT)
 import Data.List (mapAccumL, nub)
 import Data.Maybe
 import Khumba.Goatee.Common
-import Khumba.Goatee.Sgf hiding (addChild)
+import Khumba.Goatee.Sgf.Board
+import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.Tree hiding (addChild)
 
 -- | The internal state of a Go monad transformer.  @go@ is the type of
 -- Go monad or transformer (instance of 'GoMonad').

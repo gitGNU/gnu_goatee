@@ -1,9 +1,11 @@
 module Khumba.Goatee.Sgf.MonadTest (tests) where
 
 import Control.Monad.Writer
-import Khumba.Goatee.Sgf hiding (addChild)
+import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad
-import Khumba.Goatee.SgfTestUtils
+import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.TestUtils
+import Khumba.Goatee.Sgf.Types
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node, Test)

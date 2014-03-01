@@ -15,8 +15,8 @@ import Data.Map (Map)
 import Data.Maybe (isNothing)
 import Data.Unique (newUnique)
 import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), dialogRun, mainQuit, messageDialogNew, widgetDestroy)
-import qualified Khumba.Goatee.Sgf as Sgf
-import Khumba.Goatee.Sgf
+import Khumba.Goatee.Sgf.Board
+import Khumba.Goatee.Sgf.Tree
 import qualified Khumba.Goatee.Sgf.Monad as Monad
 import Khumba.Goatee.Sgf.Monad (on, Event)
 import Khumba.Goatee.Ui.Gtk.Common
@@ -60,11 +60,11 @@ instance UiCtrl UiCtrlImpl where
 
   isValidMove ui coord = do
     cursor <- readMVar $ uiCursor ui
-    return $ Sgf.isCurrentValidMove (cursorBoard cursor) coord
+    return $ isCurrentValidMove (cursorBoard cursor) coord
 
   playAt ui coord = do
     cursor <- takeMVar $ uiCursor ui
-    if not $ Sgf.isCurrentValidMove (cursorBoard cursor) coord
+    if not $ isCurrentValidMove (cursorBoard cursor) coord
       then do
         dialog <- messageDialogNew Nothing
                                    [DialogModal, DialogDestroyWithParent]

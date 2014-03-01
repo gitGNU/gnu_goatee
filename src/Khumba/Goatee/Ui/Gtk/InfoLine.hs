@@ -12,7 +12,7 @@ import Control.Monad (void)
 import Data.IORef
 import Data.Maybe
 import Graphics.UI.Gtk hiding (Cursor)
-import Khumba.Goatee.Sgf
+import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad (getCursor, childAddedEvent, navigationEvent, propertiesChangedEvent)
 import Khumba.Goatee.Ui.Gtk.Common
 

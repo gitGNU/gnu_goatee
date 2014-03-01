@@ -7,14 +7,16 @@ module Khumba.Goatee.Ui.Gtk.Goban (
   , myDrawingArea
   ) where
 
+import Control.Applicative ((<$>))
 import Control.Monad
 import Data.IORef
 import Data.Maybe
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk hiding (Color, Cursor)
 import Khumba.Goatee.Common
-import Khumba.Goatee.Sgf hiding (isValidMove)
+import Khumba.Goatee.Sgf.Board hiding (isValidMove)
 import Khumba.Goatee.Sgf.Monad (childAddedEvent, navigationEvent, propertiesChangedEvent)
+import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Ui.Gtk.Common
 
 boardBgColor :: Rgb
@@ -238,7 +240,7 @@ drawBoard uiRef hoverStateRef drawingArea = do
 
     setSourceRGB 0 0 0
     rectangle 0.5 0.5 (cols - 1) (rows - 1)
-    gridLineWidth <- fmap fst $ deviceToUserDistance 1 0
+    gridLineWidth <- fst <$> deviceToUserDistance 1 0
     setLineWidth gridLineWidth
     stroke
 

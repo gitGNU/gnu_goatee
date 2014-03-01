@@ -4,9 +4,11 @@ import Control.Applicative ((<$>), (<*))
 import Control.Monad
 import Data.Maybe
 import Khumba.Goatee.Common
-import Khumba.Goatee.Sgf
 import Khumba.Goatee.Sgf.Parser
-import Khumba.Goatee.SgfTestUtils
+import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.TestUtils
+import Khumba.Goatee.Sgf.Tree
+import Khumba.Goatee.Sgf.Types
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node, Test)

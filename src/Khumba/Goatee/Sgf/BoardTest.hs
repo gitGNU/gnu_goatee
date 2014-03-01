@@ -1,21 +1,23 @@
-module Khumba.Goatee.SgfTest (tests) where
+module Khumba.Goatee.Sgf.BoardTest (tests) where
 
-import Khumba.Goatee.Sgf
-import Khumba.Goatee.SgfTestUtils
+import Khumba.Goatee.Sgf.Board
+import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.TestUtils
+import Khumba.Goatee.Sgf.Tree
+import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Test.Common
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Test)
 
-tests = testGroup "Khumba.Goatee.Sgf" [
+tests = testGroup "Khumba.Goatee.Sgf.Board" [
   expandCoordListTests,
   emptyNodeTests,
   rootNodeWithSizeTests,
   findPropertyTests,
   addPropertyTests,
   addChildTests,
-  toSimpleTextTests,
-  fromSimpleTextTests,
+  simpleTextTests,
   cnotTests,
   colorToMoveTests,
   propertyMetadataTests,
@@ -151,27 +153,21 @@ addChildTests = testGroup "addChild" [
 
 -- TODO Test validateNode.
 
-toSimpleTextTests = testGroup "toSimpleText" [
-  testCase "accepts the empty string" $ SimpleText "" @=? toSimpleText "",
+simpleTextTests = testGroup "SimpleText" [
+  testCase "accepts the empty string" $
+    "" @=? fromSimpleText (toSimpleText ""),
 
   testCase "passes through strings without newlines" $ do
-    SimpleText "Hello." @=? toSimpleText "Hello."
-    SimpleText "Bad for B." @=? toSimpleText "Bad for B."
-    SimpleText "[4k?]" @=? toSimpleText "[4k?]"
-    SimpleText printableAsciiChars @=? toSimpleText printableAsciiChars,
+    "Hello." @=? fromSimpleText (toSimpleText "Hello.")
+    "Bad for B." @=? fromSimpleText (toSimpleText "Bad for B.")
+    "[4k?]" @=? fromSimpleText (toSimpleText "[4k?]")
+    printableAsciiChars @=? fromSimpleText (toSimpleText printableAsciiChars),
 
   testCase "converts newlines to spaces" $ do
-    SimpleText " " @=? toSimpleText "\n"
-    SimpleText "Hello, world." @=? toSimpleText "Hello,\nworld."
-    SimpleText "Hello,   world." @=? toSimpleText "Hello, \n world."
-    SimpleText " Hello, world. " @=? toSimpleText "\nHello, world.\n"
-  ]
-
-fromSimpleTextTests = testGroup "fromSimpleText" [
-  testCase "returns the string within a SimpleText" $ do
-    "" @=? fromSimpleText (SimpleText "")
-    "Hello, world." @=? fromSimpleText (SimpleText "Hello, world.")
-    printableAsciiChars @=? fromSimpleText (SimpleText printableAsciiChars)
+    " " @=? fromSimpleText (toSimpleText "\n")
+    "Hello, world." @=? fromSimpleText (toSimpleText "Hello,\nworld.")
+    "Hello,   world." @=? fromSimpleText (toSimpleText "Hello, \n world.")
+    " Hello, world. " @=? fromSimpleText (toSimpleText "\nHello, world.\n")
   ]
 
 cnotTests = testGroup "cnot" [
