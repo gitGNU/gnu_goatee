@@ -1,10 +1,11 @@
 module Khumba.Goatee.Sgf.Tree (
   Collection(..),
   Node(..), emptyNode, rootNodeWithSize,
-  findProperty, addProperty, addChild, addChildAt,
+  findProperty, getProperty, addProperty, addChild, addChildAt,
   validateNode
   ) where
 
+import Control.Applicative ((<$>))
 import Control.Monad
 import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Function (on)
@@ -35,8 +36,13 @@ rootNodeWithSize width height =
        , nodeChildren = []
        }
 
-findProperty :: Node -> (Property -> Bool) -> Maybe Property
-findProperty node pred = find pred $ nodeProperties node
+-- | Searches for a matching property in a node's property list.
+findProperty :: Descriptor a => a -> Node -> Maybe Property
+findProperty descriptor node = find (propertyPredicate descriptor) $ nodeProperties node
+
+-- | Retrieves the value of a property in a node's property list.
+getProperty :: ValuedDescriptor a v => a -> Node -> Maybe v
+getProperty descriptor node = propertyValue descriptor <$> findProperty descriptor node
 
 -- | Appends a property to a node's property list.
 addProperty :: Property -> Node -> Node

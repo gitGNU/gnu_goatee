@@ -232,10 +232,7 @@ rootBoardState rootNode =
         (emptyBoardState width height)
         (nodeProperties rootNode)
   where SZ width height = fromMaybe (SZ defaultSize defaultSize) $
-                          findProperty rootNode $
-                          \prop -> case prop of
-                            SZ {} -> True
-                            _ -> False
+                          findProperty propertySZ rootNode
 
 mapBoardCoords :: (Int -> Int -> CoordState -> a) -> BoardState -> [a]
 mapBoardCoords fn board =

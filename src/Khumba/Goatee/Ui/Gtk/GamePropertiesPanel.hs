@@ -11,12 +11,12 @@ module Khumba.Goatee.Ui.Gtk.GamePropertiesPanel (
 import Control.Applicative ((<$>))
 import Control.Monad
 import Data.IORef
-import Data.List (find)
 import Data.Maybe
 import Graphics.UI.Gtk hiding (Cursor)
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad hiding (on)
 import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Ui.Gtk.Common
 
@@ -146,17 +146,17 @@ initialize me = do
   commentBuffer <- textViewGetBuffer $ myComment me
   void $ on commentBuffer bufferChanged $ do
     newComment <- get commentBuffer textBufferText
-    props <- cursorProperties <$> readCursor ui
-    let oldComment = find isComment props
+    node <- cursorNode <$> readCursor ui
+    let oldComment = getProperty propertyC node
         hasOld = isJust oldComment
         hasNew = not $ null newComment
     case (hasOld, hasNew) of
       (True, False) -> runUiGo ui $ modifyProperties $ return . removeComment
       (False, True) -> runUiGo ui $ modifyProperties $ return . addComment newComment
-      (True, True) -> when (newComment /= fromComment (fromJust oldComment)) $
+      (True, True) -> when (newComment /= fromText (fromJust oldComment)) $
                       runUiGo ui $ modifyProperties $ return . addComment newComment . removeComment
       _ -> return ()
-  where removeComment = filter (not . isComment)
+  where removeComment = filter (not . propertyPredicate propertyC)
         addComment comment = (C (toText comment):)
 
 destruct :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
@@ -187,17 +187,7 @@ updateUiGameInfo me info =
 
 updateUiNodeInfo :: GamePropertiesPanel ui -> Cursor -> IO ()
 updateUiNodeInfo me cursor = do
-  let newText = maybe "" fromComment $ find isComment $ cursorProperties cursor
+  let newText = maybe "" fromText $ getProperty propertyC $ cursorNode cursor
   buf <- textViewGetBuffer $ myComment me
   oldText <- get buf textBufferText
   when (oldText /= newText) $ textBufferSetText buf newText
-
--- TODO Move this to Sgf.hs.
-isComment :: Property -> Bool
-isComment (C {}) = True
-isComment _ = False
-
--- TODO Move this to Sgf.hs.
-fromComment :: Property -> String
-fromComment (C text) = fromText text
-fromComment prop = error $ "fromComment: Not a comment: " ++ show prop

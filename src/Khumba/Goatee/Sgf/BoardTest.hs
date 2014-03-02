@@ -86,35 +86,24 @@ rootNodeWithSizeTests = testGroup "rootNodeWithSize" [
 
 findPropertyTests = testGroup "findProperty" [
   testCase "returns Nothing for an empty node" $
-    Nothing @=? findProperty (mk []) (const True),
+    Nothing @=? findProperty propertyB (mk []),
 
   testCase "returns Nothing if no properties match" $
-    Nothing @=? findProperty (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9]) (const False),
+    Nothing @=? findProperty propertyB (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9]),
 
   testCase "finds present properties" $ do
      Just (B (Just (2,3))) @=?
-       findProperty (mk [B (Just (2,3))])
-                    (\p -> case p of { B (Just (2,3)) -> True; _ -> False })
+       findProperty propertyB (mk [B (Just (2,3))])
      Just (W Nothing) @=?
-       findProperty (mk [B Nothing, W Nothing])
-                    (\p -> case p of { W {} -> True; _ -> False })
+       findProperty propertyW (mk [B Nothing, W Nothing])
      Just IT @=?
-       findProperty (mk [IT, GW Double2])
-                    (\p -> case p of { IT -> True; _ -> False })
+       findProperty propertyIT (mk [IT, GW Double2])
      Just (GW Double2) @=?
-       findProperty (mk [IT, GW Double2])
-                    (\p -> case p of { IT -> False; _ -> True }),
+       findProperty propertyGW (mk [IT, GW Double2]),
 
   testCase "doesn't find absent properties" $ do
-    Nothing @=? findProperty (mk [B Nothing])
-                             (\p -> case p of { W Nothing -> True; _ -> False })
-    Nothing @=? findProperty (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9])
-                             (\p -> case p of
-                               FF {} -> False
-                               GM {} -> False
-                               ST {} -> False
-                               SZ {} -> False
-                               _ -> True)
+    Nothing @=? findProperty propertyW (mk [B Nothing])
+    Nothing @=? findProperty propertyW (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9])
   ]
   where mk properties = emptyNode { nodeProperties = properties }
 

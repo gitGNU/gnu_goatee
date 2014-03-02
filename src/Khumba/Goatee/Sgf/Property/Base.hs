@@ -127,7 +127,7 @@ class Descriptor a where
 class Descriptor a => ValuedDescriptor a v | a -> v where
   -- | Extracts the value from a property of the given type.  Behaviour is
   -- undefined if the property is not of the given type.
-  propertyGetValue :: a -> Property -> v
+  propertyValue :: a -> Property -> v
 
 -- | Metadata for a property that does not contain a value.
 data PropertyInfo = PropertyInfo {
@@ -158,7 +158,7 @@ makePropertyInfo = PropertyInfo
 -- | Metadata for a property that contains a value.
 data ValuedPropertyInfo v = ValuedPropertyInfo {
   valuedPropertyInfoBase :: PropertyInfo
-  , valuedPropertyInfoGetValue :: Property -> v
+  , valuedPropertyInfoValue :: Property -> v
   }
 
 makeValuedPropertyInfo :: String
@@ -177,7 +177,7 @@ makeValuedPropertyInfo :: String
                        -> ValuedPropertyInfo v
 makeValuedPropertyInfo name propType inherited predicate getter =
   ValuedPropertyInfo { valuedPropertyInfoBase = makePropertyInfo name propType inherited predicate
-                     , valuedPropertyInfoGetValue = getter
+                     , valuedPropertyInfoValue = getter
                      }
 
 instance Descriptor (ValuedPropertyInfo v) where
@@ -187,7 +187,7 @@ instance Descriptor (ValuedPropertyInfo v) where
   propertyPredicate = propertyPredicate . valuedPropertyInfoBase
 
 instance ValuedDescriptor (ValuedPropertyInfo v) v where
-  propertyGetValue = valuedPropertyInfoGetValue
+  propertyValue = valuedPropertyInfoValue
 
 -- | Template Haskell function to declare a property that does not contain a
 -- value.

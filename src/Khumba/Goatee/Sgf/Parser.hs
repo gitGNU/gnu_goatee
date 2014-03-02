@@ -73,7 +73,7 @@ parseString str = case parse collection "<collection>" str of
         -- TODO Try to proceed, if it makes sense.
         checkFormatVersion :: Node -> Either String Node
         checkFormatVersion root =
-          let version = case findProperty root isFF of
+          let version = case findProperty propertyFF root of
                 Nothing -> defaultFormatVersion
                 Just (FF x) -> x
                 x -> error $ "Expected FF or nothing, received " ++ show x ++ "."
@@ -89,7 +89,7 @@ parseString str = case parse collection "<collection>" str of
         ttToPass :: Node -> Node
         ttToPass root =
           let SZ width height = fromMaybe (SZ defaultSize defaultSize) $
-                                findProperty root isSZ
+                                findProperty propertySZ root
           in if width <= 19 && height <= 19
              then ttToPass' width height root
              else root
@@ -106,8 +106,6 @@ parseString str = case parse collection "<collection>" str of
           W (Just (19, 19)) -> W Nothing
           _ -> prop
 
-        isFF prop = case prop of { FF {} -> True; _ -> False }
-        isSZ prop = case prop of { SZ {} -> True; _ -> False }
         concatErrors errs = "The following errors occurred while parsing:" ++
                             concatMap ("\n-> " ++) errs
 
