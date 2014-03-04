@@ -5,7 +5,7 @@ module Khumba.Goatee.Sgf.Board (
   RootInfo(..), GameInfo(..), emptyGameInfo, internalIsGameInfoNode,
   gameInfoToProperties,
   BoardState(..), boardWidth, boardHeight,
-  CoordState(..), emptyBoardState, rootBoardState, mapBoardCoords,
+  CoordState(..), rootBoardState, mapBoardCoords,
   isValidMove, isCurrentValidMove,
   Cursor(..), rootCursor, cursorRoot, cursorChild, cursorChildren,
   cursorChildCount, cursorChildPlayingAt, cursorProperties,
@@ -30,11 +30,13 @@ import Khumba.Goatee.Sgf.Types
 defaultSize :: Int
 defaultSize = 19
 
+-- | Properties that are specified in the root nodes of game trees.
 data RootInfo = RootInfo { rootInfoWidth :: Int
                          , rootInfoHeight :: Int
                          , rootInfoVariationMode :: VariationMode
                          } deriving (Eq, Show)
 
+-- | Properties that are specified in game info nodes.
 data GameInfo = GameInfo { gameInfoRootInfo :: RootInfo
 
                          , gameInfoBlackName :: Maybe String
@@ -65,6 +67,7 @@ data GameInfo = GameInfo { gameInfoRootInfo :: RootInfo
                          , gameInfoEntererName :: Maybe String
                          } deriving (Show)
 
+-- | Builds a 'GameInfo' with the given 'RootInfo' and no extra data.
 emptyGameInfo :: RootInfo -> GameInfo
 emptyGameInfo rootInfo =
   GameInfo { gameInfoRootInfo = rootInfo
@@ -166,9 +169,11 @@ instance Show BoardState where
     unless (null lines) $ tell ["\nLines: ", show lines]
     unless (null labels) $ tell ["\nLabels: ", show labels]
 
+-- | Returns the width of the board, in stones.
 boardWidth :: BoardState -> Int
 boardWidth = rootInfoWidth . gameInfoRootInfo . boardGameInfo
 
+-- | Returns the height of the board, in stones.
 boardHeight :: BoardState -> Int
 boardHeight = rootInfoHeight . gameInfoRootInfo . boardGameInfo
 

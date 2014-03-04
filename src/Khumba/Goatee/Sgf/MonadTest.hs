@@ -1,6 +1,10 @@
 module Khumba.Goatee.Sgf.MonadTest (tests) where
 
+import Control.Arrow ((&&&))
 import Control.Monad.Writer
+import qualified Data.Function
+import Data.List (sortBy, unfoldr)
+import Data.Maybe
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad
 import Khumba.Goatee.Sgf.Property
@@ -24,6 +28,8 @@ tests = testGroup "Khumba.Goatee.Sgf.Monad" [
   navigationTests,
   positionStackTests,
   propertiesTests,
+  modifyGameInfoTests,
+  modifyCommentTests,
   addChildTests,
   gameInfoChangedTests
   ]
@@ -247,6 +253,89 @@ propertiesTests = testGroup "properties" [
           B _ -> True
           W _ -> True
           _ -> False
+
+modifyGameInfoTests = testGroup "modifyGameInfo" [
+  testGroup "creates info on the root node, starting with none" [
+     testCase "starting from the root node" $
+       let cursor = rootCursor $ node []
+           action = modifyGameInfo (\info -> info { gameInfoGameName = Just "Orange" })
+       in cursorProperties (execGo action cursor) @?= [GN $ toSimpleText "Orange"],
+
+     testCase "starting from a non-root node" $
+       let cursor = child 0 $ rootCursor $ node1 [] $ node [B Nothing]
+           action = modifyGameInfo (\info -> info { gameInfoGameName = Just "Orange" })
+           cursor' = execGo action cursor
+       in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
+          ([B Nothing], [GN $ toSimpleText "Orange"])
+     ],
+
+  testGroup "modifies existing info on the root" [
+    testCase "starting from the root node" $
+      let cursor = rootCursor $ node [GN $ toSimpleText "Orange"]
+          action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing
+                                                 , gameInfoBlackName = Just "Peanut butter"
+                                                 })
+      in cursorProperties (execGo action cursor) @?= [PB $ toSimpleText "Peanut butter"],
+
+    testCase "starting from a non-root node" $
+      let cursor = child 0 $ rootCursor $ node1 [GN $ toSimpleText "Orange"] $ node [B Nothing]
+          action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing
+                                                 , gameInfoBlackName = Just "Peanut butter"
+                                                 })
+          cursor' = execGo action cursor
+      in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
+         ([B Nothing], [PB $ toSimpleText "Peanut butter"])
+    ],
+
+  testCase "moves game info from a non-root node to the root" $
+    let cursor = child 0 $ child 0 $ child 0 $ rootCursor $
+                 node1 [SZ 19 19] $
+                 node1 [B $ Just (0,0), GN $ toSimpleText "Orange"] $
+                 node1 [W $ Just (1,1)] $
+                 node [B $ Just (2,2)]
+        action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing })
+        cursor' = execGo action cursor
+        action' = modifyGameInfo (\info -> info { gameInfoBlackName = Just "Peanut butter" })
+        cursor'' = execGo action' cursor'
+        -- unfoldr :: (Maybe Cursor -> Maybe ([Property], Maybe Cursor))
+        --         -> Maybe Cursor
+        --         -> [[Property]]
+        properties = unfoldr (fmap $ cursorProperties &&& cursorParent)
+                             (Just cursor'')
+    in map (sortBy $ Data.Function.on compare show) properties @?=
+       [[B $ Just (2,2)],
+        [W $ Just (1,1)],
+        [B $ Just (0,0)],
+        [PB $ toSimpleText "Peanut butter", SZ 19 19]]
+  ]
+
+modifyCommentTests = testGroup "modifyComment" [
+  testCase "adds a comment" $
+    let cursor = rootCursor $ node []
+        action = modifyComment (++ "Hello.")
+    in cursorProperties (execGo action cursor) @?= [C $ toText "Hello."],
+
+  testCase "removes a comment" $
+    let cursor = rootCursor $ node [C $ toText "Hello."]
+        action = modifyComment (\comment -> case comment of
+                                   "Hello." -> ""
+                                   other -> error $ "Got: " ++ other)
+    in cursorProperties (execGo action cursor) @?= [],
+
+  testCase "updates a comment" $
+    let cursor = child 0 $ rootCursor $
+                 node1 [C $ toText "one"] $
+                 node [C $ toText "two"]
+        action = modifyComment (\comment -> case comment of
+                                   "two" -> "three"
+                                   other -> error $ "Got: " ++ other)
+        cursor' = execGo action cursor
+    in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
+       ([C $ toText "three"], [C $ toText "one"]),
+
+  testCase "leaves a non-existant comment" $
+    cursorProperties (execGo (modifyComment id) $ rootCursor $ node []) @?= []
+  ]
 
 addChildTests = testGroup "addChild" [
   testCase "adds an only child" $

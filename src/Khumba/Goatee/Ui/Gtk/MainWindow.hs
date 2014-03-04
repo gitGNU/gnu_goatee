@@ -132,7 +132,7 @@ create uiRef = do
   --hPanedMax <- get hPaned panedMaxPosition
   --putStrLn $ "Paned position in [" ++ show hPanedMin ++ ", " ++ show hPanedMax ++ "]."
   -- TODO Don't hard-code the pane width.
-  panedSetPosition hPaned 400 -- $ truncate (fromIntegral hPanedMax * 0.8)
+  panedSetPosition hPaned 400 -- (truncate (fromIntegral hPanedMax * 0.8))
 
   goban <- Goban.create uiRef
   panedAdd1 hPaned $ Goban.myDrawingArea goban

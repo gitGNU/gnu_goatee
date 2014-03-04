@@ -8,8 +8,6 @@ module Khumba.Goatee.Ui.Gtk.InfoLine (
   , myLabel
   ) where
 
-import Control.Monad (void)
-import Data.IORef
 import Data.Maybe
 import Graphics.UI.Gtk hiding (Cursor)
 import Khumba.Goatee.Sgf.Board
@@ -17,48 +15,44 @@ import Khumba.Goatee.Sgf.Monad (getCursor, childAddedEvent, navigationEvent, pro
 import Khumba.Goatee.Ui.Gtk.Common
 
 data InfoLine ui = InfoLine { myUi :: UiRef ui
+                            , myRegistrations :: ViewRegistrations
                             , myLabel :: Label
-                            , myChildAddedHandler :: IORef (Maybe Registration)
-                            , myNavigationHandler :: IORef (Maybe Registration)
-                            , myPropertiesChangedHandler :: IORef (Maybe Registration)
                             }
+
+instance UiCtrl ui => UiView (InfoLine ui) ui where
+  viewName = const "InfoLine"
+  viewUiRef = myUi
+  viewRegistrations = myRegistrations
 
 create :: UiCtrl ui => UiRef ui -> IO (InfoLine ui)
 create uiRef = do
   label <- labelNew Nothing
-  childAddedHandler <- newIORef Nothing
-  navigationHandler <- newIORef Nothing
-  propertiesChangedHandler <- newIORef Nothing
+  registrations <- viewNewRegistrations
   return InfoLine { myUi = uiRef
+                  , myRegistrations = registrations
                   , myLabel = label
-                  , myChildAddedHandler = childAddedHandler
-                  , myNavigationHandler = navigationHandler
-                  , myPropertiesChangedHandler = propertiesChangedHandler
                   }
 
 initialize :: UiCtrl ui => InfoLine ui -> IO ()
-initialize infoLine = do
-  ui <- readUiRef $ myUi infoLine
-  let updateWithCursor cursor = labelSetMarkup (myLabel infoLine) (generateMarkup cursor)
-      onNavigate = afterGo . updateWithCursor =<< getCursor
-      doRegister event registrationAccessor handlerTransformer =
-        writeIORef (registrationAccessor infoLine) . Just =<<
-        register ui "InfoLine" event (handlerTransformer onNavigate)
-  doRegister childAddedEvent myChildAddedHandler (const . const)
-  doRegister navigationEvent myNavigationHandler const
-  doRegister propertiesChangedEvent myPropertiesChangedHandler (const . const)
-  updateWithCursor =<< readCursor ui
+initialize me = do
+  let updateAfter = afterGo . updateWithCursor me =<< getCursor
+  viewRegister me childAddedEvent $ const $ const updateAfter
+  viewRegister me navigationEvent $ const updateAfter
+  viewRegister me propertiesChangedEvent $ const $ const updateAfter
+  update me
 
 destruct :: UiCtrl ui => InfoLine ui -> IO ()
-destruct infoLine = do
-  ui <- readUiRef $ myUi infoLine
-  let doUnregister event handlerAccessor =
-        readIORef (handlerAccessor infoLine) >>=
-        maybe (fail $ "InfoLine.destruct: No " ++ show event ++ " to unregister.")
-              (void . unregister ui)
-  doUnregister childAddedEvent myChildAddedHandler
-  doUnregister navigationEvent myNavigationHandler
-  doUnregister propertiesChangedEvent myPropertiesChangedHandler
+destruct = viewUnregisterAll
+
+update :: UiCtrl ui => InfoLine ui -> IO ()
+update me = do
+  ui <- readUiRef $ myUi me
+  cursor <- readCursor ui
+  updateWithCursor me cursor
+
+updateWithCursor :: UiCtrl ui => InfoLine ui -> Cursor -> IO ()
+updateWithCursor me cursor =
+  labelSetMarkup (myLabel me) $ generateMarkup cursor
 
 generateMarkup :: Cursor -> String
 generateMarkup cursor =

@@ -3,6 +3,7 @@
 module Khumba.Goatee.Ui.Gtk.Common (
   AppState(appWindowCount)
   , newAppState
+    -- * UI controllers
   , UiGoM
   , afterGo
   , runUiGoPure
@@ -13,6 +14,13 @@ module Khumba.Goatee.Ui.Gtk.Common (
   , setTool
   , UiRef(UiRef)
   , readUiRef
+    -- * UI views
+  , UiView(..)
+  , ViewRegistrations
+  , viewNewRegistrations
+  , viewRegister
+  , viewUnregisterAll
+    -- * UI modes
   , UiModes(..)
   , ViewMode(..)
   , defaultUiModes
@@ -32,7 +40,7 @@ import Data.Unique (Unique)
 import Graphics.UI.Gtk hiding (Color, Cursor)
 import Khumba.Goatee.Common (Seq(..))
 import Khumba.Goatee.Sgf.Board
-import Khumba.Goatee.Sgf.Monad (GoT, runGoT, Event)
+import Khumba.Goatee.Sgf.Monad
 import Khumba.Goatee.Sgf.Parser
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
@@ -177,6 +185,43 @@ newtype UiRef ui = UiRef { getUiRef :: IORef (Maybe ui) }
 readUiRef :: UiCtrl ui => UiRef ui -> IO ui
 readUiRef = maybe (fail message) return <=< readIORef . getUiRef
   where message = "readUiRef failed; can't call me during initial UI setup."
+
+-- | A UI widget that listens to the state of a 'UiCtrl'.  This class makes it
+-- easy to register and unregister event handlers with 'viewRegister' and
+-- 'viewUnregisterAll'.
+class UiCtrl ui => UiView view ui | view -> ui where
+  -- | A printable name of the view; usually just the data type name.
+  viewName :: view -> String
+
+  -- | A reference to the view's controller.
+  viewUiRef :: view -> UiRef ui
+
+  -- | An updatable list of registrations for event handlers the view has
+  -- registered.
+  viewRegistrations :: view -> ViewRegistrations
+
+type ViewRegistrations = IORef [Registration]
+
+-- | Creates a new 'ViewRegistrations'.
+viewNewRegistrations :: IO ViewRegistrations
+viewNewRegistrations = newIORef []
+
+-- | Registers a handler for an event on a view.
+viewRegister :: UiView view ui => view -> Event UiGoM handler -> handler -> IO ()
+viewRegister view event handler = do
+  let name = viewName view
+  ui <- readUiRef $ viewUiRef view
+  registration <- register ui name event handler
+  modifyIORef (viewRegistrations view) (registration:)
+
+-- | Unregisters all event handlers that the view has registered in its
+-- 'viewRegistrations'.
+viewUnregisterAll :: UiView view ui => view -> IO ()
+viewUnregisterAll view = do
+  let registrations = viewRegistrations view
+  ui <- readUiRef $ viewUiRef view
+  readIORef registrations >>= mapM_ (unregister ui)
+  writeIORef registrations []
 
 data UiModes = UiModes { uiViewMode :: ViewMode
                        , uiViewOneColorModeColor :: Color

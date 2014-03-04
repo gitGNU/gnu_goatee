@@ -24,7 +24,9 @@ module Khumba.Goatee.Sgf.Monad (
   , getProperties
   , modifyProperties
   , deleteProperties
+    -- ** Property modification
   , modifyGameInfo
+  , modifyComment
     -- * Children
   , addChild
     -- * Event handling
@@ -55,6 +57,7 @@ import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Tree hiding (addChild)
+import Khumba.Goatee.Sgf.Types
 
 -- | The internal state of a Go monad transformer.  @go@ is the type of
 -- Go monad or transformer (instance of 'GoMonad').
@@ -180,6 +183,12 @@ class Monad go => MonadGo go where
   -- that node is modified.  Otherwise, properties are inserted on the root
   -- node.
   modifyGameInfo :: (GameInfo -> GameInfo) -> go GameInfo
+
+  -- | Mutates the comment attached to the current node according to the given
+  -- function.  The input string will be empty if the current node either has a
+  -- property @C[]@ or doesn't have a comment property.  Returning an empty
+  -- string removes any existing comment node.
+  modifyComment :: (String -> String) -> go ()
 
   -- | Adds a child node to the current node at the given index, shifting all
   -- existing children at and after the index to the right.  The index must in
@@ -349,6 +358,22 @@ instance Monad m => MonadGo (GoT m) where
       return $ gameInfoToProperties info' ++ filter ((GameInfoProperty /=) . propertyType) props
     popPosition
     return info'
+
+  modifyComment fn = do
+    node <- cursorNode <$> getCursor
+    let maybeOldComment = fromText <$> getProperty propertyC node
+        oldComment = fromMaybe "" maybeOldComment
+        newComment = fn oldComment
+        hasOld = isJust maybeOldComment
+        hasNew = not $ null newComment
+    case (hasOld, hasNew) of
+      (True, False) -> modifyProperties $ return . removeComment
+      (False, True) -> modifyProperties $ return . addComment newComment
+      (True, True) -> when (newComment /= oldComment) $
+                      modifyProperties $ return . addComment newComment . removeComment
+      _ -> return ()
+    where removeComment = filter (not . propertyPredicate propertyC)
+          addComment comment = (C (toText comment):)
 
   addChild index node = do
     cursor <- getCursor

@@ -8,9 +8,7 @@ module Khumba.Goatee.Ui.Gtk.GamePropertiesPanel (
   , myWidget
   ) where
 
-import Control.Applicative ((<$>))
 import Control.Monad
-import Data.IORef
 import Data.Maybe
 import Graphics.UI.Gtk hiding (Cursor)
 import Khumba.Goatee.Sgf.Board
@@ -22,6 +20,7 @@ import Khumba.Goatee.Ui.Gtk.Common
 
 data GamePropertiesPanel ui =
   GamePropertiesPanel { myUi :: UiRef ui
+                      , myRegistrations :: ViewRegistrations
                       , myWidget :: Widget
                       , myBlackName :: Entry
                       , myBlackRank :: Entry
@@ -30,10 +29,12 @@ data GamePropertiesPanel ui =
                       , myWhiteRank :: Entry
                       , myWhiteTeam :: Entry
                       , myComment :: TextView
-                      , myGameInfoChangedHandler :: IORef (Maybe Registration)
-                      , myNavigationHandler :: IORef (Maybe Registration)
-                      , myPropertiesChangedHandler :: IORef (Maybe Registration)
                       }
+
+instance UiCtrl ui => UiView (GamePropertiesPanel ui) ui where
+  viewName = const "GamePropertiesPanel"
+  viewUiRef = myUi
+  viewRegistrations = myRegistrations
 
 create :: UiCtrl ui => UiRef ui -> IO (GamePropertiesPanel ui)
 create uiRef = do
@@ -103,11 +104,10 @@ create uiRef = do
   containerAdd commentScroll comment
   boxPackStart box commentScroll PackGrow 0
 
-  gameInfoChangedHandler <- newIORef Nothing
-  navigationHandler <- newIORef Nothing
-  propertiesChangedHandler <- newIORef Nothing
+  registrations <- viewNewRegistrations
 
   return GamePropertiesPanel { myUi = uiRef
+                             , myRegistrations = registrations
                              , myWidget = toWidget box
                              , myBlackName = blackNameEntry
                              , myBlackRank = blackRankEntry
@@ -116,9 +116,6 @@ create uiRef = do
                              , myWhiteRank = whiteRankEntry
                              , myWhiteTeam = whiteTeamEntry
                              , myComment = comment
-                             , myGameInfoChangedHandler = gameInfoChangedHandler
-                             , myNavigationHandler = navigationHandler
-                             , myPropertiesChangedHandler = propertiesChangedHandler
                              }
 
 initialize :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
@@ -126,17 +123,14 @@ initialize me = do
   ui <- readUiRef $ myUi me
 
   -- Watch for game info changes.
-  writeIORef (myGameInfoChangedHandler me) . Just =<<
-    register ui "GamePropertiesPanel" gameInfoChangedEvent
-    (\_ newInfo -> afterGo $ updateUiGameInfo me newInfo)
+  viewRegister me gameInfoChangedEvent $ \_ newInfo ->
+    afterGo $ updateUiGameInfo me newInfo
 
   -- Watch for node changes.
   let onNodeChange = do cursor <- getCursor
                         afterGo $ updateUiNodeInfo me cursor
-  writeIORef (myNavigationHandler me) . Just =<<
-    register ui "GamePropertiesPanel" navigationEvent (const onNodeChange)
-  writeIORef (myPropertiesChangedHandler me) . Just =<<
-    register ui "GamePropertiesPanel" propertiesChangedEvent (const $ const onNodeChange)
+  viewRegister me navigationEvent $ const onNodeChange
+  viewRegister me propertiesChangedEvent $ const $ const onNodeChange
 
   updateUi me =<< readCursor ui
 
@@ -146,29 +140,10 @@ initialize me = do
   commentBuffer <- textViewGetBuffer $ myComment me
   void $ on commentBuffer bufferChanged $ do
     newComment <- get commentBuffer textBufferText
-    node <- cursorNode <$> readCursor ui
-    let oldComment = getProperty propertyC node
-        hasOld = isJust oldComment
-        hasNew = not $ null newComment
-    case (hasOld, hasNew) of
-      (True, False) -> runUiGo ui $ modifyProperties $ return . removeComment
-      (False, True) -> runUiGo ui $ modifyProperties $ return . addComment newComment
-      (True, True) -> when (newComment /= fromText (fromJust oldComment)) $
-                      runUiGo ui $ modifyProperties $ return . addComment newComment . removeComment
-      _ -> return ()
-  where removeComment = filter (not . propertyPredicate propertyC)
-        addComment comment = (C (toText comment):)
+    runUiGo ui $ modifyComment $ const newComment
 
 destruct :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
-destruct me = do
-  ui <- readUiRef $ myUi me
-  let doUnregister event handlerAccessor =
-        readIORef (handlerAccessor me) >>=
-        maybe (fail $ "GamePropertiesPanel.destruct: No " ++ show event ++ " to unregister.")
-              (void . unregister ui)
-  doUnregister gameInfoChangedEvent myGameInfoChangedHandler
-  doUnregister navigationEvent myNavigationHandler
-  doUnregister propertiesChangedEvent myPropertiesChangedHandler
+destruct = viewUnregisterAll
 
 updateUi :: GamePropertiesPanel ui -> Cursor -> IO ()
 updateUi me cursor = do
