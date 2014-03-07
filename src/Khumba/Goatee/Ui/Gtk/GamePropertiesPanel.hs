@@ -17,6 +17,7 @@ import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Ui.Gtk.Common
+import Khumba.Goatee.Ui.Gtk.Utils
 
 data GamePropertiesPanel ui =
   GamePropertiesPanel { myUi :: UiRef ui
@@ -53,21 +54,18 @@ create uiRef = do
   blackNameLabel <- labelNewWithMnemonic "_Black"
   blackNameEntry <- entryNew
   labelSetMnemonicWidget blackNameLabel blackNameEntry
-  widgetSetSensitive blackNameEntry False
   tableAttachDefaults table blackNameLabel 0 1 blackRow (blackRow + 1)
   tableAttachDefaults table blackNameEntry 1 2 blackRow (blackRow + 1)
 
   blackRankLabel <- labelNewWithMnemonic "_Rank"
   blackRankEntry <- entryNew
   labelSetMnemonicWidget blackRankLabel blackRankEntry
-  widgetSetSensitive blackRankEntry False
   tableAttachDefaults table blackRankLabel 0 1 (blackRow + 1) (blackRow + 2)
   tableAttachDefaults table blackRankEntry 1 2 (blackRow + 1) (blackRow + 2)
 
   blackTeamLabel <- labelNewWithMnemonic "T_eam"
   blackTeamEntry <- entryNew
   labelSetMnemonicWidget blackTeamLabel blackTeamEntry
-  widgetSetSensitive blackTeamEntry False
   tableAttachDefaults table blackTeamLabel 0 1 (blackRow + 2) (blackRow + 3)
   tableAttachDefaults table blackTeamEntry 1 2 (blackRow + 2) (blackRow + 3)
 
@@ -77,21 +75,18 @@ create uiRef = do
   whiteNameLabel <- labelNewWithMnemonic "_White"
   whiteNameEntry <- entryNew
   labelSetMnemonicWidget whiteNameLabel whiteNameEntry
-  widgetSetSensitive whiteNameEntry False
   tableAttachDefaults table whiteNameLabel 0 1 whiteRow (whiteRow + 1)
   tableAttachDefaults table whiteNameEntry 1 2 whiteRow (whiteRow + 1)
 
   whiteRankLabel <- labelNewWithMnemonic "Ran_k"
   whiteRankEntry <- entryNew
   labelSetMnemonicWidget whiteRankLabel whiteRankEntry
-  widgetSetSensitive whiteRankEntry False
   tableAttachDefaults table whiteRankLabel 0 1 (whiteRow + 1) (whiteRow + 2)
   tableAttachDefaults table whiteRankEntry 1 2 (whiteRow + 1) (whiteRow + 2)
 
   whiteTeamLabel <- labelNewWithMnemonic "Te_am"
   whiteTeamEntry <- entryNew
   labelSetMnemonicWidget whiteTeamLabel whiteTeamEntry
-  widgetSetSensitive whiteTeamEntry False
   tableAttachDefaults table whiteTeamLabel 0 1 (whiteRow + 2) (whiteRow + 3)
   tableAttachDefaults table whiteTeamEntry 1 2 (whiteRow + 2) (whiteRow + 3)
 
@@ -138,9 +133,21 @@ initialize me = do
   -- that binds the comment field to the model.
 
   commentBuffer <- textViewGetBuffer $ myComment me
-  void $ on commentBuffer bufferChanged $ do
+  on commentBuffer bufferChanged $ do
     newComment <- get commentBuffer textBufferText
     runUiGo ui $ modifyComment $ const newComment
+
+  connectEntryToGameInfo ui myBlackName $ \x info -> info { gameInfoBlackName = strToMaybe x }
+  connectEntryToGameInfo ui myBlackRank $ \x info -> info { gameInfoBlackRank = strToMaybe x }
+  connectEntryToGameInfo ui myBlackTeam $ \x info -> info { gameInfoBlackTeamName = strToMaybe x }
+  connectEntryToGameInfo ui myWhiteName $ \x info -> info { gameInfoWhiteName = strToMaybe x }
+  connectEntryToGameInfo ui myWhiteRank $ \x info -> info { gameInfoWhiteRank = strToMaybe x }
+  connectEntryToGameInfo ui myWhiteTeam $ \x info -> info { gameInfoWhiteTeamName = strToMaybe x }
+
+  where connectEntryToGameInfo ui entryAccessor updater =
+          onEntryChange (entryAccessor me) $ \value ->
+          runUiGo ui $ void $ modifyGameInfo (updater value)
+        strToMaybe str = if null str then Nothing else Just str
 
 destruct :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
 destruct = viewUnregisterAll
