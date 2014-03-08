@@ -1,7 +1,8 @@
 module Khumba.Goatee.Sgf.Tree (
   Collection(..),
   Node(..), emptyNode, rootNodeWithSize,
-  findProperty, findProperty', getProperty, getProperty', addProperty, addChild, addChildAt,
+  findProperty, findProperty', findPropertyValue, findPropertyValue',
+  addProperty, addChild, addChildAt,
   validateNode
   ) where
 
@@ -45,12 +46,12 @@ findProperty' :: Descriptor a => a -> [Property] -> Maybe Property
 findProperty' = find . propertyPredicate
 
 -- | Retrieves the value of a property in a node's property list.
-getProperty :: ValuedDescriptor a v => a -> Node -> Maybe v
-getProperty descriptor node = propertyValue descriptor <$> findProperty descriptor node
+findPropertyValue :: ValuedDescriptor a v => a -> Node -> Maybe v
+findPropertyValue descriptor node = propertyValue descriptor <$> findProperty descriptor node
 
 -- | Retrieves the value of a property in a property list.
-getProperty' :: ValuedDescriptor a v => a -> [Property] -> Maybe v
-getProperty' descriptor properties =
+findPropertyValue' :: ValuedDescriptor a v => a -> [Property] -> Maybe v
+findPropertyValue' descriptor properties =
   propertyValue descriptor <$> findProperty' descriptor properties
 
 -- | Appends a property to a node's property list.

@@ -169,7 +169,7 @@ updateUiGameInfo me info =
 
 updateUiNodeInfo :: GamePropertiesPanel ui -> Cursor -> IO ()
 updateUiNodeInfo me cursor = do
-  let newText = maybe "" fromText $ getProperty propertyC $ cursorNode cursor
+  let newText = maybe "" fromText $ findPropertyValue propertyC $ cursorNode cursor
   buf <- textViewGetBuffer $ myComment me
   oldText <- get buf textBufferText
   when (oldText /= newText) $ textBufferSetText buf newText

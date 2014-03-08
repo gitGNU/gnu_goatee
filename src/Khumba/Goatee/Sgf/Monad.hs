@@ -23,12 +23,14 @@ module Khumba.Goatee.Sgf.Monad (
     -- * Properties
   , getProperties
   , modifyProperties
-  , deleteProperties
-    -- ** Property modification
-  , modifyGameInfo
+  , getProperty
+  , getPropertyValue
+  , putProperty
+  , deleteProperty
   , modifyProperty
   , modifyPropertyValue
   , modifyPropertyString
+  , modifyGameInfo
     -- * Children
   , addChild
     -- * Event handling
@@ -53,7 +55,7 @@ import Control.Monad.Writer.Class
 import Control.Applicative
 import qualified Control.Monad.State as State
 import Control.Monad.State (StateT)
-import Data.List (mapAccumL, nub)
+import Data.List (find, mapAccumL, nub)
 import Data.Maybe
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board
@@ -169,22 +171,38 @@ class Monad go => MonadGo go where
 
   -- | Returns the set of properties on the current node.
   getProperties :: go [Property]
-  getProperties = liftM (nodeProperties . cursorNode) getCursor
+  getProperties = liftM cursorProperties getCursor
 
   -- | Modifies the set of properties on the current node.
   --
   -- The given function must end on the same node on which it started.
   modifyProperties :: ([Property] -> go [Property]) -> go ()
 
-  -- | Deletes properties from the current node for which the predicate returns
-  -- true.
-  deleteProperties :: (Property -> Bool) -> go ()
+  -- | Searches for a property on the current node, returning it if found.
+  getProperty :: Descriptor d => d -> go (Maybe Property)
 
-  -- | Mutates the game info for the current path, returning the new info.  If
-  -- the current node or one of its ancestors has game info properties, then
-  -- that node is modified.  Otherwise, properties are inserted on the root
-  -- node.
-  modifyGameInfo :: (GameInfo -> GameInfo) -> go GameInfo
+  -- | Searches for a valued property on the current node, returning its value
+  -- if found.
+  getPropertyValue :: ValuedDescriptor d v => d -> go (Maybe v)
+  getPropertyValue descriptor = liftM (liftM $ propertyValue descriptor) $ getProperty descriptor
+
+  -- | Sets a property on the current node, replacing an existing property with
+  -- the same name, if one exists.
+  putProperty :: Property -> go ()
+  putProperty property = modifyProperty (propertyInfo property) $ const $ Just property
+
+  -- | Deletes a property from the current node, if it's set.
+  --
+  -- Note that although a 'Property' is a 'Descriptor', giving a valued
+  -- @Property@ here will not cause deletion to match on the value of the
+  -- property.  That is, the following code will result in 'Nothing', because
+  -- the deletion only cares about the name of the property.
+  --
+  -- > do putProperty $ PL Black
+  -- >    deleteProperty $ PL White
+  -- >    getPropertyValue propertyPL
+  deleteProperty :: Descriptor d => d -> go ()
+  deleteProperty descriptor = modifyProperty descriptor $ const Nothing
 
   -- | Calls the given function to modify the state of the given property
   -- (descriptor) on the current node.  'Nothing' represents the property not
@@ -215,6 +233,12 @@ class Monad go => MonadGo go where
                  -- Because stringToSgf might do processing, we have to check
                  -- the conversion back to a string for emptiness.
              in if not $ null $ sgfToString sgf then Just sgf else Nothing
+
+  -- | Mutates the game info for the current path, returning the new info.  If
+  -- the current node or one of its ancestors has game info properties, then
+  -- that node is modified.  Otherwise, properties are inserted on the root
+  -- node.
+  modifyGameInfo :: (GameInfo -> GameInfo) -> go GameInfo
 
   -- | Adds a child node to the current node at the given index, shifting all
   -- existing children at and after the index to the right.  The index must in
@@ -370,20 +394,7 @@ instance Monad m => MonadGo (GoT m) where
       fire gameInfoChangedEvent (\f -> f (boardGameInfo $ cursorBoard oldCursor)
                                          (boardGameInfo $ cursorBoard newCursor))
 
-  deleteProperties pred = modifyProperties $ return . filter (not . pred)
-
-  modifyGameInfo fn = do
-    cursor <- getCursor
-    let info = boardGameInfo $ cursorBoard cursor
-        info' = fn info
-    when (gameInfoRootInfo info /= gameInfoRootInfo info') $
-      fail "Illegal modification of root info in modifyGameInfo."
-    pushPosition
-    goToGameInfoNode True
-    modifyProperties $ \props ->
-      return $ gameInfoToProperties info' ++ filter ((GameInfoProperty /=) . propertyType) props
-    popPosition
-    return info'
+  getProperty descriptor = find (propertyPredicate descriptor) <$> getProperties
 
   modifyProperty descriptor fn = do
     cursor <- getCursor
@@ -401,6 +412,19 @@ instance Monad m => MonadGo (GoT m) where
       _ -> return ()
     where remove descriptor = filter (not . propertyPredicate descriptor)
           add value = (value:)
+
+  modifyGameInfo fn = do
+    cursor <- getCursor
+    let info = boardGameInfo $ cursorBoard cursor
+        info' = fn info
+    when (gameInfoRootInfo info /= gameInfoRootInfo info') $
+      fail "Illegal modification of root info in modifyGameInfo."
+    pushPosition
+    goToGameInfoNode True
+    modifyProperties $ \props ->
+      return $ gameInfoToProperties info' ++ filter ((GameInfoProperty /=) . propertyType) props
+    popPosition
+    return info'
 
   addChild index node = do
     cursor <- getCursor

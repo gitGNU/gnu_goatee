@@ -27,10 +27,14 @@ tests = testGroup "Khumba.Goatee.Sgf.Monad" [
   navigationTests,
   positionStackTests,
   propertiesTests,
-  modifyGameInfoTests,
+  getPropertyTests,
+  getPropertyValueTests,
+  putPropertyTests,
+  deletePropertyTests,
   modifyPropertyTests,
   modifyPropertyValueTests,
   modifyPropertyStringTests,
+  modifyGameInfoTests,
   addChildTests,
   gameInfoChangedTests
   ]
@@ -225,29 +229,6 @@ propertiesTests = testGroup "properties" [
                       modifyProperties $ const $ return [FF 2]
           log = execWriter (runGoT action cursor)
       in log @?= [([FF 1], [FF 2])]
-    ],
-
-  testGroup "deleteProperties" [
-    testCase "leaves non-matching properties" $
-      let cursor = rootCursor $ node [FF 4, GM 1]
-          action = do deleteProperties isMoveProperty
-                      getProperties
-      in evalGo action cursor @?= [FF 4, GM 1],
-
-    testCase "removes matching properties" $
-      let cursor = rootCursor $ node [B Nothing, FF 4, GM 1, W $ Just (1,1)]
-          action = do deleteProperties isMoveProperty
-                      getProperties
-      in evalGo action cursor @?= [FF 4, GM 1],
-
-    testCase "fires a properties changed event" $
-      let cursor = rootCursor $ node [B Nothing, FF 4, GM 1, W $ Just (1,1)]
-          action = do on propertiesChangedEvent $ \old new -> tell [(old, new)]
-                      deleteProperties isMoveProperty
-                      getProperties
-          (_, log) = runWriter (runGoT action cursor)
-      in log @?= [([B Nothing, FF 4, GM 1, W $ Just (1,1)],
-                   [FF 4, GM 1])]
     ]
   ]
   where isMoveProperty prop = case prop of
@@ -255,59 +236,52 @@ propertiesTests = testGroup "properties" [
           W _ -> True
           _ -> False
 
-modifyGameInfoTests = testGroup "modifyGameInfo" [
-  testGroup "creates info on the root node, starting with none" [
-     testCase "starting from the root node" $
-       let cursor = rootCursor $ node []
-           action = modifyGameInfo (\info -> info { gameInfoGameName = Just "Orange" })
-       in cursorProperties (execGo action cursor) @?= [GN $ toSimpleText "Orange"],
+getPropertyTests = testGroup "getProperty" [
+  testCase "doesn't find an unset property" $ do
+    Nothing @=? evalGo (getProperty propertyW) (rootCursor $ node [])
+    Nothing @=? evalGo (getProperty propertyW) (rootCursor $ node [B Nothing]),
 
-     testCase "starting from a non-root node" $
-       let cursor = child 0 $ rootCursor $ node1 [] $ node [B Nothing]
-           action = modifyGameInfo (\info -> info { gameInfoGameName = Just "Orange" })
-           cursor' = execGo action cursor
-       in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
-          ([B Nothing], [GN $ toSimpleText "Orange"])
-     ],
+  testCase "finds a set property" $ do
+    Just (B Nothing) @=? evalGo (getProperty propertyB) (rootCursor $ node [B Nothing])
+    Just (B Nothing) @=? evalGo (getProperty propertyB) (rootCursor $ node [B Nothing, DO])
+    Just DO @=? evalGo (getProperty propertyDO) (rootCursor $ node [B Nothing, DO])
+  ]
 
-  testGroup "modifies existing info on the root" [
-    testCase "starting from the root node" $
-      let cursor = rootCursor $ node [GN $ toSimpleText "Orange"]
-          action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing
-                                                 , gameInfoBlackName = Just "Peanut butter"
-                                                 })
-      in cursorProperties (execGo action cursor) @?= [PB $ toSimpleText "Peanut butter"],
+getPropertyValueTests = testGroup "getPropertyValue" [
+  testCase "doesn't find an unset property" $ do
+    Nothing @=? evalGo (getPropertyValue propertyW) (rootCursor $ node [])
+    Nothing @=? evalGo (getPropertyValue propertyW) (rootCursor $ node [B Nothing]),
 
-    testCase "starting from a non-root node" $
-      let cursor = child 0 $ rootCursor $ node1 [GN $ toSimpleText "Orange"] $ node [B Nothing]
-          action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing
-                                                 , gameInfoBlackName = Just "Peanut butter"
-                                                 })
-          cursor' = execGo action cursor
-      in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
-         ([B Nothing], [PB $ toSimpleText "Peanut butter"])
-    ],
+  testCase "finds a set property" $ do
+    Just Nothing @=? evalGo (getPropertyValue propertyB) (rootCursor $ node [B Nothing])
+    Just (Just (0,0)) @=?
+      evalGo (getPropertyValue propertyB) (rootCursor $ node [B $ Just (0,0), TE Double1])
+    Just Double1 @=?
+      evalGo (getPropertyValue propertyTE) (rootCursor $ node [B $ Just (0,0), TE Double1])
+  ]
 
-  testCase "moves game info from a non-root node to the root" $
-    let cursor = child 0 $ child 0 $ child 0 $ rootCursor $
-                 node1 [SZ 19 19] $
-                 node1 [B $ Just (0,0), GN $ toSimpleText "Orange"] $
-                 node1 [W $ Just (1,1)] $
-                 node [B $ Just (2,2)]
-        action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing })
-        cursor' = execGo action cursor
-        action' = modifyGameInfo (\info -> info { gameInfoBlackName = Just "Peanut butter" })
-        cursor'' = execGo action' cursor'
-        -- unfoldr :: (Maybe Cursor -> Maybe ([Property], Maybe Cursor))
-        --         -> Maybe Cursor
-        --         -> [[Property]]
-        properties = unfoldr (fmap $ cursorProperties &&& cursorParent)
-                             (Just cursor'')
-    in map sortProperties properties @?=
-       [[B $ Just (2,2)],
-        [W $ Just (1,1)],
-        [B $ Just (0,0)],
-        [PB $ toSimpleText "Peanut butter", SZ 19 19]]
+putPropertyTests = testGroup "putProperty" [
+  testCase "adds an unset property" $ do
+    [IT] @=? cursorProperties (execGo (putProperty IT) $ rootCursor $ node [])
+    [DO, IT] @=?
+      sortProperties (cursorProperties (execGo (putProperty IT) $ rootCursor $ node [DO])),
+
+  testCase "replaces an existing property" $
+    [TE Double2] @=?
+    cursorProperties (execGo (putProperty $ TE Double2) (rootCursor $ node [TE Double1]))
+  ]
+
+deletePropertyTests = testGroup "deleteProperty" [
+  testCase "does nothing when the property isn't set" $ do
+    [] @=? cursorProperties (execGo (deleteProperty DO) $ rootCursor $ node [])
+    [B Nothing] @=? cursorProperties (execGo (deleteProperty DO) $ rootCursor $ node [B Nothing]),
+
+  testCase "removes a property" $ do
+    [] @=? cursorProperties (execGo (deleteProperty DO) $ rootCursor $ node [DO])
+    -- This is documented behaviour for deleteProperty, the fact that it doesn't
+    -- matter what the property value is:
+    [DO] @=? cursorProperties
+      (execGo (deleteProperty $ B $ Just (0,0)) $ rootCursor $ node [DO, B Nothing])
   ]
 
 modifyPropertyTests = testGroup "modifyProperty" [
@@ -403,6 +377,61 @@ modifyPropertyStringTests =
             let result = execGo (modifyPropertyString property id) $ rootCursor $ node []
             in cursorProperties result @?= []
           ]
+
+modifyGameInfoTests = testGroup "modifyGameInfo" [
+  testGroup "creates info on the root node, starting with none" [
+     testCase "starting from the root node" $
+       let cursor = rootCursor $ node []
+           action = modifyGameInfo (\info -> info { gameInfoGameName = Just "Orange" })
+       in cursorProperties (execGo action cursor) @?= [GN $ toSimpleText "Orange"],
+
+     testCase "starting from a non-root node" $
+       let cursor = child 0 $ rootCursor $ node1 [] $ node [B Nothing]
+           action = modifyGameInfo (\info -> info { gameInfoGameName = Just "Orange" })
+           cursor' = execGo action cursor
+       in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
+          ([B Nothing], [GN $ toSimpleText "Orange"])
+     ],
+
+  testGroup "modifies existing info on the root" [
+    testCase "starting from the root node" $
+      let cursor = rootCursor $ node [GN $ toSimpleText "Orange"]
+          action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing
+                                                 , gameInfoBlackName = Just "Peanut butter"
+                                                 })
+      in cursorProperties (execGo action cursor) @?= [PB $ toSimpleText "Peanut butter"],
+
+    testCase "starting from a non-root node" $
+      let cursor = child 0 $ rootCursor $ node1 [GN $ toSimpleText "Orange"] $ node [B Nothing]
+          action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing
+                                                 , gameInfoBlackName = Just "Peanut butter"
+                                                 })
+          cursor' = execGo action cursor
+      in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
+         ([B Nothing], [PB $ toSimpleText "Peanut butter"])
+    ],
+
+  testCase "moves game info from a non-root node to the root" $
+    let cursor = child 0 $ child 0 $ child 0 $ rootCursor $
+                 node1 [SZ 19 19] $
+                 node1 [B $ Just (0,0), GN $ toSimpleText "Orange"] $
+                 node1 [W $ Just (1,1)] $
+                 node [B $ Just (2,2)]
+        action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing })
+        cursor' = execGo action cursor
+        action' = modifyGameInfo (\info -> info { gameInfoBlackName = Just "Peanut butter" })
+        cursor'' = execGo action' cursor'
+        -- unfoldr :: (Maybe Cursor -> Maybe ([Property], Maybe Cursor))
+        --         -> Maybe Cursor
+        --         -> [[Property]]
+        properties = unfoldr (fmap $ cursorProperties &&& cursorParent)
+                             (Just cursor'')
+    in map sortProperties properties @?=
+       [[B $ Just (2,2)],
+        [W $ Just (1,1)],
+        [B $ Just (0,0)],
+        [PB $ toSimpleText "Peanut butter", SZ 19 19]]
+  ]
 
 addChildTests = testGroup "addChild" [
   testCase "adds an only child" $
