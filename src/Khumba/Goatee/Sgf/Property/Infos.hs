@@ -51,6 +51,7 @@ $(defValuedProperty "TR" 'GeneralProperty False)
 propertyAP = makeValuedPropertyInfo "AP" RootProperty False
              (\x -> case x of { AP {} -> True; _ -> False })
              (\(AP x y) -> (x, y))
+             (uncurry AP)
 $(defValuedProperty "CA" 'RootProperty False)
 $(defValuedProperty "FF" 'RootProperty False)
 $(defValuedProperty "GM" 'RootProperty False)
@@ -58,6 +59,7 @@ $(defValuedProperty "ST" 'RootProperty False)
 propertySZ = makeValuedPropertyInfo "SZ" RootProperty False
              (\x -> case x of { SZ {} -> True; _ -> False })
              (\(SZ x y) -> (x, y))
+             (uncurry SZ)
 
 -- Game info properties.
 $(defValuedProperty "AN" 'GameInfoProperty False)

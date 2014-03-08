@@ -26,7 +26,9 @@ module Khumba.Goatee.Sgf.Monad (
   , deleteProperties
     -- ** Property modification
   , modifyGameInfo
-  , modifyComment
+  , modifyProperty
+  , modifyPropertyValue
+  , modifyPropertyString
     -- * Children
   , addChild
     -- * Event handling
@@ -184,11 +186,35 @@ class Monad go => MonadGo go where
   -- node.
   modifyGameInfo :: (GameInfo -> GameInfo) -> go GameInfo
 
-  -- | Mutates the comment attached to the current node according to the given
-  -- function.  The input string will be empty if the current node either has a
-  -- property @C[]@ or doesn't have a comment property.  Returning an empty
-  -- string removes any existing comment node.
-  modifyComment :: (String -> String) -> go ()
+  -- | Calls the given function to modify the state of the given property
+  -- (descriptor) on the current node.  'Nothing' represents the property not
+  -- existing on the node, and a 'Just' marks the property's presence.  This
+  -- function does not do any validation to check that the resulting tree state
+  -- is valid.
+  modifyProperty :: Descriptor d => d -> (Maybe Property -> Maybe Property) -> go ()
+
+  -- | Calls the given function to modify the state of the given valued property
+  -- (descriptor) on the current node.  'Nothing' represents the property not
+  -- existing on the node, and a 'Just' with the property's value marks the
+  -- property's presence.  This function does not do any validation to check
+  -- that the resulting tree state is valid.
+  modifyPropertyValue :: ValuedDescriptor d v => d -> (Maybe v -> Maybe v) -> go ()
+  modifyPropertyValue descriptor fn = modifyProperty descriptor $ \old ->
+    propertyBuilder descriptor <$> fn (propertyValue descriptor <$> old)
+
+  -- | Mutates the string-valued property attached to the current node according
+  -- to the given function.  The input string will be empty if the current node
+  -- either has the property with an empty value, or doesn't have the property.
+  -- Returning an empty string removes the property from the node, if it was
+  -- set.
+  modifyPropertyString :: (Stringlike s, ValuedDescriptor d s) => d -> (String -> String) -> go ()
+  modifyPropertyString descriptor fn =
+    modifyPropertyValue descriptor $ \value -> case fn (maybe "" sgfToString value) of
+      "" -> Nothing
+      str -> let sgf = stringToSgf str
+                 -- Because stringToSgf might do processing, we have to check
+                 -- the conversion back to a string for emptiness.
+             in if not $ null $ sgfToString sgf then Just sgf else Nothing
 
   -- | Adds a child node to the current node at the given index, shifting all
   -- existing children at and after the index to the right.  The index must in
@@ -359,21 +385,22 @@ instance Monad m => MonadGo (GoT m) where
     popPosition
     return info'
 
-  modifyComment fn = do
-    node <- cursorNode <$> getCursor
-    let maybeOldComment = fromText <$> getProperty propertyC node
-        oldComment = fromMaybe "" maybeOldComment
-        newComment = fn oldComment
-        hasOld = isJust maybeOldComment
-        hasNew = not $ null newComment
-    case (hasOld, hasNew) of
-      (True, False) -> modifyProperties $ return . removeComment
-      (False, True) -> modifyProperties $ return . addComment newComment
-      (True, True) -> when (newComment /= oldComment) $
-                      modifyProperties $ return . addComment newComment . removeComment
+  modifyProperty descriptor fn = do
+    cursor <- getCursor
+    let node = cursorNode cursor
+        old = findProperty descriptor node
+        new = fn old
+    when (maybe False (not . propertyPredicate descriptor) new) $
+      fail $ "modifyProperty: May not change property type: " ++
+      show old ++ " -> " ++ show new ++ "."
+    case (old, new) of
+      (Just _, Nothing) -> modifyProperties $ return . remove descriptor
+      (Nothing, Just value') -> modifyProperties $ return . add value'
+      (Just value, Just value') -> when (value /= value') $ modifyProperties $
+                                   return . add value' . remove descriptor
       _ -> return ()
-    where removeComment = filter (not . propertyPredicate propertyC)
-          addComment comment = (C (toText comment):)
+    where remove descriptor = filter (not . propertyPredicate descriptor)
+          add value = (value:)
 
   addChild index node = do
     cursor <- getCursor

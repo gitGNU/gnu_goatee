@@ -124,10 +124,12 @@ class Descriptor a where
   propertyPredicate :: a -> Property -> Bool
 
 -- | A class for 'Descriptor's of 'Property's that also contain values.
-class Descriptor a => ValuedDescriptor a v | a -> v where
+class (Descriptor a, Eq v) => ValuedDescriptor a v | a -> v where
   -- | Extracts the value from a property of the given type.  Behaviour is
   -- undefined if the property is not of the given type.
   propertyValue :: a -> Property -> v
+  -- | Builds a property from a given value.
+  propertyBuilder :: a -> v -> Property
 
 -- | Metadata for a property that does not contain a value.
 data PropertyInfo = PropertyInfo {
@@ -159,6 +161,7 @@ makePropertyInfo = PropertyInfo
 data ValuedPropertyInfo v = ValuedPropertyInfo {
   valuedPropertyInfoBase :: PropertyInfo
   , valuedPropertyInfoValue :: Property -> v
+  , valuedPropertyInfoBuilder :: v -> Property
   }
 
 makeValuedPropertyInfo :: String
@@ -174,10 +177,14 @@ makeValuedPropertyInfo :: String
                           -- ^ A function that extracts values from properties
                           -- with the name given previously.  No need to handle
                           -- other types of properties.
+                       -> (v -> Property)
+                          -- ^ A function that builds a property containing a
+                          -- value.
                        -> ValuedPropertyInfo v
-makeValuedPropertyInfo name propType inherited predicate getter =
+makeValuedPropertyInfo name propType inherited predicate getter builder =
   ValuedPropertyInfo { valuedPropertyInfoBase = makePropertyInfo name propType inherited predicate
                      , valuedPropertyInfoValue = getter
+                     , valuedPropertyInfoBuilder = builder
                      }
 
 instance Descriptor (ValuedPropertyInfo v) where
@@ -186,8 +193,9 @@ instance Descriptor (ValuedPropertyInfo v) where
   propertyInherited = propertyInherited . valuedPropertyInfoBase
   propertyPredicate = propertyPredicate . valuedPropertyInfoBase
 
-instance ValuedDescriptor (ValuedPropertyInfo v) v where
+instance Eq v => ValuedDescriptor (ValuedPropertyInfo v) v where
   propertyValue = valuedPropertyInfoValue
+  propertyBuilder = valuedPropertyInfoBuilder
 
 -- | Template Haskell function to declare a property that does not contain a
 -- value.
@@ -244,5 +252,6 @@ defValuedProperty name propType inherited = do
                           [| error $ "Property value getter for " ++ $(stringE name) ++
                              " applied to " ++ show $(varE foo) ++ "." |])
                          []])
+                $(lam1E (varP foo) $ appE (conE propName) (varE foo))
               |])
     []

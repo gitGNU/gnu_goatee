@@ -5,8 +5,11 @@ module Khumba.Goatee.Sgf.TestUtils (
   , node'
   , rootNode
   , child
+  , sortProperties
   ) where
 
+import Data.Function (on)
+import Data.List (sortBy)
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Tree
@@ -30,3 +33,10 @@ rootNode width height props =
 
 child :: Int -> Cursor -> Cursor
 child = flip cursorChild
+
+-- | Sorts properties by their 'Show' strings, for use in tests that need to
+-- check an unordered list of properties.
+--
+-- TODO Probably better to have a compare-unordered operator.
+sortProperties :: [Property] -> [Property]
+sortProperties = sortBy (compare `on` show)

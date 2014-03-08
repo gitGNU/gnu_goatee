@@ -135,7 +135,7 @@ initialize me = do
   commentBuffer <- textViewGetBuffer $ myComment me
   on commentBuffer bufferChanged $ do
     newComment <- get commentBuffer textBufferText
-    runUiGo ui $ modifyComment $ const newComment
+    runUiGo ui $ modifyPropertyString propertyC $ const newComment
 
   connectEntryToGameInfo ui myBlackName $ \x info -> info { gameInfoBlackName = strToMaybe x }
   connectEntryToGameInfo ui myBlackRank $ \x info -> info { gameInfoBlackRank = strToMaybe x }

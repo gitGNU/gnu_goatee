@@ -2,8 +2,7 @@ module Khumba.Goatee.Sgf.MonadTest (tests) where
 
 import Control.Arrow ((&&&))
 import Control.Monad.Writer
-import qualified Data.Function
-import Data.List (sortBy, unfoldr)
+import Data.List (unfoldr)
 import Data.Maybe
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad
@@ -29,7 +28,9 @@ tests = testGroup "Khumba.Goatee.Sgf.Monad" [
   positionStackTests,
   propertiesTests,
   modifyGameInfoTests,
-  modifyCommentTests,
+  modifyPropertyTests,
+  modifyPropertyValueTests,
+  modifyPropertyStringTests,
   addChildTests,
   gameInfoChangedTests
   ]
@@ -302,40 +303,106 @@ modifyGameInfoTests = testGroup "modifyGameInfo" [
         --         -> [[Property]]
         properties = unfoldr (fmap $ cursorProperties &&& cursorParent)
                              (Just cursor'')
-    in map (sortBy $ Data.Function.on compare show) properties @?=
+    in map sortProperties properties @?=
        [[B $ Just (2,2)],
         [W $ Just (1,1)],
         [B $ Just (0,0)],
         [PB $ toSimpleText "Peanut butter", SZ 19 19]]
   ]
 
-modifyCommentTests = testGroup "modifyComment" [
-  testCase "adds a comment" $
+modifyPropertyTests = testGroup "modifyProperty" [
+  testCase "adds a property to an empty node" $
     let cursor = rootCursor $ node []
-        action = modifyComment (++ "Hello.")
-    in cursorProperties (execGo action cursor) @?= [C $ toText "Hello."],
+        action = modifyProperty propertyIT (\Nothing -> Just IT)
+    in cursorProperties (execGo action cursor) @?= [IT],
 
-  testCase "removes a comment" $
-    let cursor = rootCursor $ node [C $ toText "Hello."]
-        action = modifyComment (\comment -> case comment of
-                                   "Hello." -> ""
-                                   other -> error $ "Got: " ++ other)
-    in cursorProperties (execGo action cursor) @?= [],
+  testCase "adds a property to a non-empty node" $
+    let cursor = rootCursor $ node [KO]
+        action = modifyProperty propertyIT (\Nothing -> Just IT)
+    in sortProperties (cursorProperties $ execGo action cursor) @?= [IT, KO],
 
-  testCase "updates a comment" $
-    let cursor = child 0 $ rootCursor $
-                 node1 [C $ toText "one"] $
-                 node [C $ toText "two"]
-        action = modifyComment (\comment -> case comment of
-                                   "two" -> "three"
-                                   other -> error $ "Got: " ++ other)
+  testCase "removes a property" $ do
+    let cursor = rootCursor $ node [IT, KO]
+        cursor' = execGo (modifyProperty propertyKO $ \(Just KO) -> Nothing) cursor
+        cursor'' = execGo (modifyProperty propertyIT $ \(Just IT) -> Nothing) cursor'
+    cursorProperties cursor' @?= [IT]
+    cursorProperties cursor'' @?= [],
+
+  testCase "updates a property" $ do
+    let cursor = rootCursor $ node [B $ Just (0,0), BM Double2]
+        action = modifyProperty propertyB $ \(Just (B (Just (0,0)))) -> Just $ B $ Just (1,1)
         cursor' = execGo action cursor
-    in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
-       ([C $ toText "three"], [C $ toText "one"]),
-
-  testCase "leaves a non-existant comment" $
-    cursorProperties (execGo (modifyComment id) $ rootCursor $ node []) @?= []
+        action' = modifyProperty propertyBM $ \(Just (BM Double2)) -> Just $ BM Double1
+        cursor'' = execGo action' cursor'
+    sortProperties (cursorProperties cursor') @?= [B $ Just (1,1), BM Double2]
+    sortProperties (cursorProperties cursor'') @?= [B $ Just (1,1), BM Double1]
   ]
+
+modifyPropertyValueTests = testGroup "modifyPropertyValue" [
+  testCase "adds a property to an empty node" $
+    let cursor = rootCursor $ node []
+        action = modifyPropertyValue propertyPL (\Nothing -> Just Black)
+    in cursorProperties (execGo action cursor) @?= [PL Black],
+
+  testCase "adds a property to a non-empty node" $
+    let cursor = rootCursor $ node [KO]
+        action = modifyPropertyValue propertyPL (\Nothing -> Just White)
+    in sortProperties (cursorProperties $ execGo action cursor) @?= [KO, PL White],
+
+  testCase "removes a property" $ do
+    let cursor = rootCursor $ node [B Nothing, TE Double2]
+        cursor' = execGo (modifyPropertyValue propertyTE $ \(Just Double2) -> Nothing) cursor
+        cursor'' = execGo (modifyPropertyValue propertyB $ \(Just Nothing) -> Nothing) cursor'
+    cursorProperties cursor' @?= [B Nothing]
+    cursorProperties cursor'' @?= [],
+
+  testCase "updates a property" $ do
+    let cursor = rootCursor $ node [B $ Just (0,0), BM Double2]
+        action = modifyPropertyValue propertyB $ \(Just (Just (0,0))) -> Just $ Just (1,1)
+        cursor' = execGo action cursor
+        action' = modifyPropertyValue propertyBM $ \(Just Double2) -> Just Double1
+        cursor'' = execGo action' cursor'
+    sortProperties (cursorProperties cursor') @?= [B $ Just (1,1), BM Double2]
+    sortProperties (cursorProperties cursor'') @?= [B $ Just (1,1), BM Double1]
+  ]
+
+modifyPropertyStringTests =
+  testGroup "modifyPropertyString"
+  -- Test a Text property and a SimpleText property.
+  (assumptions ++ genTests "comment" propertyC ++ genTests "game name" propertyGN)
+  where assumptions = let _ = C $ toText ""
+                          _ = GN $ toSimpleText ""
+                      in []
+        genTests name property = [
+          testCase ("adds a " ++ name) $
+            let cursor = rootCursor $ node []
+                action = modifyPropertyString property (++ "Hello.")
+            in cursorProperties (execGo action cursor) @?=
+               [propertyBuilder property $ stringToSgf "Hello."],
+
+          testCase ("removes a " ++ name) $
+            let cursor = rootCursor $ node [propertyBuilder property $ stringToSgf "Hello."]
+                action = modifyPropertyString property $ \value -> case value of
+                  "Hello." -> ""
+                  other -> error $ "Got: " ++ other
+            in cursorProperties (execGo action cursor) @?= [],
+
+          testCase ("updates a " ++ name) $
+            let cursor = child 0 $ rootCursor $
+                         node1 [propertyBuilder property $ stringToSgf "one"] $
+                         node [propertyBuilder property $ stringToSgf "two"]
+                action = modifyPropertyString property $ \value -> case value of
+                  "two" -> "three"
+                  other -> error $ "Got: " ++ other
+                cursor' = execGo action cursor
+            in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
+               ([propertyBuilder property $ stringToSgf "three"],
+                [propertyBuilder property $ stringToSgf "one"]),
+
+          testCase "leaves a non-existant comment" $
+            let result = execGo (modifyPropertyString property id) $ rootCursor $ node []
+            in cursorProperties result @?= []
+          ]
 
 addChildTests = testGroup "addChild" [
   testCase "adds an only child" $

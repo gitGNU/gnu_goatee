@@ -2,6 +2,7 @@ module Khumba.Goatee.Sgf.Types (
   Coord, CoordList(..), coords, coords',
   emptyCoordList, expandCoordList,
   RealValue,
+  Stringlike(..),
   Text(fromText), toText,
   SimpleText(fromSimpleText), toSimpleText,
   DoubleValue(Double1, Double2),
@@ -69,9 +70,31 @@ expandCoordList cl = coordListSingles cl ++
 -- | An SGF real value.
 type RealValue = Rational
 
+-- | A class for SGF data types that are coercable to and from strings.
+--
+-- The construction of an SGF value with 'stringToSgf' may process the input,
+-- such that the resulting stringlike value does not represent the same string
+-- as the input.  In other words, the following does *not* necessarily hold:
+--
+-- > sgfToString . stringToSgf = id
+--
+-- The following does hold, however:
+--
+-- > stringToSgf . sgfToString = id
+class Stringlike a where
+  -- | Extracts the string value from an SGF value.
+  sgfToString :: a -> String
+
+  -- | Creates an SGF value from a string value.
+  stringToSgf :: String -> a
+
 -- | An SGF text value.
 newtype Text = Text { fromText :: String }
              deriving (Eq, Show)
+
+instance Stringlike Text where
+  sgfToString = fromText
+  stringToSgf = toText
 
 toText :: String -> Text
 toText = Text
@@ -79,6 +102,10 @@ toText = Text
 -- | An SGF SimpleText value.
 newtype SimpleText = SimpleText { fromSimpleText :: String }
                    deriving (Eq, Show)
+
+instance Stringlike SimpleText where
+  sgfToString = fromSimpleText
+  stringToSgf = toSimpleText
 
 sanitizeSimpleText :: String -> String
 sanitizeSimpleText = map (\c -> if isSpace c then ' ' else c)
