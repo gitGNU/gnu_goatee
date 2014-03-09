@@ -1,6 +1,7 @@
 #!/bin/sh
 
 set -e
+precommitBuildOpts="-Werror"
 unstagedDiff="$(mktemp)"
 
 die() {
@@ -51,7 +52,7 @@ fi
 echo "Precommit: Checking that the package builds."
 buildLog="$(mktemp)"
 "$CABAL" configure --enable-tests >>"$buildLog" 2>&1
-"$CABAL" build >>"$buildLog" 2>&1
+"$CABAL" build --ghc-options="$precommitBuildOpts" >>"$buildLog" 2>&1
 result="$?"
 if test "$result" -ne 0; then
     echo
