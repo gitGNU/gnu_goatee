@@ -1,4 +1,4 @@
--- | A monad for working with a game tree.
+-- | A monad for working with game trees.
 module Khumba.Goatee.Sgf.Monad (
   -- * The Go monad
   GoT
@@ -232,7 +232,7 @@ class Monad go => MonadGo go where
       str -> let sgf = stringToSgf str
                  -- Because stringToSgf might do processing, we have to check
                  -- the conversion back to a string for emptiness.
-             in if not $ null $ sgfToString sgf then Just sgf else Nothing
+             in if null $ sgfToString sgf then Nothing else Just sgf
 
   -- | Mutates the game info for the current path, returning the new info.  If
   -- the current node or one of its ancestors has game info properties, then
@@ -556,6 +556,9 @@ childAddedEvent = Event { eventName = "childAddedEvent"
 -- | A handler for a 'childAddedEvent'.
 type ChildAddedHandler go = Int -> Cursor -> go ()
 
+-- | An event that is fired when the current game info changes, either by
+-- navigating past a node with game info properties, or by modifying the current
+-- game info properties.
 gameInfoChangedEvent :: Event go (GameInfoChangedHandler go)
 gameInfoChangedEvent = Event { eventName = "gameInfoChangedEvent"
                              , eventStateGetter = stateGameInfoChangedHandlers

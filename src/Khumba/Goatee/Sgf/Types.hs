@@ -1,3 +1,4 @@
+-- | Data types for property values used in SGF game trees.
 module Khumba.Goatee.Sgf.Types (
   Coord, CoordList(..), coords, coords',
   emptyCoordList, expandCoordList,

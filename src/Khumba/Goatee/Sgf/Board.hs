@@ -1,5 +1,6 @@
--- | The core SGF data structures for game tree representation, navigation, and
--- manipulation.
+-- | Data structures that wrap and provide a higher-level interface to the SGF
+-- game tree, including a zipper that navigates the tree and provides the
+-- current board state.
 module Khumba.Goatee.Sgf.Board (
   defaultSize,
   RootInfo(..), GameInfo(..), emptyGameInfo, internalIsGameInfoNode,

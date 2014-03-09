@@ -1,3 +1,4 @@
+-- | SGF data structures modelling the hierarchical game tree.
 module Khumba.Goatee.Sgf.Tree (
   Collection(..),
   Node(..), emptyNode, rootNodeWithSize,
