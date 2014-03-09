@@ -1,0 +1,45 @@
+#!/bin/sh
+
+echo "Hlint:"
+echo
+hlint src
+hlintResult=$?
+
+if git --no-pager grep -q '\s\+$'; then
+    echo
+    echo "Trailing whitespace found:"
+    echo
+    git --no-pager grep -n --no-color '\s\+$'
+    whitespaceResult=1
+else
+    whitespaceResult=0
+fi
+
+if git --no-pager grep -q '	' src; then
+    echo
+    echo "Tabs found:"
+    echo
+    git --no-pager grep -n --no-color '	' src
+    tabsResult=1
+else
+    tabsResult=0
+fi
+
+if git --no-pager grep -q '.\{101\}'; then
+    echo
+    echo ">100-char lines found:"
+    echo
+    git --no-pager grep -n --no-color '.\{101\}'
+    longLinesResult=1
+else
+    longLinesResult=0
+fi
+
+if test $hlintResult -eq 0 \
+    -a $whitespaceResult -eq 0 \
+    -a $tabsResult -eq 0 \
+    -a $longLinesResult -eq 0; then
+    exit 0
+else
+    exit 1
+fi

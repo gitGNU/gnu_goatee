@@ -409,7 +409,8 @@ applyProperties node board = foldr applyProperty board (nodeProperties node)
 -- | Applies the transformation function to all of a board's coordinates
 -- referred to by the 'CoordList'.
 updateCoordStates :: (CoordState -> CoordState) -> [Coord] -> BoardState -> BoardState
-updateCoordStates fn coords board = board { boardCoordStates = foldr applyFn (boardCoordStates board) coords }
+updateCoordStates fn coords board =
+  board { boardCoordStates = foldr applyFn (boardCoordStates board) coords }
   where applyFn (x, y) = listUpdate (updateRow x) y
         updateRow = listUpdate fn
 
@@ -571,11 +572,12 @@ getLibertiesOfGroup board groupCoords =
 bucketFill :: BoardState -> Coord -> [Coord]
 bucketFill board xy0 = bucketFill' Set.empty [xy0]
   where bucketFill' known [] = Set.toList known
-        bucketFill' known (xy:xys) = if Set.member xy known
-                                     then bucketFill' known xys
-                                     else let new = filter ((stone0 ==) . coordStone . flip getCoordState board)
-                                                           (adjacentPoints board xy)
-                                          in bucketFill' (Set.insert xy known) (new ++ xys)
+        bucketFill' known (xy:xys) =
+          if Set.member xy known
+          then bucketFill' known xys
+          else let new = filter ((stone0 ==) . coordStone . flip getCoordState board)
+                                (adjacentPoints board xy)
+               in bucketFill' (Set.insert xy known) (new ++ xys)
         stone0 = coordStone $ getCoordState xy0 board
 
 -- | Returns whether it is legal to place a stone of the given color at a point
@@ -671,12 +673,13 @@ cursorModifyNode fn cursor =
     Nothing -> rootCursor node'
     Just parentCursor ->
       let index = cursorChildIndex cursor
-          parentCursor' = cursorModifyNode (\parentNode ->
-                                             parentNode { nodeChildren = listUpdate (const node')
-                                                                                    index
-                                                                                    (nodeChildren parentNode)
-                                                        })
-                                           parentCursor
+          parentCursor' = cursorModifyNode
+                          (\parentNode ->
+                            parentNode { nodeChildren = listUpdate (const node')
+                                                        index
+                                                        (nodeChildren parentNode)
+                                       })
+                          parentCursor
       in cursorChild parentCursor' index
 
 colorToMove :: Color -> Coord -> Property

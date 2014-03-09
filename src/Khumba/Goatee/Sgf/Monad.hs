@@ -432,17 +432,18 @@ instance Monad m => MonadGo (GoT m) where
     when (index < 0 || index > childCount) $ fail $
       "Monad.addChild: Index " ++ show index ++ " is not in [0, " ++ show childCount ++ "]."
     let cursor' = cursorModifyNode (addChildAt index node) cursor
-    modifyState $ \state -> state { stateCursor = cursor'
-                                  , statePathStack = updatePathStackCurrentNode
-                                                     (\step -> case step of
-                                                         GoUp n -> GoUp $ if n < index then n else n + 1
-                                                         down@(GoDown _) -> down)
-                                                     (\step -> case step of
-                                                         up@(GoUp _) -> up
-                                                         GoDown n -> GoDown $ if n < index then n else n + 1)
-                                                     cursor'
-                                                     (statePathStack state)
-                                  }
+    modifyState $ \state ->
+      state { stateCursor = cursor'
+            , statePathStack = updatePathStackCurrentNode
+                               (\step -> case step of
+                                   GoUp n -> GoUp $ if n < index then n else n + 1
+                                   down@(GoDown _) -> down)
+                               (\step -> case step of
+                                   up@(GoUp _) -> up
+                                   GoDown n -> GoDown $ if n < index then n else n + 1)
+                               cursor'
+                               (statePathStack state)
+            }
     fire childAddedEvent (\f -> f index (cursorChild cursor' index))
 
   on event handler = modifyState $ addHandler event handler
@@ -548,10 +549,11 @@ addHandler event handler state =
 
 -- | An event corresponding to a child node being added to the current node.
 childAddedEvent :: Event go (ChildAddedHandler go)
-childAddedEvent = Event { eventName = "childAddedEvent"
-                        , eventStateGetter = stateChildAddedHandlers
-                        , eventStateSetter = \handlers state -> state { stateChildAddedHandlers = handlers }
-                        }
+childAddedEvent = Event {
+  eventName = "childAddedEvent"
+  , eventStateGetter = stateChildAddedHandlers
+  , eventStateSetter = \handlers state -> state { stateChildAddedHandlers = handlers }
+  }
 
 -- | A handler for a 'childAddedEvent'.
 type ChildAddedHandler go = Int -> Cursor -> go ()
@@ -560,10 +562,11 @@ type ChildAddedHandler go = Int -> Cursor -> go ()
 -- navigating past a node with game info properties, or by modifying the current
 -- game info properties.
 gameInfoChangedEvent :: Event go (GameInfoChangedHandler go)
-gameInfoChangedEvent = Event { eventName = "gameInfoChangedEvent"
-                             , eventStateGetter = stateGameInfoChangedHandlers
-                             , eventStateSetter = \handlers state -> state { stateGameInfoChangedHandlers = handlers }
-                             }
+gameInfoChangedEvent = Event {
+  eventName = "gameInfoChangedEvent"
+  , eventStateGetter = stateGameInfoChangedHandlers
+  , eventStateSetter = \handlers state -> state { stateGameInfoChangedHandlers = handlers }
+  }
 
 -- | A handler for a 'gameInfoChangedEvent'.  It is called with the old game
 -- info then the new game info.
@@ -572,10 +575,11 @@ type GameInfoChangedHandler go = GameInfo -> GameInfo -> go ()
 -- | An event that is fired when a single step up or down in a game tree is
 -- made.
 navigationEvent :: Event go (NavigationHandler go)
-navigationEvent = Event { eventName = "navigationEvent"
-                        , eventStateGetter = stateNavigationHandlers
-                        , eventStateSetter = \handlers state -> state { stateNavigationHandlers = handlers }
-                        }
+navigationEvent = Event {
+  eventName = "navigationEvent"
+  , eventStateGetter = stateNavigationHandlers
+  , eventStateSetter = \handlers state -> state { stateNavigationHandlers = handlers }
+  }
 
 -- | A handler for a 'navigationEvent'.
 --
@@ -586,10 +590,11 @@ type NavigationHandler go = Step -> go ()
 -- | An event corresponding to a change to the properties list of the current
 -- node.
 propertiesChangedEvent :: Event go (PropertiesChangedHandler go)
-propertiesChangedEvent = Event { eventName = "propertiesChangedEvent"
-                               , eventStateGetter = statePropertiesChangedHandlers
-                               , eventStateSetter = \handlers state -> state { statePropertiesChangedHandlers = handlers }
-                               }
+propertiesChangedEvent = Event {
+  eventName = "propertiesChangedEvent"
+  , eventStateGetter = statePropertiesChangedHandlers
+  , eventStateSetter = \handlers state -> state { statePropertiesChangedHandlers = handlers }
+  }
 
 -- | A handler for a 'propertiesChangedEvent'.  It is called with the old
 -- property list then the new property list.

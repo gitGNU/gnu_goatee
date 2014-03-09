@@ -287,7 +287,9 @@ drawCoord board gridWidth gridBorderWidth tool hoverState x y coord = do
             Nothing -> fromMaybe (return ()) $
                        do if tool == ToolPlay then Just () else Nothing
                           (hx, hy) <- hoverCoord hoverState
-                          if x == hx && y == hy && hoverIsValidMove hoverState then Just () else Nothing
+                          if x == hx && y == hy && hoverIsValidMove hoverState
+                            then Just ()
+                            else Nothing
                           return $ drawStone (boardPlayerTurn board) True
         translate (-x') (-y')
 

@@ -546,7 +546,8 @@ moveAnnotationPropertyTests = testGroup "move annotation properties" [
 
 rootPropertyTests = testGroup "root properties" [
   testCase "AP parses" $
-    parseOrFail "(;AP[GoGoGo:1.2.3])" (@?= node [AP (toSimpleText "GoGoGo") (toSimpleText "1.2.3")]),
+    parseOrFail "(;AP[GoGoGo:1.2.3])"
+    (@?= node [AP (toSimpleText "GoGoGo") (toSimpleText "1.2.3")]),
   testCase "CA parses" $ do
     parseOrFail "(;CA[UTF-8])" (@?= node [CA $ toSimpleText "UTF-8"])
     parseOrFail "(;CA[ISO-8859-1])" (@?= node [CA $ toSimpleText "ISO-8859-1"]),

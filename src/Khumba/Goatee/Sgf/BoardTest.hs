@@ -53,9 +53,10 @@ expandCoordListTests = testGroup "expandCoordList" [
                                                                },
 
   testCase "works for an mxn rect" $
-    [(m,n) | m <- [2..5], n <- [3..7]] @=? expandCoordList CoordList { coordListSingles = []
-                                                                     , coordListRects = [((2,3), (5,7))]
-                                                                     },
+    [(m,n) | m <- [2..5], n <- [3..7]] @=?
+    expandCoordList CoordList { coordListSingles = []
+                              , coordListRects = [((2,3), (5,7))]
+                              },
 
   -- TODO Test that x0 > x1 || y0 > y1 is rejected.
 

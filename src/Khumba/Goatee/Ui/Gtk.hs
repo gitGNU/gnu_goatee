@@ -14,11 +14,11 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (isNothing)
 import Data.Unique (newUnique)
-import Graphics.UI.Gtk (ButtonsType(..), DialogFlags(..), MessageType(..), dialogRun, mainQuit, messageDialogNew, widgetDestroy)
+import Graphics.UI.Gtk hiding (Cursor, on)
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Tree
 import qualified Khumba.Goatee.Sgf.Monad as Monad
-import Khumba.Goatee.Sgf.Monad (on, Event)
+import Khumba.Goatee.Sgf.Monad (Event, on)
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Khumba.Goatee.Ui.Gtk.MainWindow as MainWindow
 

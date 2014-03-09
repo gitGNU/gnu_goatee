@@ -288,7 +288,8 @@ handleClick canvasInfoVar cursorVar mouseVar onChanged mousePoint = do
         (cursorChildPlayingAt xy cursor)
     updateMouse True
     onChanged
-  where updateMouse force = updateMouseLocation canvasInfoVar cursorVar mouseVar force (return ()) mousePoint
+  where updateMouse force = updateMouseLocation canvasInfoVar cursorVar mouseVar force (return ())
+                            mousePoint
 
 drawBoard :: MVar Cursor
           -> MVar CanvasInfo

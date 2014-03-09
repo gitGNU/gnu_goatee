@@ -2,6 +2,7 @@
 
 set -e
 precommitBuildOpts="-Werror"
+scriptsDir="$(realpath "$(dirname "$0")")"
 unstagedDiff="$(mktemp)"
 
 die() {
@@ -32,7 +33,7 @@ set +e
 
 echo "Precommit: Linting."
 lintLog="$(mktemp)"
-hlint src >>"$lintLog" 2>&1
+hooks/lint src >>"$lintLog" 2>&1
 result="$?"
 if test "$result" -ne 0; then
     echo
