@@ -4,7 +4,7 @@
 -- | Property metadata declarations.
 --
 -- Import "Khumba.Goatee.Sgf.Property" rather than importing this module.
-module Khumba.Goatee.Sgf.Property.Infos where
+module Khumba.Goatee.Sgf.Property.Info where
 
 import Khumba.Goatee.Sgf.Property.Base
 
