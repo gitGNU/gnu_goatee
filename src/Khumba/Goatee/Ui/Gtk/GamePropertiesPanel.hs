@@ -146,9 +146,6 @@ initialize me = do
 
   updateUi me =<< readCursor ui
 
-  -- TODO Connect black/white name/rank/team, but first generalize the structure
-  -- that binds the comment field to the model.
-
   commentBuffer <- textViewGetBuffer $ myComment me
   on commentBuffer bufferChanged $ do
     newComment <- get commentBuffer textBufferText
