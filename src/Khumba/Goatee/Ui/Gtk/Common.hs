@@ -10,6 +10,7 @@ module Khumba.Goatee.Ui.Gtk.Common (
   , UiCtrl(..)
   , Registration
   , ModesChangedHandler
+  , FilePathChangedHandler
   , modifyModesPure
   , setTool
   , UiRef(UiRef)
@@ -130,7 +131,9 @@ class UiCtrl a where
   -- | Returns the currently registered handlers, as (owner, event name) pairs.
   registeredHandlers :: a -> IO [(String, String)]
 
-  -- | Registers a handler that will execute when UI modes change.
+  -- | Registers a handler that will execute when UI modes change.  The string
+  -- is the name of the caller, used to keep track of what components registered
+  -- what handlers.
   registerModesChangedHandler :: a -> String -> ModesChangedHandler -> IO Registration
 
   -- | Unregisters the modes-changed handler for a 'Registration' that was
@@ -149,19 +152,46 @@ class UiCtrl a where
   -- zero, the UI will exit.
   windowCountDec :: a -> IO ()
 
-  openBoard :: Maybe a -> Node -> IO a
+  openBoard :: Maybe a -> Maybe FilePath -> Node -> IO a
 
   openNewBoard :: Maybe a -> Maybe (Int, Int) -> IO a
   openNewBoard ui maybeSize =
-    openBoard ui $ maybe emptyNode (uncurry rootNodeWithSize) maybeSize
+    openBoard ui Nothing $ maybe emptyNode (uncurry rootNodeWithSize) maybeSize
 
-  openFile :: Maybe a -> String -> IO (Either String a)
+  openFile :: Maybe a -> FilePath -> IO (Either String a)
   openFile ui file = do
     result <- parseFile file
     case result of
       -- TODO Don't only choose the first tree in the collection.
-      Right collection -> fmap Right $ openBoard ui $ head $ collectionTrees collection
+      Right collection ->
+        fmap Right $ openBoard ui (Just file) $ head $ collectionTrees collection
       Left err -> return $ Left err
+
+  -- | Returns the path to the file that the UI is currently displaying, or
+  -- nothing if the UI is displaying an unsaved game.
+  getFilePath :: a -> IO (Maybe FilePath)
+
+  -- | Sets the path to the file that the UI is currently displaying.  This
+  -- changes the value returned by 'getFilePath' but does not do any saving or
+  -- loading.
+  setFilePath :: a -> Maybe FilePath -> IO ()
+
+  -- | Registers a handler that will execute when the file path the UI is bound
+  -- to changes.
+  registerFilePathChangedHandler :: a
+                                 -> String
+                                    -- ^ The name of the caller, used to track
+                                    -- what components registered what handlers.
+                                 -> Bool
+                                    -- ^ If true, the handler will be called
+                                    -- immediately after registration.
+                                 -> FilePathChangedHandler
+                                 -> IO Registration
+
+  -- | Unregisters the handler for a 'Registration' that was returned from
+  -- 'registerFilePathChangedHandler'.  Returns true if such a handler was found
+  -- and removed.
+  unregisterFilePathChangedHandler :: a -> Registration -> IO Bool
 
 -- | A key that refers to registration of a handler with a UI controller.  Used
 -- to unregister handlers.
@@ -170,6 +200,8 @@ type Registration = Unique
 -- | A handler for taking action when UI modes change.  Passed the old modes and
 -- the new modes, in that order.
 type ModesChangedHandler = UiModes -> UiModes -> IO ()
+
+type FilePathChangedHandler = Maybe String -> Maybe FilePath -> IO ()
 
 modifyModesPure :: UiCtrl ui => ui -> (UiModes -> UiModes) -> IO ()
 modifyModesPure ui f = modifyModes ui (return . f)

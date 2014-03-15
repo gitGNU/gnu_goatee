@@ -11,8 +11,9 @@ module Khumba.Goatee.Sgf.Types (
   VariationMode(..), VariationModeSource(..), defaultVariationMode,
   toVariationMode, fromVariationMode,
   ArrowList, LineList, LabelList, Mark(..), CoordVisibility(..),
-  GameResult(..), WinReason(..), Ruleset(..), RulesetType(..),
-  fromRuleset, toRuleset
+  GameResult(..), fromGameResult,
+  WinReason(..),
+  Ruleset(..), RulesetType(..), fromRuleset, toRuleset
   ) where
 
 import Data.Char (isSpace)
@@ -180,6 +181,19 @@ data GameResult = GameResultWin Color WinReason
                 | GameResultUnknown
                 | GameResultOther String
                 deriving (Eq, Show)
+
+fromGameResult :: GameResult -> String
+fromGameResult (GameResultWin color reason) =
+  (case color of { Black -> 'B'; White -> 'W' }) : '+' :
+  (case reason of
+      WinByScore diff -> show diff
+      WinByResignation -> "R"
+      WinByTime -> "T"
+      WinByForfeit -> "F")
+fromGameResult GameResultDraw = "0"
+fromGameResult GameResultVoid = "Void"
+fromGameResult GameResultUnknown = "?"
+fromGameResult (GameResultOther string) = string
 
 data WinReason = WinByScore RealValue
                | WinByResignation

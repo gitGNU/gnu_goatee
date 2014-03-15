@@ -12,6 +12,7 @@ module Khumba.Goatee.Common (
   , cond
   , whileM
   , whileM'
+  , doWhileM
   , Seq(..)
   ) where
 
@@ -90,6 +91,16 @@ whileM' test body = do x <- test
                        case x of
                          Nothing -> return ()
                          Just y -> body y >> whileM' test body
+
+-- | @doWhileM init body@ repeatedly calls @body@ with @init@.  As long as
+-- @body@ returns a @Right@ value, it is re-executed with the returned value.
+-- When it returns a @Left@ value, the loop stops and the value is returned.
+doWhileM :: Monad m => a -> (a -> m (Either b a)) -> m b
+doWhileM init body = do
+  value <- body init
+  case value of
+    Right next -> doWhileM next body
+    Left end -> return end
 
 -- | This sequences @()@-valued monadic actions as a monoid.  If @m@ is some
 -- monad, then @Seq m@ is a monoid where 'mempty' does nothing and 'mappend'

@@ -3,6 +3,7 @@ module Khumba.Goatee.CommonTest (tests) where
 import qualified Control.Monad.State as State
 import Control.Monad.State (StateT, get, put, runStateT)
 import Control.Monad.Writer (execWriter, tell)
+import Data.IORef
 import Data.Monoid (mempty, mappend)
 import Khumba.Goatee.Common
 import Test.Framework (testGroup)
@@ -19,6 +20,7 @@ tests = testGroup "Khumba.Goatee.Common" [
   condTests,
   whileMTests,
   whileM'Tests,
+  doWhileMTests,
   seqTests
   ]
 
@@ -135,6 +137,21 @@ whileM'Tests = testGroup "whileM'" [
         body n = do tell $ show n
                     put (n - 1)
     in "321" @=? execWriter (runStateT (whileM' test body) 3)
+  ]
+
+doWhileMTests = testGroup "doWhileM" [
+  testCase "executes a constantly-Left body once" $ do
+    countVar <- newIORef 0
+    result <- doWhileM () (const $ do modifyIORef countVar (+ 1)
+                                      return $ Left "done")
+    count <- readIORef countVar
+    (1, "done") @=? (count, result),
+
+  testCase "executes until a Left is returned" $
+    execWriter (doWhileM 9 $ \n -> do
+                   tell $ show n
+                   return $ if n == 0 then Left () else Right $ n - 1)
+    @=? "9876543210"
   ]
 
 seqTests = testGroup "Seq" [

@@ -9,7 +9,8 @@ build-type: Simple
 executable goatee
     main-is: Main.hs
     hs-source-dirs: src
-    build-depends: base, cairo, containers, gtk, mtl, parsec, template-haskell
+    build-depends: base, cairo, containers, filepath, gtk, mtl, parsec,
+        template-haskell
     extensions: ExistentialQuantification, FlexibleInstances,
         FunctionalDependencies, MultiParamTypeClasses, UndecidableInstances
     ghc-options: -W -fwarn-incomplete-patterns

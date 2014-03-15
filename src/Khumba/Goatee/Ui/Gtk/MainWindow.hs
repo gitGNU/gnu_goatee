@@ -11,6 +11,7 @@ module Khumba.Goatee.Ui.Gtk.MainWindow (
 import Control.Applicative ((<$>))
 import Control.Monad
 import Control.Monad.Trans (liftIO)
+import Data.IORef
 import Data.List (intersperse)
 import qualified Data.Map as Map
 import Data.Map (Map)
@@ -29,6 +30,7 @@ import qualified Khumba.Goatee.Ui.Gtk.Goban as Goban
 import Khumba.Goatee.Ui.Gtk.Goban (Goban)
 import qualified Khumba.Goatee.Ui.Gtk.InfoLine as InfoLine
 import Khumba.Goatee.Ui.Gtk.InfoLine (InfoLine)
+import System.FilePath
 import System.IO (hPutStrLn, stderr)
 
 -- | If false, then the up and down keys will move toward and away
@@ -56,6 +58,7 @@ data MainWindow ui = MainWindow { myUi :: UiRef ui
                                 , myGamePropertiesPanel :: GamePropertiesPanel ui
                                 , myGoban :: Goban ui
                                 , myInfoLine :: InfoLine ui
+                                , myFileChangedHandler :: IORef (Maybe Registration)
                                 }
 
 create :: UiCtrl ui => UiRef ui -> IO (MainWindow ui)
@@ -98,7 +101,11 @@ create uiRef = do
   menuShellAppend menuBar menuFile
   menuItemSetSubmenu menuFile menuFileMenu
   addActionsToMenu menuFileMenu actions
-    [Actions.myFileNewAction, Actions.myFileOpenAction]
+    [ Actions.myFileNewAction
+    , Actions.myFileOpenAction
+    , Actions.myFileSaveAction
+    , Actions.myFileSaveAsAction
+    ]
 
   menuTool <- menuItemNewWithMnemonic "_Tool"
   menuToolMenu <- menuNew
@@ -143,12 +150,15 @@ create uiRef = do
   gamePropertiesPanel <- GamePropertiesPanel.create uiRef
   notebookAppendPage controlsBook (GamePropertiesPanel.myWidget gamePropertiesPanel) "Properties"
 
+  fileChangedHandler <- newIORef Nothing
+
   let mw = MainWindow { myUi = uiRef
                       , myWindow = window
                       , myActions = actions
                       , myGamePropertiesPanel = gamePropertiesPanel
                       , myGoban = goban
                       , myInfoLine = infoLine
+                      , myFileChangedHandler = fileChangedHandler
                       }
 
   on window deleteEvent $ liftIO $ destruct mw >> return False
@@ -157,25 +167,29 @@ create uiRef = do
 
 -- | Initialization that must be done after the 'UiCtrl' is available.
 initialize :: UiCtrl ui => MainWindow ui -> IO ()
-initialize window = do
-  Actions.initialize $ myActions window
-  GamePropertiesPanel.initialize $ myGamePropertiesPanel window
-  Goban.initialize $ myGoban window
-  InfoLine.initialize $ myInfoLine window
-  ui <- readUiRef (myUi window)
+initialize me = do
+  ui <- readUiRef (myUi me)
   windowCountInc ui
 
+  writeIORef (myFileChangedHandler me) =<<
+    liftM Just (registerFilePathChangedHandler ui "MainWindow" True $ const $ updateFilePath me)
+
+  Actions.initialize $ myActions me
+  GamePropertiesPanel.initialize $ myGamePropertiesPanel me
+  Goban.initialize $ myGoban me
+  InfoLine.initialize $ myInfoLine me
+
 destruct :: UiCtrl ui => MainWindow ui -> IO ()
-destruct window = do
-  Actions.destruct $ myActions window
-  GamePropertiesPanel.destruct $ myGamePropertiesPanel window
-  Goban.destruct $ myGoban window
-  InfoLine.destruct $ myInfoLine window
+destruct me = do
+  Actions.destruct $ myActions me
+  GamePropertiesPanel.destruct $ myGamePropertiesPanel me
+  Goban.destruct $ myGoban me
+  InfoLine.destruct $ myInfoLine me
 
   -- A main window owns a UI controller.  Once a main window is destructed,
   -- there should be no remaining handlers registered.
   -- TODO Revisit this if we have multiple windows under a controller.
-  ui <- readUiRef (myUi window)
+  ui <- readUiRef (myUi me)
   registeredHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
     "MainWindow.destruct: Warning, there are still handler(s) registered:" ++
     concatMap (\handler -> "\n- " ++ show handler) handlers
@@ -195,3 +209,7 @@ addActionsToMenu :: Menu -> a -> [a -> Action] -> IO ()
 addActionsToMenu menu actions accessors =
   forM_ accessors $ \accessor ->
   containerAdd menu =<< actionCreateMenuItem (accessor actions)
+
+updateFilePath :: UiCtrl ui => MainWindow ui -> Maybe String -> IO ()
+updateFilePath me newPath =
+  windowSetTitle (myWindow me) $ maybe "(Untitled)" takeFileName newPath ++ " - Goatee"

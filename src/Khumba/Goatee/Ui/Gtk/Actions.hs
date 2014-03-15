@@ -6,16 +6,24 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   , destruct
   , myFileNewAction
   , myFileOpenAction
+  , myFileSaveAction
+  , myFileSaveAsAction
   , myToolActions
   ) where
 
 import Control.Monad
 import Data.Maybe
 import Graphics.UI.Gtk
+import Khumba.Goatee.Common
+import Khumba.Goatee.Sgf.Board
+import Khumba.Goatee.Sgf.Printer
+import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Ui.Gtk.Common
 
 data Actions = Actions { myFileNewAction :: Action
                        , myFileOpenAction :: Action
+                       , myFileSaveAction :: Action
+                       , myFileSaveAsAction :: Action
                        , myToolActions :: ActionGroup
                        }
 
@@ -35,33 +43,15 @@ create uiRef = do
 
   fileOpenAction <- actionNew "FileOpen" "Open file..." Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileOpenAction $ Just "<Control>o"
-  on fileOpenAction actionActivated $ do
-    ui <- readUiRef uiRef
-    dialog <- fileChooserDialogNew (Just "Open a file")
-                                   Nothing
-                                   FileChooserActionOpen
-                                   [(stockOk, ResponseOk),
-                                    (stockCancel, ResponseCancel)]
-    mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
-    response <- dialogRun dialog
-    widgetHide dialog
-    when (response == ResponseOk) $ do
-      maybePath <- fileChooserGetFilename dialog
-      when (isJust maybePath) $ do
-        let path = fromJust maybePath
-        loadResult <- openFile (Just ui) path
-        case loadResult of
-          Left parseError -> do
-            errorDialog <- messageDialogNew
-                           Nothing
-                           []
-                           MessageError
-                           ButtonsOk
-                           ("Error loading " ++ path ++ ".\n\n" ++ show parseError)
-            dialogRun errorDialog
-            widgetDestroy errorDialog
-          Right _ -> return ()
-    widgetDestroy dialog
+  on fileOpenAction actionActivated $ fileOpen uiRef
+
+  fileSaveAsAction <- actionNew "FileSaveAs" "Save file as..." Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileSaveAsAction $ Just "<Control><Shift>s"
+  on fileSaveAsAction actionActivated $ fileSaveAs uiRef
+
+  fileSaveAction <- actionNew "FileSave" "Save file" Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileSaveAction $ Just "<Control>s"
+  on fileSaveAction actionActivated $ fileSave uiRef
 
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
@@ -80,6 +70,8 @@ create uiRef = do
 
   return Actions { myFileNewAction = fileNewAction
                  , myFileOpenAction = fileOpenAction
+                 , myFileSaveAction = fileSaveAction
+                 , myFileSaveAsAction = fileSaveAsAction
                  , myToolActions = toolActions
                  }
 
@@ -93,3 +85,61 @@ initialize actions =
 
 destruct :: Actions -> IO ()
 destruct _ = return ()
+
+fileOpen :: UiCtrl ui => UiRef ui -> IO ()
+fileOpen uiRef = do
+  ui <- readUiRef uiRef
+  dialog <- fileChooserDialogNew (Just "Open a file")
+                                 Nothing
+                                 FileChooserActionOpen
+                                 [(stockOpen, ResponseOk),
+                                  (stockCancel, ResponseCancel)]
+  mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
+  response <- dialogRun dialog
+  widgetHide dialog
+  when (response == ResponseOk) $ do
+    maybePath <- fileChooserGetFilename dialog
+    when (isJust maybePath) $ do
+      let path = fromJust maybePath
+      loadResult <- openFile (Just ui) path
+      case loadResult of
+        Left parseError -> do
+          errorDialog <- messageDialogNew
+                         Nothing
+                         []
+                         MessageError
+                         ButtonsOk
+                         ("Error loading " ++ path ++ ".\n\n" ++ show parseError)
+          dialogRun errorDialog
+          widgetDestroy errorDialog
+        Right _ -> return ()
+  widgetDestroy dialog
+
+fileSaveAs :: UiCtrl ui => UiRef ui -> IO ()
+fileSaveAs uiRef = do
+  ui <- readUiRef uiRef
+  dialog <- fileChooserDialogNew (Just "Save file")
+                                 Nothing
+                                 FileChooserActionSave
+                                 [(stockSave, ResponseOk),
+                                  (stockCancel, ResponseCancel)]
+  mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
+  response <- dialogRun dialog
+  when (response == ResponseOk) $ do
+    maybePath <- fileChooserGetFilename dialog
+    whenMaybe maybePath $ \path -> do
+      setFilePath ui $ Just path
+      fileSave uiRef
+
+fileSave :: UiCtrl ui => UiRef ui -> IO ()
+fileSave uiRef = do
+  ui <- readUiRef uiRef
+  cursor <- readCursor ui
+  maybePath <- getFilePath ui
+  case maybePath of
+    Nothing -> fileSaveAs uiRef
+    Just path ->
+      -- TODO Exception handling when the write fails.
+      -- TODO Don't just write a single tree.
+      writeFile path $
+        printCollection Collection { collectionTrees = [cursorNode $ cursorRoot cursor] }

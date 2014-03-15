@@ -9,83 +9,88 @@ module Khumba.Goatee.Sgf.Property.Info where
 import Khumba.Goatee.Sgf.Property.Base
 
 -- Move properties.
-$(defValuedProperty "B" 'MoveProperty False)
+$(defValuedProperty "B" 'MoveProperty False 'maybeCoordPrinter)
 $(defProperty "KO" 'MoveProperty False)
-$(defValuedProperty "MN" 'MoveProperty False)
-$(defValuedProperty "W" 'MoveProperty False)
+$(defValuedProperty "MN" 'MoveProperty False 'numberPrinter)
+$(defValuedProperty "W" 'MoveProperty False 'maybeCoordPrinter)
 
 -- Setup properties.
-$(defValuedProperty "AB" 'SetupProperty False)
-$(defValuedProperty "AE" 'SetupProperty False)
-$(defValuedProperty "AW" 'SetupProperty False)
-$(defValuedProperty "PL" 'SetupProperty False)
+$(defValuedProperty "AB" 'SetupProperty False 'coordListPrinter)
+$(defValuedProperty "AE" 'SetupProperty False 'coordListPrinter)
+$(defValuedProperty "AW" 'SetupProperty False 'coordListPrinter)
+$(defValuedProperty "PL" 'SetupProperty False 'colorPrinter)
 
 -- Node annotation properties.
-$(defValuedProperty "C" 'GeneralProperty False)
-$(defValuedProperty "DM" 'GeneralProperty False)
-$(defValuedProperty "GB" 'GeneralProperty False)
-$(defValuedProperty "GW" 'GeneralProperty False)
-$(defValuedProperty "HO" 'GeneralProperty False)
-$(defValuedProperty "N" 'GeneralProperty False)
-$(defValuedProperty "UC" 'GeneralProperty False)
-$(defValuedProperty "V" 'GeneralProperty False)
+$(defValuedProperty "C" 'GeneralProperty False 'stringlikePrinter)
+$(defValuedProperty "DM" 'GeneralProperty False 'doublePrinter)
+$(defValuedProperty "GB" 'GeneralProperty False 'doublePrinter)
+$(defValuedProperty "GW" 'GeneralProperty False 'doublePrinter)
+$(defValuedProperty "HO" 'GeneralProperty False 'doublePrinter)
+$(defValuedProperty "N" 'GeneralProperty False 'stringlikePrinter)
+$(defValuedProperty "UC" 'GeneralProperty False 'doublePrinter)
+$(defValuedProperty "V" 'GeneralProperty False 'realPrinter)
 
 -- Move annotation properties.
-$(defValuedProperty "BM" 'MoveProperty False)
+$(defValuedProperty "BM" 'MoveProperty False 'doublePrinter)
 $(defProperty "DO" 'MoveProperty False)
 $(defProperty "IT" 'MoveProperty False)
-$(defValuedProperty "TE" 'MoveProperty False)
+$(defValuedProperty "TE" 'MoveProperty False 'doublePrinter)
 
 -- Markup properties.
-$(defValuedProperty "AR" 'GeneralProperty False)
-$(defValuedProperty "CR" 'GeneralProperty False)
-$(defValuedProperty "DD" 'GeneralProperty True)
-$(defValuedProperty "LB" 'GeneralProperty False)
-$(defValuedProperty "LN" 'GeneralProperty False)
-$(defValuedProperty "MA" 'GeneralProperty False)
-$(defValuedProperty "SL" 'GeneralProperty False)
-$(defValuedProperty "SQ" 'GeneralProperty False)
-$(defValuedProperty "TR" 'GeneralProperty False)
+$(defValuedProperty "AR" 'GeneralProperty False 'coordPairListPrinter)
+$(defValuedProperty "CR" 'GeneralProperty False 'coordListPrinter)
+$(defValuedProperty "DD" 'GeneralProperty True 'coordListPrinter)
+$(defValuedProperty "LB" 'GeneralProperty False 'labelListPrinter)
+$(defValuedProperty "LN" 'GeneralProperty False 'coordPairListPrinter)
+$(defValuedProperty "MA" 'GeneralProperty False 'coordListPrinter)
+$(defValuedProperty "SL" 'GeneralProperty False 'coordListPrinter)
+$(defValuedProperty "SQ" 'GeneralProperty False 'coordListPrinter)
+$(defValuedProperty "TR" 'GeneralProperty False 'coordListPrinter)
 
 -- Root properties.
 propertyAP = makeValuedPropertyInfo "AP" RootProperty False
              (\x -> case x of { AP {} -> True; _ -> False })
+             (\(x, y) -> '[' : printStringlike True x ++
+                         ":" ++ printStringlike True y ++ "]")
              (\(AP x y) -> (x, y))
              (uncurry AP)
-$(defValuedProperty "CA" 'RootProperty False)
-$(defValuedProperty "FF" 'RootProperty False)
-$(defValuedProperty "GM" 'RootProperty False)
-$(defValuedProperty "ST" 'RootProperty False)
+$(defValuedProperty "CA" 'RootProperty False 'stringlikePrinter)
+$(defValuedProperty "FF" 'RootProperty False 'numberPrinter)
+$(defValuedProperty "GM" 'RootProperty False 'numberPrinter)
+$(defValuedProperty "ST" 'RootProperty False 'variationModePrinter)
 propertySZ = makeValuedPropertyInfo "SZ" RootProperty False
              (\x -> case x of { SZ {} -> True; _ -> False })
+             (\(x, y) -> '[' : show x ++ if x == y
+                                         then "]"
+                                         else ":" ++ show y ++ "]")
              (\(SZ x y) -> (x, y))
              (uncurry SZ)
 
 -- Game info properties.
-$(defValuedProperty "AN" 'GameInfoProperty False)
-$(defValuedProperty "BR" 'GameInfoProperty False)
-$(defValuedProperty "BT" 'GameInfoProperty False)
-$(defValuedProperty "CP" 'GameInfoProperty False)
-$(defValuedProperty "DT" 'GameInfoProperty False)
-$(defValuedProperty "EV" 'GameInfoProperty False)
-$(defValuedProperty "GC" 'GameInfoProperty False)
-$(defValuedProperty "GN" 'GameInfoProperty False)
-$(defValuedProperty "ON" 'GameInfoProperty False)
-$(defValuedProperty "OT" 'GameInfoProperty False)
-$(defValuedProperty "PB" 'GameInfoProperty False)
-$(defValuedProperty "PC" 'GameInfoProperty False)
-$(defValuedProperty "PW" 'GameInfoProperty False)
-$(defValuedProperty "RE" 'GameInfoProperty False)
-$(defValuedProperty "RO" 'GameInfoProperty False)
-$(defValuedProperty "RU" 'GameInfoProperty False)
-$(defValuedProperty "SO" 'GameInfoProperty False)
-$(defValuedProperty "TM" 'GameInfoProperty False)
-$(defValuedProperty "US" 'GameInfoProperty False)
-$(defValuedProperty "WR" 'GameInfoProperty False)
-$(defValuedProperty "WT" 'GameInfoProperty False)
+$(defValuedProperty "AN" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "BR" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "BT" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "CP" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "DT" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "EV" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "GC" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "GN" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "ON" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "OT" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "PB" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "PC" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "PW" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "RE" 'GameInfoProperty False 'gameResultPrinter)
+$(defValuedProperty "RO" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "RU" 'GameInfoProperty False 'rulesetPrinter)
+$(defValuedProperty "SO" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "TM" 'GameInfoProperty False 'realPrinter)
+$(defValuedProperty "US" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "WR" 'GameInfoProperty False 'stringlikePrinter)
+$(defValuedProperty "WT" 'GameInfoProperty False 'stringlikePrinter)
 
 -- Miscellaneous properties.
-$(defValuedProperty "VW" 'GeneralProperty True)
+$(defValuedProperty "VW" 'GeneralProperty True 'coordElistPrinter)
 
 -- | Returns metadata about a property.
 propertyInfo :: Property -> PropertyInfo
@@ -160,9 +165,11 @@ propertyInfo property = case property of
     (\x -> case x of
         UnknownProperty name' _ | name' == name -> True
         _ -> False)
+    unknownPropertyPrinter
 
 instance Descriptor Property where
   propertyName = propertyName . propertyInfo
   propertyType = propertyType . propertyInfo
   propertyInherited = propertyInherited . propertyInfo
   propertyPredicate = propertyPredicate . propertyInfo
+  propertyValuePrinter = propertyValuePrinter . propertyInfo

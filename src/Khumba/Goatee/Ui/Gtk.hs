@@ -26,10 +26,16 @@ data UiHandler = forall handler. UiHandler String (Event UiGoM handler) handler
 
 data ModesChangedHandlerRecord =
   ModesChangedHandlerRecord { modesChangedHandlerOwner :: String
-                            , modesChangedHandlerFn :: UiModes -> UiModes -> IO ()
+                            , modesChangedHandlerFn :: ModesChangedHandler
                             }
 
+data FilePathChangedHandlerRecord =
+  FilePathChangedHandlerRecord { filePathChangedHandlerOwner :: String
+                               , filePathChangedHandlerFn :: FilePathChangedHandler
+                               }
+
 data UiCtrlImpl = UiCtrlImpl { uiAppState :: AppState
+                             , uiFilePath :: IORef (Maybe FilePath)
                              , uiModes :: IORef UiModes
                              , uiCursor :: MVar Cursor
 
@@ -40,6 +46,8 @@ data UiCtrlImpl = UiCtrlImpl { uiAppState :: AppState
                                -- Ui action-related properties:
                              , uiModesChangedHandlers ::
                                IORef (Map Registration ModesChangedHandlerRecord)
+                             , uiFilePathChangedHandlers ::
+                               IORef (Map Registration FilePathChangedHandlerRecord)
                              }
 
 instance UiCtrl UiCtrlImpl where
@@ -145,8 +153,8 @@ instance UiCtrl UiCtrlImpl where
   unregisterModesChangedHandler ui unique = do
     handlers <- readIORef $ uiModesChangedHandlers ui
     let (handlers', found) = if Map.member unique handlers
-                               then (Map.delete unique handlers, True)
-                               else (handlers, False)
+                             then (Map.delete unique handlers, True)
+                             else (handlers, False)
     when found $ writeIORef (uiModesChangedHandlers ui) handlers'
     return found
 
@@ -161,7 +169,7 @@ instance UiCtrl UiCtrlImpl where
              \n -> let m = n - 1 in return (m, m)
     when (count == 0) mainQuit
 
-  openBoard maybeUi rootNode = do
+  openBoard maybeUi maybePath rootNode = do
     uiRef' <- newIORef Nothing
     let uiRef = UiRef uiRef'
         cursor = rootCursor rootNode
@@ -173,15 +181,19 @@ instance UiCtrl UiCtrlImpl where
     cursorVar <- newMVar cursor
     mainWindow <- MainWindow.create uiRef
 
+    filePath <- newIORef maybePath
     uiHandlers <- newIORef Map.empty
     baseAction <- newIORef $ return ()
     modesChangedHandlers <- newIORef Map.empty
+    filePathChangedHandlers <- newIORef Map.empty
     let ui = UiCtrlImpl { uiAppState = appState
+                        , uiFilePath = filePath
                         , uiModes = modesVar
                         , uiCursor = cursorVar
                         , uiHandlers = uiHandlers
                         , uiBaseAction = baseAction
                         , uiModesChangedHandlers = modesChangedHandlers
+                        , uiFilePathChangedHandlers = filePathChangedHandlers
                         }
     writeIORef uiRef' $ Just ui
 
@@ -192,6 +204,29 @@ instance UiCtrl UiCtrlImpl where
 
     MainWindow.display mainWindow
     return ui
+
+  getFilePath = readIORef . uiFilePath
+
+  setFilePath = writeIORef . uiFilePath
+
+  registerFilePathChangedHandler ui owner fireImmediately handler = do
+    unique <- newUnique
+    modifyIORef (uiFilePathChangedHandlers ui) $ Map.insert unique
+      FilePathChangedHandlerRecord { filePathChangedHandlerOwner = owner
+                                   , filePathChangedHandlerFn = handler
+                                   }
+    when fireImmediately $ do
+      path <- getFilePath ui
+      handler path path
+    return unique
+
+  unregisterFilePathChangedHandler ui unique = do
+    handlers <- readIORef $ uiFilePathChangedHandlers ui
+    let (handlers', found) = if Map.member unique handlers
+                             then (Map.delete unique handlers, True)
+                             else (handlers, False)
+    when found $ writeIORef (uiFilePathChangedHandlers ui) handlers'
+    return found
 
 -- | 'runUiGo' for 'UiCtrlImpl' is implemented by taking the cursor MVar,
 -- running a Go action, putting the MVar, then running handlers.  Many types of
@@ -207,12 +242,12 @@ runUiGo' ui go cursor = do
   return value
 
 startBoard :: Node -> IO UiCtrlImpl
-startBoard = openBoard Nothing
+startBoard = openBoard Nothing Nothing
 
 startNewBoard :: Maybe (Int, Int) -> IO UiCtrlImpl
 startNewBoard = openNewBoard Nothing
 
-startFile :: String -> IO (Either String UiCtrlImpl)
+startFile :: FilePath -> IO (Either String UiCtrlImpl)
 startFile = openFile Nothing
 
 rebuildBaseAction :: UiCtrlImpl -> IO ()
