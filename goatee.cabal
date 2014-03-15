@@ -1,8 +1,13 @@
 name: goatee
 version: 0.0.1
 synopsis: A Go client and SGF library with a focus on flexibility.
-license: AllRightsReserved
-license-file: ""
+category: Games
+license: AGPL-3
+license-file: LICENSE
+copyright: Copyright 2014 Bryan Gardiner
+author: Bryan Gardiner <bog@khumba.net>
+maintainer: Bryan Gardiner <bog@khumba.net>
+tested-with: GHC
 cabal-version: >=1.2
 build-type: Simple
 

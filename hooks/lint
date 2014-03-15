@@ -1,4 +1,21 @@
-#!/bin/sh
+#!/bin/bash
+
+# This file is part of Goatee.
+#
+# Copyright 2014 Bryan Gardiner
+#
+# Goatee is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Goatee is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 echo "Hlint:"
 echo
@@ -35,10 +52,30 @@ else
     longLinesResult=0
 fi
 
+# Check that all files contain copyright notices.
+copyrightResult=0
+while read file; do
+    # Only check tracked files.
+    if git ls-files --error-unmatch "$file" >/dev/null 2>&1; then
+        if ! head -5 "$file" | grep -q Copyright \
+            || ! head -20 "$file" | grep -q 'Affero General Public License'; then
+            if test $copyrightResult -eq 0; then
+                echo
+                echo "Missing copyright notices for files:"
+                echo
+                copyrightResult=1
+            fi
+            echo "$file"
+        fi
+    fi
+done < <(find hooks src -type f)
+# TODO ^ Rewrite this process substitution in a POSIX-friendly manner.
+
 if test $hlintResult -eq 0 \
     -a $whitespaceResult -eq 0 \
     -a $tabsResult -eq 0 \
-    -a $longLinesResult -eq 0; then
+    -a $longLinesResult -eq 0 \
+    -a $copyrightResult -eq 0; then
     exit 0
 else
     exit 1
