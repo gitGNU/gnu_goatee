@@ -1,0 +1,10 @@
+Goatee - a monadic take on a 2,500-year-old board game
+
+Website: http://khumba.net/projects/goatee
+
+Goatee is a game editor for Go, written in Haskell.  It is developed in two
+parts: a library for working with SGF files, and a GUI for filling your Go
+fancy.  It aims to be full-featured, supporting all of the SGF spec and allowing
+for full customization of the game records you create.
+
+Copyright 2014 Bryan Gardiner
