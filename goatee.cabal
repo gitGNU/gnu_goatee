@@ -1,6 +1,6 @@
 name: goatee
 version: 0.0.1
-synopsis: A Go client and SGF library with a focus on flexibility.
+synopsis: A monadic take on a 2,500-year-old board game.
 category: Games
 license: AGPL-3
 license-file: LICENSE
