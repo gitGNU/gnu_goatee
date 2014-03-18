@@ -70,6 +70,11 @@ stoneBorderThickness = 0.03
 transparentStoneOpacity :: Double
 transparentStoneOpacity = 0.7
 
+-- | Returns the color that should be used to draw a 'Mark' on either an empty
+-- point, or one with a stone of the given color.
+coordAnnotationStrokeColor :: Maybe Color -> Rgb
+coordAnnotationStrokeColor = maybe blackStoneColor stoneBorderColor
+
 -- | A GTK widget that renders a Go board.
 --
 -- @ui@ should be an instance of 'UiCtrl'.
@@ -291,8 +296,10 @@ drawCoord board gridWidth gridBorderWidth tool hoverState x y coord = do
         stroke
         setAntialias AntialiasDefault
 
-        -- Draw a stone if present.
+        -- Translate the grid so that we can draw the stone from (0,0) to (1,1).
         translate x' y'
+
+        -- Draw a stone if present.
         if (tool == ToolBlack || tool == ToolWhite) &&
            isJust (hoverCoord hoverState) &&
            fst (fromJust $ hoverCoord hoverState) == x &&
@@ -308,6 +315,10 @@ drawCoord board gridWidth gridBorderWidth tool hoverState x y coord = do
                             then Just ()
                             else Nothing
                           return $ drawStone (boardPlayerTurn board) True
+
+        -- Draw a mark if there is one.
+        maybe (return ()) (drawMark $ coordStone coord) $ coordMark coord
+
         translate (-x') (-y')
 
   case coordVisibility coord of
@@ -327,6 +338,44 @@ drawStone color transparent = do
   setLineWidth stoneBorderThickness
   setRgbA (stoneBorderColor color) opacity
   stroke
+
+-- | Draws the given mark on the current point.  The color should be that of the
+-- stone on the point, if there is one; it determines the color of the mark.
+drawMark :: Maybe Color -> Mark -> Render ()
+drawMark stone mark = do
+  case mark of
+    MarkCircle -> arc 0.5 0.5 0.25 0 (2 * pi)
+    MarkTriangle -> do moveTo trianglePoint1X trianglePoint1Y
+                       lineTo trianglePoint2X trianglePoint2Y
+                       lineTo trianglePoint3X trianglePoint3Y
+                       closePath
+    MarkSquare -> do moveTo 0.25 0.25
+                     lineTo 0.25 0.75
+                     lineTo 0.75 0.75
+                     lineTo 0.75 0.25
+                     closePath
+    MarkX -> do moveTo 0.25 0.25
+                lineTo 0.75 0.75
+                moveTo 0.25 0.75
+                lineTo 0.75 0.25
+    MarkSelected -> do moveTo 0.2 0.5
+                       lineTo 0.5 0.8
+                       lineTo 0.8 0.5
+                       lineTo 0.5 0.2
+                       closePath
+  setRgb $ coordAnnotationStrokeColor stone
+  setLineWidth 0.1
+  stroke
+
+-- The coordinates for inscribing a triangle within a unit circle centered about
+-- @(0.5, 0.5)@, with radius @triangleRadius@.
+triangleRadius = 0.3
+trianglePoint1X = 0.5
+trianglePoint1Y = 0.5 - triangleRadius
+trianglePoint2X = 0.5 - triangleRadius * cos (pi / 6)
+trianglePoint2Y = 0.5 + triangleRadius * 0.5 {-sin (pi / 6)-}
+trianglePoint3X = 0.5 + triangleRadius * cos (pi / 6)
+trianglePoint3Y = 0.5 + triangleRadius * 0.5 {-sin (pi / 6)-}
 
 type Rgb = (Double, Double, Double)
 
