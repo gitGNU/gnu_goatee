@@ -228,7 +228,7 @@ emptyBoardState width height =
              , boardArrows = []
              , boardLines = []
              , boardLabels = []
-             , boardMoveNumber = 1
+             , boardMoveNumber = 0
              , boardPlayerTurn = Black
              , boardBlackCaptures = 0
              , boardWhiteCaptures = 0
@@ -267,10 +267,18 @@ mapBoardCoords fn board =
 updateBoardInfo :: (GameInfo -> GameInfo) -> BoardState -> BoardState
 updateBoardInfo fn board = board { boardGameInfo = fn $ boardGameInfo board }
 
-advanceMove :: BoardState -> BoardState
-advanceMove board = board { boardMoveNumber = boardMoveNumber board + 1
-                          , boardPlayerTurn = cnot $ boardPlayerTurn board
-                          }
+-- | Performs necessary updates to a 'BoardState' between nodes in the tree.
+-- Clears marks.
+boardChild :: BoardState -> BoardState
+boardChild board =
+  board { boardCoordStates = map (map clearMark) $ boardCoordStates board
+        , boardArrows = []
+        , boardLines = []
+        , boardLabels = []
+        }
+  where clearMark coord = case coordMark coord of
+          Nothing -> coord
+          Just _ -> coord { coordMark = Nothing }
 
 -- |> isStarPoint width height x y
 --
@@ -294,17 +302,15 @@ isStarPoint19 = isStarPoint' [3, 9, 15]
 -- that modify 'BoardState's, including making moves, adding markup, and so on.
 applyProperty :: Property -> BoardState -> BoardState
 
-applyProperty (B maybeXy) board = case maybeXy of
+applyProperty (B maybeXy) board = updateBoardForMove Black $ case maybeXy of
   Nothing -> board  -- Pass.
-  Just xy -> applyProperty (PL White) $
-             getApplyMoveResult board $
+  Just xy -> getApplyMoveResult board $
              applyMove playTheDarnMoveGoParams Black xy board
 applyProperty KO board = board
 applyProperty (MN moveNum) board = board { boardMoveNumber = moveNum }
-applyProperty (W maybeXy) board = case maybeXy of
+applyProperty (W maybeXy) board = updateBoardForMove White $ case maybeXy of
   Nothing -> board  -- Pass.
-  Just xy -> applyProperty (PL Black) $
-             getApplyMoveResult board $
+  Just xy -> getApplyMoveResult board $
              applyMove playTheDarnMoveGoParams White xy board
 
 applyProperty (AB coords) board =
@@ -437,6 +443,15 @@ updateCoordStates' fn coords = updateCoordStates fn (expandCoordList coords)
 -- | Extracts the 'CoordState' for a coordinate on a board.
 getCoordState :: Coord -> BoardState -> CoordState
 getCoordState (x, y) board = boardCoordStates board !! y !! x
+
+-- | Updates properties of a 'BoardState' given that the player of the given
+-- color has just made a move.  Increments the move number and updates the
+-- player turn.
+updateBoardForMove :: Color -> BoardState -> BoardState
+updateBoardForMove movedPlayer board =
+  board { boardMoveNumber = boardMoveNumber board + 1
+        , boardPlayerTurn = cnot movedPlayer
+        }
 
 -- | A structure that configures how 'applyMove' should handle moves that are
 -- normally illegal in Go.
@@ -650,16 +665,14 @@ cursorChild cursor index =
   Cursor { cursorParent = Just cursor
          , cursorChildIndex = index
          , cursorNode = child
-         , cursorBoard = applyProperties child $
-                         advanceMove $
-                         cursorBoard cursor
+         , cursorBoard = applyProperties child $ boardChild $ cursorBoard cursor
          }
   -- TODO Better handling or messaging for out-of-bounds:
   where child = (!! index) $ nodeChildren $ cursorNode cursor
 
 cursorChildren :: Cursor -> [Cursor]
 cursorChildren cursor =
-  let board = advanceMove $ cursorBoard cursor
+  let board = boardChild $ cursorBoard cursor
   in map (\(index, child) -> Cursor { cursorParent = Just cursor
                                     , cursorChildIndex = index
                                     , cursorNode = child

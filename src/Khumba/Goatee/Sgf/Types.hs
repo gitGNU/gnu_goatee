@@ -188,6 +188,7 @@ type LabelList = [(Coord, SimpleText)]
 
 -- | The markings that SGF supports annotating coordinates with.
 data Mark = MarkCircle | MarkSquare | MarkTriangle | MarkX | MarkSelected
+          deriving (Eq, Show)
 
 -- | The visibility states that SGF allows a coordinate to be in.
 data CoordVisibility = CoordVisible | CoordDimmed | CoordInvisible
