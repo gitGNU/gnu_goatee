@@ -29,7 +29,7 @@ import Control.Monad
 import Data.IORef
 import Data.Maybe
 import Graphics.Rendering.Cairo
-import Graphics.UI.Gtk hiding (Color, Cursor)
+import Graphics.UI.Gtk hiding (Color, Cursor, drawLine)
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board hiding (isValidMove)
 import Khumba.Goatee.Sgf.Monad (childAddedEvent, navigationEvent, propertiesChangedEvent)
@@ -74,6 +74,21 @@ transparentStoneOpacity = 0.7
 -- point, or one with a stone of the given color.
 coordAnnotationStrokeColor :: Maybe Color -> Rgb
 coordAnnotationStrokeColor = maybe blackStoneColor stoneBorderColor
+
+-- | For line and arrow annotations, the width of the line.  1 is the width of a
+-- stone.
+boardAnnotationLineWidth :: Double
+boardAnnotationLineWidth = 0.08
+
+-- | For arrow annotations, the distance to pull back along the length of a line
+-- before extending at right angles to form the arrowhead.
+boardAnnotationArrowPullback :: Double
+boardAnnotationArrowPullback = 0.2
+
+-- | For arrow annotations, the distance to extend away from the baseline in
+-- either direction to form the arrowhead.
+boardAnnotationArrowWidth :: Double
+boardAnnotationArrowWidth = 0.1
 
 -- | A GTK widget that renders a Go board.
 --
@@ -256,8 +271,16 @@ drawBoard uiRef hoverStateRef drawingArea = do
     setLineWidth gridLineWidth
     stroke
 
+    -- Draw all points and the grid.
     sequence_ $ flip mapBoardCoords board $
       drawCoord board gridLineWidth (gridLineWidth * 2) tool hoverState
+
+    -- Draw non-CoordState-based annotations.
+    unless (null (boardLines board) && null (boardArrows board)) $ do
+      setSourceRGB 0 0 0
+      setLineWidth boardAnnotationLineWidth
+      mapM_ (uncurry drawLine) $ boardLines board
+      mapM_ (uncurry drawArrow) $ boardArrows board
   return ()
 
 -- | Draws a single point on the board.
@@ -376,6 +399,39 @@ trianglePoint2X = 0.5 - triangleRadius * cos (pi / 6)
 trianglePoint2Y = 0.5 + triangleRadius * 0.5 {-sin (pi / 6)-}
 trianglePoint3X = 0.5 + triangleRadius * cos (pi / 6)
 trianglePoint3Y = 0.5 + triangleRadius * 0.5 {-sin (pi / 6)-}
+
+-- | Draws a line between the given board points.  Expects the context to be
+-- already set up to draw.
+drawLine :: Coord -> Coord -> Render ()
+drawLine (fromIntegral -> x0, fromIntegral -> y0)
+         (fromIntegral -> x1, fromIntegral -> y1) = do
+  moveTo (x0 + 0.5) (y0 + 0.5)
+  lineTo (x1 + 0.5) (y1 + 0.5)
+  stroke
+
+-- | Draws an arrow from the first point to the second point.  Expects the
+-- context to be already set up to draw.
+drawArrow :: Coord -> Coord -> Render ()
+drawArrow (fromIntegral -> x0, fromIntegral -> y0)
+          (fromIntegral -> x1, fromIntegral -> y1) = do
+  let angle = atan ((y1 - y0) / (x1 - x0)) + if x0 <= x1 then 0 else pi
+      len = sqrt ((y1 - y0)**2 + (x1 - x0)**2) - boardAnnotationLineWidth
+      tx = x0 + 0.5
+      ty = y0 + 0.5
+  -- Set up user space so that we can draw the line from (0,0) to
+  -- (0,lineLength).
+  translate tx ty
+  rotate angle
+  moveTo 0 0
+  lineTo len 0
+  stroke
+  moveTo len 0
+  lineTo (len - boardAnnotationArrowPullback) boardAnnotationArrowWidth
+  lineTo (len - boardAnnotationArrowPullback) (-boardAnnotationArrowWidth)
+  closePath
+  stroke
+  rotate (-angle)
+  translate (-tx) (-ty)
 
 type Rgb = (Double, Double, Double)
 
