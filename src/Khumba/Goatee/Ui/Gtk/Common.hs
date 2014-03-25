@@ -314,7 +314,6 @@ data Tool = ToolPlay  -- ^ Game tool.
           | ToolMarkTriangle  -- ^ Markup tool.
           | ToolVisible  -- ^ Visibility tool.
           | ToolDim  -- ^ Visibility tool.
-          | ToolInvisible  -- ^ Visibility tool.
           deriving (Bounded, Enum, Eq, Show)
 
 -- | The tool that should be selected when a board first opens in the UI.
@@ -328,7 +327,7 @@ toolOrdering =
    [ToolBlack, ToolWhite, ToolErase],
    [ToolArrow, ToolMarkCircle, ToolLabel, ToolLine, ToolMarkX, ToolMarkSelected,
     ToolMarkSquare, ToolMarkTriangle],
-   [ToolVisible, ToolDim, ToolInvisible]]
+   [ToolVisible, ToolDim]]
 
 toolLabel :: Tool -> String
 toolLabel tool = case tool of
@@ -346,9 +345,8 @@ toolLabel tool = case tool of
   ToolMarkSelected -> "Mark selected"
   ToolMarkSquare -> "Mark squares"
   ToolMarkTriangle -> "Mark triangles"
-  ToolVisible -> "Set points visible"
-  ToolDim -> "Set points dimmed"
-  ToolInvisible -> "Set points invisible"
+  ToolVisible -> "Toggle points visible"
+  ToolDim -> "Toggle points dimmed"
 
 -- | Converts 'ToolBlack' and 'ToolWhite' into 'Color's.  Does not accept any
 -- other tools.

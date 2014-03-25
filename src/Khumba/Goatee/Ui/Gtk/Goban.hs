@@ -27,7 +27,6 @@ module Khumba.Goatee.Ui.Gtk.Goban (
 import Control.Applicative ((<$>))
 import Control.Monad
 import Data.IORef
-import Data.Maybe
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk hiding (Color, Cursor, drawLine)
 import Khumba.Goatee.Common
@@ -269,6 +268,7 @@ drawBoard uiRef hoverStateRef drawingArea = do
     rectangle 0.5 0.5 (cols - 1) (rows - 1)
     gridLineWidth <- fst <$> deviceToUserDistance 1 0
     setLineWidth gridLineWidth
+    -- TODO Don't draw any grid here.
     stroke
 
     -- Draw all points and the grid.
@@ -293,66 +293,92 @@ drawCoord :: BoardState -- ^ The board being drawn.
           -> Int        -- ^ The y-index of the point to be drawn.
           -> CoordState -- ^ The point to be drawn.
           -> Render ()
-drawCoord board gridWidth gridBorderWidth tool hoverState x y coord = do
-  let x' = fromIntegral x
-      y' = fromIntegral y
-      draw = do
-        -- Draw the grid.
-        let atLeft = x == 0
-            atTop = y == 0
-            atRight = x == boardWidth board - 1
-            atBottom = y == boardHeight board - 1
-            gridX0 = x' + if atLeft then 0.5 else 0
-            gridY0 = y' + if atTop then 0.5 else 0
-            gridX1 = x' + if atRight then 0.5 else 1
-            gridY1 = y' + if atBottom then 0.5 else 1
-        -- Temporarily disable antialiasing.  We want grid lines to be sharp.
-        setAntialias AntialiasNone
-        setSourceRGB 0 0 0
-        setLineWidth $ if atTop || atBottom then gridBorderWidth else gridWidth
-        moveTo gridX0 (y' + 0.5)
-        lineTo gridX1 (y' + 0.5)
-        stroke
-        setLineWidth $ if atLeft || atRight then gridBorderWidth else gridWidth
-        moveTo (x' + 0.5) gridY0
-        lineTo (x' + 0.5) gridY1
-        stroke
-        setAntialias AntialiasDefault
+drawCoord board gridWidth gridBorderWidth tool hoverState x y coordInitial = do
+  -- If the mouse is hovering over the coord, then modify its appearance
+  -- according to the selected tool.
+  let coordToDraw = case hoverCoord hoverState of
+        Just (hx, hy) | x == hx && y == hy ->
+          modifyCoordForHover tool board hoverState coordInitial
+        _ -> coordInitial
+  when (coordVisible coordToDraw) $ do
+    -- TODO Draw dimmed if (coordDimmed coordToDraw) is true.
+    let x' = fromIntegral x
+        y' = fromIntegral y
+    -- Translate the grid so that we can draw the stone from (0,0) to (1,1).
+    translate x' y'
+    -- Draw the grid, stone (if present), and mark (if present).
+    drawGrid board gridWidth gridBorderWidth x y
+    case coordStone coordToDraw of
+      Nothing -> return ()
+      Just color -> drawStone color False
+    maybe (return ()) (drawMark $ coordStone coordToDraw) $ coordMark coordToDraw
+    -- Restore the coordinate system for the next stone.
+    translate (-x') (-y')
 
-        -- Translate the grid so that we can draw the stone from (0,0) to (1,1).
-        translate x' y'
+-- | Given a current tool, board, and hover, modifies a 'CoordState' to reflect
+-- that the user is hovering over the point.  The effect depends on the tool.
+-- The effect is to suggest what would happen if the point were clicked.
+modifyCoordForHover :: Tool -> BoardState -> HoverState -> CoordState -> CoordState
+modifyCoordForHover tool board hover coord = case tool of
+  ToolPlay -> if hoverIsValidMove hover
+              then coord { coordStone = Just (boardPlayerTurn board) }
+              else coord
+  ToolJump -> coord  -- TODO Hover for ToolJump.
+  ToolScore -> coord  -- TODO Hover for ToolScore.
+  ToolBlack -> coord { coordStone = Just (toolToColor tool) }
+  ToolWhite -> coord { coordStone = Just (toolToColor tool) }
+  ToolErase -> coord { coordStone = Nothing }
+  ToolArrow -> coord  -- TODO Hover for ToolArrow.
+  ToolMarkCircle -> toggleMark MarkCircle coord
+  ToolLabel -> coord  -- TODO Hover for ToolLabel.
+  ToolLine -> coord  -- TODO Hover for ToolLine.
+  ToolMarkX -> toggleMark MarkX coord
+  ToolMarkSelected -> toggleMark MarkSelected coord
+  ToolMarkSquare -> toggleMark MarkSquare coord
+  ToolMarkTriangle -> toggleMark MarkTriangle coord
+  ToolVisible -> coord { coordVisible = not $ coordVisible coord }
+  ToolDim -> coord { coordDimmed = not $ coordDimmed coord }
 
-        -- Draw a stone if present.
-        if (tool == ToolBlack || tool == ToolWhite) &&
-           isJust (hoverCoord hoverState) &&
-           fst (fromJust $ hoverCoord hoverState) == x &&
-           snd (fromJust $ hoverCoord hoverState) == y &&
-           coordStone coord /= Just (toolToColor tool)
-          then drawStone (toolToColor tool) True
-          else case coordStone coord of
-            Just color -> drawStone color False
-            Nothing -> fromMaybe (return ()) $
-                       do if tool == ToolPlay then Just () else Nothing
-                          (hx, hy) <- hoverCoord hoverState
-                          if x == hx && y == hy && hoverIsValidMove hoverState
-                            then Just ()
-                            else Nothing
-                          return $ drawStone (boardPlayerTurn board) True
+-- | Toggles a specific mark on a 'CoordState'.  If the @CoordState@ already has
+-- that mark, then it is removed.  If the @CoordState@ has no mark or has
+-- another mark, then the given mark is added to the @CoordState@, overwriting
+-- an existing mark if there is one.
+toggleMark :: Mark -> CoordState -> CoordState
+toggleMark mark coord = let justMark = Just mark
+                        in if coordMark coord == justMark
+                           then coord { coordMark = Nothing }
+                           else coord { coordMark = justMark }
 
-        -- Draw a mark if there is one.
-        maybe (return ()) (drawMark $ coordStone coord) $ coordMark coord
-
-        translate (-x') (-y')
-
-  case coordVisibility coord of
-    CoordVisible -> draw
-    CoordInvisible -> return ()
-    CoordDimmed -> error "TODO: Implement rendering of CoordDimmed."
+-- | Draws the gridlines for a single point on the board.
+drawGrid :: BoardState -> Double -> Double -> Int -> Int -> Render ()
+drawGrid board gridWidth gridBorderWidth x y = do
+  -- Draw the grid.
+  let atLeft = x == 0
+      atTop = y == 0
+      atRight = x == boardWidth board - 1
+      atBottom = y == boardHeight board - 1
+      gridX0 = if atLeft then 0.5 else 0
+      gridY0 = if atTop then 0.5 else 0
+      gridX1 = if atRight then 0.5 else 1
+      gridY1 = if atBottom then 0.5 else 1
+  -- Temporarily disable antialiasing.  We want grid lines to be sharp.
+  setAntialias AntialiasNone
+  setSourceRGB 0 0 0
+  setLineWidth $ if atTop || atBottom then gridBorderWidth else gridWidth
+  moveTo gridX0 0.5
+  lineTo gridX1 0.5
+  stroke
+  setLineWidth $ if atLeft || atRight then gridBorderWidth else gridWidth
+  moveTo 0.5 gridY0
+  lineTo 0.5 gridY1
+  stroke
+  setAntialias AntialiasDefault
 
 -- | Draws a stone from @(0, 0)@ to @(1, 1)@ in user coordinates.
 drawStone :: Color -- ^ The color of stone to draw.
           -> Bool  -- ^ If true, the stone is transparent; if false, opaque.
           -> Render ()
+-- TODO drawStone transparency is unused, use or remove.
 drawStone color transparent = do
   let opacity = if transparent then transparentStoneOpacity else 1
   arc 0.5 0.5 (0.5 - stoneBorderThickness / 2) 0 (2 * pi)

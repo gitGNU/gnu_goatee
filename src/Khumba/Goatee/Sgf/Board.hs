@@ -161,6 +161,16 @@ data BoardState = BoardState { boardCoordStates :: [[CoordState]]
                                -- ^ The state of individual points on the board.
                                -- Stored in row-major order.  Point @(x, y)@ can
                                -- be accessed via @!! y !! x@.
+                             , boardHasInvisible :: Bool
+                               -- ^ Whether any of the board's 'CoordState's are
+                               -- invisible.  This is an optimization to make it
+                               -- more efficient to set the board to "all
+                               -- visible."
+                             , boardHasDimmed :: Bool
+                               -- ^ Whether any of the board's 'CoordState's are
+                               -- dimmed.  This is an optimization to make it
+                               -- more efficient to clear all dimming from the
+                               -- board.
                              , boardArrows :: ArrowList
                              , boardLines :: LineList
                              , boardLabels :: LabelList
@@ -202,29 +212,32 @@ data CoordState = CoordState { coordStar :: Bool
                                -- ^ Whether this point is a star point.
                              , coordStone :: Maybe Color
                              , coordMark :: Maybe Mark
-                             , coordVisibility :: CoordVisibility
+                             , coordVisible :: Bool
+                             , coordDimmed :: Bool
                              }
 
 instance Show CoordState where
-  show c = case coordVisibility c of
-             CoordInvisible -> "--"
-             _ -> let stoneChar = case coordStone c of
-                                    Nothing -> if coordStar c then '*' else '\''
-                                    Just Black -> 'X'
-                                    Just White -> 'O'
-                      markChar = case coordMark c of
-                                   Nothing -> ' '
-                                   Just MarkCircle -> 'o'
-                                   Just MarkSquare -> 's'
-                                   Just MarkTriangle -> 'v'
-                                   Just MarkX -> 'x'
-                                   Just MarkSelected -> '!'
-                  in [stoneChar, markChar]
+  show c = if not $ coordVisible c
+           then "--"
+           else let stoneChar = case coordStone c of
+                      Nothing -> if coordStar c then '*' else '\''
+                      Just Black -> 'X'
+                      Just White -> 'O'
+                    markChar = case coordMark c of
+                      Nothing -> ' '
+                      Just MarkCircle -> 'o'
+                      Just MarkSquare -> 's'
+                      Just MarkTriangle -> 'v'
+                      Just MarkX -> 'x'
+                      Just MarkSelected -> '!'
+                in [stoneChar, markChar]
 
 -- | Creates a 'BoardState' for an empty board of the given width and height.
 emptyBoardState :: Int -> Int -> BoardState
 emptyBoardState width height =
   BoardState { boardCoordStates = coords
+             , boardHasInvisible = False
+             , boardHasDimmed = False
              , boardArrows = []
              , boardLines = []
              , boardLabels = []
@@ -241,7 +254,8 @@ emptyBoardState width height =
         emptyCoord = CoordState { coordStar = False
                                 , coordStone = Nothing
                                 , coordMark = Nothing
-                                , coordVisibility = CoordVisible
+                                , coordVisible = True
+                                , coordDimmed = False
                                 }
         starCoord = emptyCoord { coordStar = True }
         isStarPoint' = isStarPoint width height
@@ -279,6 +293,31 @@ boardChild board =
   where clearMark coord = case coordMark coord of
           Nothing -> coord
           Just _ -> coord { coordMark = Nothing }
+
+-- | Sets all points on a board to be visible (if given true) or invisible (if
+-- given false).
+setBoardVisible :: Bool -> BoardState -> BoardState
+setBoardVisible visible board =
+  if visible
+  then if boardHasInvisible board
+       then board { boardCoordStates = map (map $ setVisible True) $ boardCoordStates board
+                  , boardHasInvisible = False
+                  }
+       else board
+  else board { boardCoordStates = map (map $ setVisible False) $ boardCoordStates board
+             , boardHasInvisible = True
+             }
+  where setVisible vis coord = coord { coordVisible = vis }
+
+-- | Resets all points on a board not to be dimmed.
+clearBoardDimmed :: BoardState -> BoardState
+clearBoardDimmed board =
+  if boardHasDimmed board
+  then board { boardCoordStates = map (map clearDim) $ boardCoordStates board
+             , boardHasDimmed = False
+             }
+  else board
+  where clearDim coord = coord { coordDimmed = False }
 
 -- |> isStarPoint width height x y
 --
@@ -339,7 +378,12 @@ applyProperty (AR arrows) board = board { boardArrows = arrows ++ boardArrows bo
 applyProperty (CR coords) board =
   updateCoordStates' (\state -> state { coordMark = Just MarkCircle }) coords board
 applyProperty (DD coords) board =
-  updateCoordStates' (\state -> state { coordVisibility = CoordDimmed }) coords board
+  let coords' = expandCoordList coords
+      board' = clearBoardDimmed board
+  in if null coords'
+     then board'
+     else updateCoordStates (\state -> state { coordDimmed = True }) coords'
+          board { boardHasDimmed = True }
 applyProperty (LB labels) board = board { boardLabels = labels ++ boardLabels board }
 applyProperty (LN lines) board = board { boardLines = lines ++ boardLines board }
 applyProperty (MA coords) board =
@@ -422,7 +466,12 @@ applyProperty (WT str) board =
   updateBoardInfo (\info -> info { gameInfoWhiteTeamName = Just $ fromSimpleText str })
                   board
 
-applyProperty (VW {}) board = board
+applyProperty (VW coords) board =
+  let coords' = expandCoordList coords
+  in if null coords'
+     then setBoardVisible True board
+     else updateCoordStates (\state -> state { coordVisible = True }) coords' $
+          setBoardVisible False board
 
 applyProperty (UnknownProperty {}) board = board
 

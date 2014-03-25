@@ -28,7 +28,8 @@ import Test.HUnit hiding (Test)
 
 tests = testGroup "Khumba.Goatee.Sgf.Board" [
   moveNumberTests,
-  annotationTests,
+  markupPropertiesTests,
+  visibilityPropertyTests,
   cursorModifyNodeTests,
   colorToMoveTests
   ]
@@ -59,7 +60,7 @@ moveNumberTests = testGroup "move number" [
                            node1 [IT, TE Double2, GN $ toSimpleText "Title"] $ node [])
   ]
 
-annotationTests = testGroup "annotations" [
+markupPropertiesTests = testGroup "markup properties" [
   testGroup "adds marks to a BoardState" [
     testCase "CR" $ Just MarkCircle @=? getMark 0 0 (rootCursor $ node [CR $ coords [(0,0)]]),
     testCase "MA" $ Just MarkX @=? getMark 0 0 (rootCursor $ node [MA $ coords [(0,0)]]),
@@ -104,7 +105,49 @@ annotationTests = testGroup "annotations" [
         getMark :: Int -> Int -> Cursor -> Maybe Mark
         getMark x y cursor = coordMark $ boardCoordStates (cursorBoard cursor) !! y !! x
 
--- TODO Test visibility properties (DD, VW).
+visibilityPropertyTests = testGroup "visibility properties" [
+  testCase "boards start with all points undimmed" $
+    replicate 9 (replicate 9 False) @=?
+    map (map coordDimmed) (boardCoordStates $ cursorBoard $ rootCursor $ node [SZ 9 9]),
+
+  testCase "DD selectively dims points" $
+    let root = node [SZ 5 2, DD $ coords' [(3,0)] [((0,0), (1,1))]]
+    in [[True, True, False, True, False],
+        [True, True, False, False, False]] @=?
+       map (map coordDimmed) (boardCoordStates $ cursorBoard $ rootCursor root),
+
+  testCase "dimming is inherited" $
+    let root = node1 [SZ 5 2, DD $ coords' [(3,0)] [((0,0), (1,1))]] $ node []
+    in [[True, True, False, True, False],
+        [True, True, False, False, False]] @=?
+       map (map coordDimmed) (boardCoordStates $ cursorBoard $ child 0 $ rootCursor root),
+
+  testCase "DD[] clears dimming" $
+    let root = node1 [SZ 2 1, DD $ coords [(0,0)]] $ node [DD $ coords []]
+    in [[False, False]] @=?
+       map (map coordDimmed) (boardCoordStates $ cursorBoard $ child 0 $ rootCursor root),
+
+  testCase "boards start with all points visible" $
+    replicate 9 (replicate 9 True) @=?
+    map (map coordVisible) (boardCoordStates $ cursorBoard $ rootCursor $ node [SZ 9 9]),
+
+  testCase "VW selectively makes points visible" $
+    let root = node [SZ 5 2, VW $ coords' [(1,0), (0,1)] [((2,0), (4,1))]]
+    in [[False, True, True, True, True],
+        [True, False, True, True, True]] @=?
+       map (map coordVisible) (boardCoordStates $ cursorBoard $ rootCursor root),
+
+  testCase "visibility is inherited" $
+    let root = node1 [SZ 5 2, VW $ coords' [(1,0), (0,1)] [((2,0), (4,1))]] $ node []
+    in [[False, True, True, True, True],
+        [True, False, True, True, True]] @=?
+       map (map coordVisible) (boardCoordStates $ cursorBoard $ child 0 $ rootCursor root),
+
+  testCase "VW[] clears dimming" $
+    let root = node1 [SZ 2 1, VW $ coords [(0,0)]] $ node [VW $ coords []]
+    in [[True, True]] @=?
+       map (map coordVisible) (boardCoordStates $ cursorBoard $ child 0 $ rootCursor root)
+  ]
 
 cursorModifyNodeTests = testGroup "cursorModifyNode" [
   testCase "updates the BoardState" $

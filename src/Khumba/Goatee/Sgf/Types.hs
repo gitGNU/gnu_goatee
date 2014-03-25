@@ -27,7 +27,7 @@ module Khumba.Goatee.Sgf.Types (
   Color(Black, White), cnot,
   VariationMode(..), VariationModeSource(..), defaultVariationMode,
   toVariationMode, fromVariationMode,
-  ArrowList, LineList, LabelList, Mark(..), CoordVisibility(..),
+  ArrowList, LineList, LabelList, Mark(..),
   GameResult(..), fromGameResult,
   WinReason(..),
   Ruleset(..), RulesetType(..), fromRuleset, toRuleset
@@ -189,9 +189,6 @@ type LabelList = [(Coord, SimpleText)]
 -- | The markings that SGF supports annotating coordinates with.
 data Mark = MarkCircle | MarkSquare | MarkTriangle | MarkX | MarkSelected
           deriving (Eq, Show)
-
--- | The visibility states that SGF allows a coordinate to be in.
-data CoordVisibility = CoordVisible | CoordDimmed | CoordInvisible
 
 data GameResult = GameResultWin Color WinReason
                 | GameResultDraw
