@@ -18,7 +18,7 @@
 -- | Data types for property values used in SGF game trees.
 module Khumba.Goatee.Sgf.Types (
   Coord, CoordList(..), coords, coords',
-  emptyCoordList, expandCoordList,
+  emptyCoordList, expandCoordList, buildCoordList,
   RealValue,
   Stringlike(..),
   Text(fromText), toText,
@@ -35,7 +35,7 @@ module Khumba.Goatee.Sgf.Types (
 
 import Data.Char (isSpace)
 import Data.Function (on)
-import Data.List (sort)
+import Data.List (delete, groupBy, partition, sort)
 import Data.Monoid
 
 -- | A coordinate on a Go board.  @(0, 0)@ refers to the upper-left corner of
@@ -86,6 +86,76 @@ expandCoordList cl = coordListSingles cl ++
                            []
                            (coordListRects cl)
 
+-- | Constructs a 'CoordList' from a grid of booleans.  The rectangles and
+-- points in the result represent those booleans that were true.  The order of
+-- data in the result is unspecified.
+--
+-- One possible result is as follows.
+--
+-- >>> [[False, True, True, False, True],
+--      [False, True, True, True, False],
+--      [False, True, True, True, False]]
+-- CoordList { coordListSingles = [(4,0)],
+--             coordListRects = [((1,1),(3,2)),((1,0),(2,0))]
+--           }
+buildCoordList :: [[Bool]] -> CoordList
+-- This algorithm doesn't generate the smallest result.  For the following
+-- input:
+--
+-- F F T T
+-- T T T T
+-- T T F F
+--
+-- It will return [ca:da][ab:db][ac:bc] rather than the shorter [ca:db][ab:bc].
+buildCoordList = toCoordList . generateRects 0 [] . buildTruePairs
+  where -- | For each row, converts a list of booleans into a list of pairs
+        -- where each pair represents a consecutive run of true values.  The
+        -- pair indicates the indices of the first and last boolean in each run.
+        buildTruePairs :: [[Bool]] -> [[(Int, Int)]]
+        buildTruePairs = map $
+                         concatMap extractTrueGroups .
+                         groupBy ((==) `on` snd) .
+                         zip [0..]
+
+        -- | Given a run of indexed booleans with the same boolean value within
+        -- a row, returns @[(startIndex, endIndex)]@ if the value is true, and
+        -- @[]@ if the value is false.
+        extractTrueGroups :: [(Int, Bool)] -> [(Int, Int)]
+        extractTrueGroups list@((start, True):_) = [(start, fst (last list))]
+        extractTrueGroups _ = []
+
+        -- | Converts the lists of true pairs for all rows into a list of
+        -- @(Coord, Coord)@ rectangles.  We repeatedly grab the first span in
+        -- the first row, and see how many leading rows contain that exact span.
+        -- Then we build a (maybe multi-row) rectangle for the span, remove the
+        -- span from all leading rows, and repeat.  When the first row becomes
+        -- empty, we drop it and increment a counter that keeps track of our
+        -- first row's y-position.
+        generateRects :: Int -> [(Coord, Coord)] -> [[(Int, Int)]] -> [(Coord, Coord)]
+        generateRects _ acc [] = acc
+        generateRects topRowOffset acc ([]:rows) = generateRects (topRowOffset + 1) acc rows
+        generateRects topRowOffset acc rows@((span:_):_) =
+          let rowsWithSpan = matchRowsWithSpan span rows
+              rowsWithSpanCount = length rowsWithSpan
+          in generateRects topRowOffset
+                           (((fst span, topRowOffset),
+                             (snd span, topRowOffset + rowsWithSpanCount - 1)) : acc)
+                           (rowsWithSpan ++ drop rowsWithSpanCount rows)
+
+        -- | Determines how many leading rows contain the given span.  A list of
+        -- all the matching rows is returned, with the span deleted from each.
+        matchRowsWithSpan :: (Int, Int) -> [[(Int, Int)]] -> [[(Int, Int)]]
+        matchRowsWithSpan span (row:rows)
+          | span `elem` row = delete span row : matchRowsWithSpan span rows
+          | otherwise = []
+        matchRowsWithSpan _ [] = []
+
+        -- | Builds a 'CoordList' from simple @(Coord, Coord)@ rectangles.
+        toCoordList :: [(Coord, Coord)] -> CoordList
+        toCoordList rects =
+          let (singles, properRects) = partition (uncurry (==)) rects
+          in coords' (map fst singles) properRects
+
 -- | An SGF real value.
 type RealValue = Rational
 
@@ -95,7 +165,7 @@ type RealValue = Rational
 -- such that the resulting stringlike value does not represent the same string
 -- as the input.  In other words, the following does *not* necessarily hold:
 --
--- > sgfToString . stringToSgf = id
+-- > sgfToString . stringToSgf = id   (does not necessarily hold!)
 --
 -- The following does hold, however:
 --
