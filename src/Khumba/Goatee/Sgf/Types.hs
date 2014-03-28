@@ -17,7 +17,7 @@
 
 -- | Data types for property values used in SGF game trees.
 module Khumba.Goatee.Sgf.Types (
-  Coord, CoordList(..), coords, coords',
+  Coord, CoordList(coordListSingles, coordListRects), coord1, coords, coords',
   emptyCoordList, expandCoordList, buildCoordList,
   RealValue,
   Stringlike(..),
@@ -36,41 +36,55 @@ module Khumba.Goatee.Sgf.Types (
 import Data.Char (isSpace)
 import Data.Function (on)
 import Data.List (delete, groupBy, partition, sort)
-import Data.Monoid
 
 -- | A coordinate on a Go board.  @(0, 0)@ refers to the upper-left corner of
 -- the board.  The first component is the horizontal position; the second
 -- component is the vertical position.
 type Coord = (Int, Int)
 
--- | Allows for compact representation of a list of coordinates.  Convert to a
--- list with 'expandCoordList'.
+-- | A structure for compact representation of a list of coordinates.  Contains
+-- a list of individual points, as well as a list of rectangles of points
+-- denoted by an ordered pair of the upper-left point and the lower-right point.
+-- The union of the single points and points contained within rectangles make up
+-- all of the points a @CoordList@ represents.  There is no rule saying that
+-- adjacent points have to be grouped into rectangles; it's perfectly valid
+-- (although possibly inefficient) to never use rectangles.
+--
+-- For any @CoordList@, all of the following hold:
+--
+-- 1. Any point may be specified at most once, either in the singles list or in
+-- a single rectangle.
+--
+-- 2. For a rectangle @((x0,y0), (x1,y1))@, @x0 <= x1@ and @y0 <= y1@ and
+-- @(x0,y0) /= (x1,y1)@ (otherwise the point belongs in the singles list).
 data CoordList = CoordList { coordListSingles :: [Coord]
                            , coordListRects :: [(Coord, Coord)]
                            } deriving (Show)
 
+-- | Equality is based on unordered, set equality of the underlying points.
 instance Eq CoordList where
   (==) = (==) `on` sort . expandCoordList
 
-instance Monoid CoordList where
-  mempty = CoordList { coordListSingles = []
-                     , coordListRects = []
-                     }
+-- | Constructs a 'CoordList' containing a single point.
+coord1 :: Coord -> CoordList
+coord1 xy = CoordList { coordListSingles = [xy]
+                      , coordListRects = []
+                      }
 
-  mappend x y = CoordList { coordListSingles = coordListSingles x ++ coordListSingles y
-                          , coordListRects = coordListRects x ++ coordListRects y
-                          }
-
+-- | Constructs a 'CoordList' containing the given single points.  For rectangle
+-- detection, use 'buildCoordList'.
 coords :: [Coord] -> CoordList
 coords singles = CoordList { coordListSingles = singles
                            , coordListRects = []
                            }
 
+-- | Constructs a 'CoordList' containing the given single points and rectangles.
 coords' :: [Coord] -> [(Coord, Coord)] -> CoordList
 coords' singles rects = CoordList { coordListSingles = singles
                                   , coordListRects = rects
                                   }
 
+-- | A 'CoordList' that contains no points.
 emptyCoordList :: CoordList
 emptyCoordList = CoordList { coordListSingles = []
                            , coordListRects = []
@@ -86,19 +100,10 @@ expandCoordList cl = coordListSingles cl ++
                            []
                            (coordListRects cl)
 
--- | Constructs a 'CoordList' from a grid of booleans.  The rectangles and
--- points in the result represent those booleans that were true.  The order of
--- data in the result is unspecified.
---
--- One possible result is as follows.
---
--- >>> [[False, True, True, False, True],
---      [False, True, True, True, False],
---      [False, True, True, True, False]]
--- CoordList { coordListSingles = [(4,0)],
---             coordListRects = [((1,1),(3,2)),((1,0),(2,0))]
---           }
-buildCoordList :: [[Bool]] -> CoordList
+-- | Constructs a 'CoordList' from a list of 'Coord's, doing some
+-- not-completely-stupid rectangle detection.  The order of data in the result
+-- is unspecified.
+buildCoordList :: [Coord] -> CoordList
 -- This algorithm doesn't generate the smallest result.  For the following
 -- input:
 --
@@ -107,8 +112,16 @@ buildCoordList :: [[Bool]] -> CoordList
 -- T T F F
 --
 -- It will return [ca:da][ab:db][ac:bc] rather than the shorter [ca:db][ab:bc].
-buildCoordList = toCoordList . generateRects 0 [] . buildTruePairs
-  where -- | For each row, converts a list of booleans into a list of pairs
+buildCoordList = toCoordList . generateRects 0 [] . buildTruePairs . toGrid
+  where -- | Constructs a row-major grid of booleans where an coordinate is true
+        -- iff it is in the given list.
+        toGrid :: [Coord] -> [[Bool]]
+        toGrid [] = []
+        toGrid coords = let x1 = maximum $ map fst coords
+                            y1 = maximum $ map snd coords
+                        in [[(x,y) `elem` coords | x <- [0..x1]] | y <- [0..y1]]
+
+        -- | For each row, converts a list of booleans into a list of pairs
         -- where each pair represents a consecutive run of true values.  The
         -- pair indicates the indices of the first and last boolean in each run.
         buildTruePairs :: [[Bool]] -> [[(Int, Int)]]
