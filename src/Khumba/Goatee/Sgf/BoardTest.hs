@@ -27,12 +27,32 @@ import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Test)
 
 tests = testGroup "Khumba.Goatee.Sgf.Board" [
+  boardCoordStateTests,
   moveNumberTests,
   markupPropertiesTests,
   visibilityPropertyTests,
   cursorModifyNodeTests,
   colorToMoveTests
   ]
+
+boardCoordStateTests = testGroup "boardCoordState" [
+  testCase "works for a 1x1 board" $ do
+    let state = boardCoordState (0,0) $ rootBoardState $
+                node [SZ 1 1, CR $ coord1 (0,0)]
+    coordStone state @?= Nothing
+    coordMark state @?= Just MarkCircle,
+
+  testCase "works for a 2x2 board" $ do
+    let board = rootBoardState $
+                node [SZ 2 2, B $ Just (0,0), TR $ coord1 (0,0), MA $ coord1 (1,1)]
+    coordStone (boardCoordState (0,0) board) @?= Just Black
+    coordMark (boardCoordState (0,0) board) @?= Just MarkTriangle
+    coordStone (boardCoordState (1,0) board) @?= Nothing
+    coordMark (boardCoordState (1,0) board) @?= Nothing
+    coordStone (boardCoordState (1,1) board) @?= Nothing
+    coordMark (boardCoordState (1,1) board) @?= Just MarkX
+  ]
+
 
 moveNumberTests = testGroup "move number" [
   testCase "starts at zero" $

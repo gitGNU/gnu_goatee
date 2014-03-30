@@ -23,7 +23,7 @@ executable goatee
     hs-source-dirs: src
     build-depends: base, cairo, containers, filepath, gtk, mtl, parsec,
         template-haskell
-    extensions: ExistentialQuantification, FlexibleInstances,
+    extensions: ExistentialQuantification, FlexibleContexts, FlexibleInstances,
         FunctionalDependencies, MultiParamTypeClasses, UndecidableInstances,
         ViewPatterns
     ghc-options: -W -fwarn-incomplete-patterns
@@ -34,6 +34,6 @@ test-suite test-goatee
     hs-source-dirs: src
     build-depends: base, containers, HUnit, mtl, test-framework,
                    test-framework-hunit
-    extensions: FlexibleInstances, FunctionalDependencies,
+    extensions: FlexibleContexts, FlexibleInstances, FunctionalDependencies,
         MultiParamTypeClasses, UndecidableInstances
     ghc-options: -W -fwarn-incomplete-patterns

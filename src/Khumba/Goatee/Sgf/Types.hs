@@ -271,7 +271,7 @@ type LabelList = [(Coord, SimpleText)]
 
 -- | The markings that SGF supports annotating coordinates with.
 data Mark = MarkCircle | MarkSquare | MarkTriangle | MarkX | MarkSelected
-          deriving (Eq, Show)
+          deriving (Bounded, Enum, Eq, Show)
 
 data GameResult = GameResultWin Color WinReason
                 | GameResultDraw

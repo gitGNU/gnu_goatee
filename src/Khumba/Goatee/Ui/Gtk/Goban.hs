@@ -31,7 +31,10 @@ import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk hiding (Color, Cursor, drawLine)
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board hiding (isValidMove)
-import Khumba.Goatee.Sgf.Monad (childAddedEvent, navigationEvent, propertiesChangedEvent)
+import Khumba.Goatee.Sgf.Monad (
+  modifyMark,
+  childAddedEvent, navigationEvent, propertiesChangedEvent,
+  )
 import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Ui.Gtk.Common
 
@@ -193,10 +196,19 @@ doToolAtPoint uiRef drawingArea (mouseX, mouseY) = do
     tool <- fmap uiTool (readModes ui)
 
     case tool of
+      ToolMarkCircle -> toggleMark ui xy MarkCircle
+      ToolMarkSelected -> toggleMark ui xy MarkSelected
+      ToolMarkSquare -> toggleMark ui xy MarkSquare
+      ToolMarkTriangle -> toggleMark ui xy MarkTriangle
+      ToolMarkX -> toggleMark ui xy MarkX
       ToolPlay -> do
         valid <- isValidMove ui xy
         when valid $ playAt ui xy
       _ -> return ()  -- TODO Support other tools.
+  where toggleMark ui xy mark = runUiGo ui $ modifyMark (toggleMark' mark) xy
+        toggleMark' mark maybeExistingMark = case maybeExistingMark of
+          Just existingMark | existingMark == mark -> Nothing
+          _ -> Just mark
 
 -- | Updates the hover state for the mouse having moved to the given board
 -- coordinate.  Returns true if the board coordinate has changed.
