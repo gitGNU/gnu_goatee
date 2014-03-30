@@ -17,6 +17,7 @@
 
 module Khumba.Goatee.Sgf.PropertyTest (tests) where
 
+import qualified Data.Set as Set
 import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Types
 import Test.Framework (testGroup)
@@ -24,7 +25,8 @@ import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Test)
 
 tests = testGroup "Khumba.Goatee.Sgf.Property" [
-  propertyMetadataTests
+  propertyMetadataTests,
+  markPropertyTests
   ]
 
 propertyMetadataTests = testGroup "property metadata" [
@@ -64,3 +66,9 @@ propertyMetadataTests = testGroup "property metadata" [
         ru = KnownRuleset RulesetJapanese
         rv = 1
         vm = defaultVariationMode
+
+markPropertyTests = testGroup "markProperty" [
+  testCase "doesn't repeat properties" $
+    let marks = [minBound..maxBound]
+    in length marks @=? Set.size (Set.fromList $ map (propertyName . markProperty) marks)
+  ]

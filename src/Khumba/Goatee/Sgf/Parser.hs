@@ -236,16 +236,11 @@ listOf valueParser = many1 (single valueParser <* spaces)
                      <?> "list"
 
 listOfPoint :: CharParser () CoordList
-listOfPoint = mconcat <$> listOf pointListEntry
-  where pointListEntry = listR <$> try (compose point point)
-                         <|> list1 <$> point
+listOfPoint = runCoordListMonoid . mconcat <$> listOf pointListEntry
+  where pointListEntry = CoordListMonoid . coordR <$> try (compose point point)
+                         <|> CoordListMonoid . coord1 <$> point
                          <?> "point list"
-        list1 point = CoordList { coordListSingles = [point]
-                                , coordListRects = []
-                                }
-        listR (from, to) = CoordList { coordListSingles = []
-                                     , coordListRects = [(from, to)]
-                                     }
+        coordR rect = coords' [] [rect]
 
 elistOfPoint :: CharParser () CoordList
 elistOfPoint = try listOfPoint
@@ -385,3 +380,16 @@ gameResult = GameResultDraw <$ try (string "0")
 
 ruleset :: CharParser () Ruleset
 ruleset = toRuleset . fromSimpleText <$> simpleText False
+
+-- | A wrapper around 'CoordList' with a 'Monoid' instance used for parsing.
+-- The monoid does simple concatenation of the single and rectangle lists, so it
+-- is not appropriate for @CoordList@ proper, as it doesn't do duplicate removal
+-- between two @CoordList@s.
+newtype CoordListMonoid = CoordListMonoid { runCoordListMonoid :: CoordList }
+
+instance Monoid CoordListMonoid where
+  mempty = CoordListMonoid emptyCoordList
+
+  mappend (CoordListMonoid x) (CoordListMonoid y) =
+    CoordListMonoid $ coords' (coordListSingles x ++ coordListSingles y)
+                              (coordListRects x ++ coordListRects y)

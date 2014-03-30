@@ -51,7 +51,10 @@ tests = testGroup "Khumba.Goatee.Sgf.Monad" [
   modifyPropertyTests,
   modifyPropertyValueTests,
   modifyPropertyStringTests,
+  modifyPropertyCoordsTests,
   modifyGameInfoTests,
+  getMarkTests,
+  modifyMarkTests,
   addChildTests,
   gameInfoChangedTests
   ]
@@ -60,7 +63,26 @@ monadTests = testGroup "monad properties" [
   testCase "returns a value it's given" $
     let cursor = rootCursor $ node []
         (value, cursor') = runGo (return 3) cursor
-    in (value, cursorNode cursor') @?= (3, cursorNode cursor)
+    in (value, cursorNode cursor') @?= (3, cursorNode cursor),
+
+  testCase "getCursor works" $ do
+    let cursor = rootCursor nodeA
+        nodeA = node1 [SZ 3 3, B $ Just (0,0)] nodeB
+        nodeB = node1 [W $ Just (1,1)] nodeC
+        nodeC = node [B $ Just (2,2)]
+    nodeA @=? evalGo (liftM cursorNode getCursor) cursor
+    nodeB @=? evalGo (goDown 0 >> liftM cursorNode getCursor) cursor
+    nodeC @=? evalGo (goDown 0 >> goDown 0 >> liftM cursorNode getCursor) cursor,
+
+  testCase "getCoordState works" $ do
+    let cursor = child 0 $ child 0 $ rootCursor $
+                 node1 [SZ 2 2, B $ Just (0,0)] $
+                 node1 [W $ Just (1,0), TR $ coord1 (0,0)] $
+                 node [B $ Just (0,1), CR $ coord1 (1,0)]
+        action = mapM getCoordState [(0,0), (1,0), (0,1), (1,1)]
+        states = evalGo action cursor
+    map coordStone states @?= [Just Black, Just White, Just Black, Nothing]
+    map coordMark states @?= [Nothing, Just MarkCircle, Nothing, Nothing]
   ]
 
 navigationTests = testGroup "navigation" [
@@ -395,6 +417,29 @@ modifyPropertyStringTests =
             in cursorProperties result @?= []
           ]
 
+modifyPropertyCoordsTests = testGroup "modifyPropertyCoords" [
+  testCase "adds a property where there was none" $
+    let cursor = rootCursor $ node []
+        action = modifyPropertyCoords propertySL $ \[] -> [(0,0), (1,1)]
+    in [SL $ coords [(0,0), (1,1)]] @=? cursorProperties (execGo action cursor),
+
+  testCase "removes a property where there was one" $
+    let cursor = rootCursor $ node [TR $ coord1 (5,5)]
+        action = modifyPropertyCoords propertyTR $ \[(5,5)] -> []
+    in [] @=? cursorProperties (execGo action cursor),
+
+  testCase "modifies an existing property" $
+    let cursor = rootCursor $ node [CR $ coord1 (3,4)]
+        action = modifyPropertyCoords propertyCR $ \[(3,4)] -> [(2,2)]
+    in [CR $ coord1 (2,2)] @=? cursorProperties (execGo action cursor),
+
+  testCase "doesn't affect other properties" $
+    let cursor = rootCursor $ node [SQ $ coord1 (0,0), MA $ coord1 (1,1)]
+        action = modifyPropertyCoords propertyMA $ \[(1,1)] -> [(2,2)]
+    in [MA $ coord1 (2,2), SQ $ coord1 (0,0)] @=?
+       sortProperties (cursorProperties $ execGo action cursor)
+  ]
+
 modifyGameInfoTests = testGroup "modifyGameInfo" [
   testGroup "creates info on the root node, starting with none" [
      testCase "starting from the root node" $
@@ -448,6 +493,64 @@ modifyGameInfoTests = testGroup "modifyGameInfo" [
         [W $ Just (1,1)],
         [B $ Just (0,0)],
         [PB $ toSimpleText "Peanut butter", SZ 19 19]]
+  ]
+
+getMarkTests = testGroup "getMark" [
+  testCase "returns Nothing for no mark" $ do
+    Nothing @=? evalGo (getMark (0,0)) (rootCursor $ node [])
+    Nothing @=? evalGo (getMark (0,0)) (rootCursor $ node [W $ Just (0,0)]),
+
+  testCase "returns Just when a mark is present" $ do
+    Just MarkSquare @=? evalGo (getMark (1,2)) (rootCursor $ node [SQ $ coord1 (1,2)])
+    Just MarkTriangle @=? evalGo (getMark (1,1)) (rootCursor $ node [B $ Just (1,1),
+                                                                     TR $ coord1 (1,1),
+                                                                     SQ $ coord1 (1,2)]),
+
+  testCase "matches all marks" $ forM_ [minBound..maxBound] $ \mark ->
+    Just mark @=?
+    evalGo (getMark (0,0))
+           (rootCursor $ node [valuedPropertyInfoBuilder (markProperty mark) $
+                               coord1 (0,0)])
+  ]
+
+modifyMarkTests = testGroup "modifyMark" [
+  testCase "creates a mark where there was none" $
+    let cursor = rootCursor $ node []
+        action = do modifyMark (\Nothing -> Just MarkX) (0,0)
+                    getMark (0,0)
+    in Just MarkX @=? evalGo action cursor,
+
+  testCase "removes an existing mark" $
+    let cursor = rootCursor $ node [CR $ coord1 (0,0)]
+        action = do modifyMark (\(Just MarkCircle) -> Nothing) (0,0)
+                    getMark (0,0)
+    in Nothing @=? evalGo action cursor,
+
+  testCase "replaces an existing mark" $
+    let cursor = rootCursor $ node [CR $ coord1 (0,0)]
+        action = do modifyMark (\(Just MarkCircle) -> Just MarkX) (0,0)
+                    getMark (0,0)
+    in Just MarkX @=? evalGo action cursor,
+
+  testCase "adds on to an existing mark property" $
+    let cursor = rootCursor $ node [MA $ coord1 (0,0)]
+        action = do modifyMark (\Nothing -> Just MarkX) (1,0)
+                    mapM getMark [(0,0), (1,0)]
+    in [Just MarkX, Just MarkX] @=? evalGo action cursor,
+
+  testCase "removes from an existing mark property" $
+    let cursor = rootCursor $ node [MA $ coords [(0,0), (1,0), (0,1)]]
+        action = do modifyMark (\(Just MarkX) -> Nothing) (1,0)
+                    modifyMark (\(Just MarkX) -> Nothing) (0,1)
+                    mapM getMark [(0,0), (1,0), (0,1)]
+    in [Just MarkX, Nothing, Nothing] @=? evalGo action cursor,
+
+  testCase "removes and adds at the same time" $
+    let cursor = rootCursor $ node [MA $ coords [(0,0), (1,0), (0,1)]]
+        action = do modifyMark (\(Just MarkX) -> Just MarkSquare) (0,0)
+                    modifyMark (\(Just MarkX) -> Nothing) (0,1)
+                    mapM getMark [(0,0), (1,0), (0,1)]
+    in [Just MarkSquare, Just MarkX, Nothing] @=? evalGo action cursor
   ]
 
 addChildTests = testGroup "addChild" [

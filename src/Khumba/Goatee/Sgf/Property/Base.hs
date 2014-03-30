@@ -28,7 +28,11 @@ module Khumba.Goatee.Sgf.Property.Base (
   -- * Property metadata
   PropertyType(..),
   Descriptor(..), ValuedDescriptor(..),
-  PropertyInfo, ValuedPropertyInfo(valuedPropertyInfoBase),
+  PropertyInfo,
+  ValuedPropertyInfo(
+    valuedPropertyInfoBase,
+    valuedPropertyInfoValue,
+    valuedPropertyInfoBuilder),
   -- * Property declaration
   makePropertyInfo, makeValuedPropertyInfo,
   defProperty, defValuedProperty,

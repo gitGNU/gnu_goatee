@@ -24,6 +24,7 @@
 module Khumba.Goatee.Sgf.Property.Info where
 
 import Khumba.Goatee.Sgf.Property.Base
+import Khumba.Goatee.Sgf.Types
 
 -- Move properties.
 $(defValuedProperty "B" 'MoveProperty False 'maybeCoordPrinter)
@@ -190,3 +191,11 @@ instance Descriptor Property where
   propertyInherited = propertyInherited . propertyInfo
   propertyPredicate = propertyPredicate . propertyInfo
   propertyValuePrinter = propertyValuePrinter . propertyInfo
+
+-- | Returns the descriptor for a mark.
+markProperty :: Mark -> ValuedPropertyInfo CoordList
+markProperty MarkCircle = propertyCR
+markProperty MarkSelected = propertySL
+markProperty MarkSquare = propertySQ
+markProperty MarkTriangle = propertyTR
+markProperty MarkX = propertyMA

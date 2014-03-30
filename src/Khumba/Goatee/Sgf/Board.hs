@@ -23,7 +23,7 @@ module Khumba.Goatee.Sgf.Board (
   RootInfo(..), GameInfo(..), emptyGameInfo, internalIsGameInfoNode,
   gameInfoToProperties,
   BoardState(..), boardWidth, boardHeight,
-  CoordState(..), rootBoardState, mapBoardCoords,
+  CoordState(..), rootBoardState, boardCoordState, mapBoardCoords,
   isValidMove, isCurrentValidMove,
   Cursor(..), rootCursor, cursorRoot, cursorChild, cursorChildren,
   cursorChildCount, cursorChildPlayingAt, cursorProperties,
@@ -271,6 +271,10 @@ rootBoardState rootNode =
   where SZ width height = fromMaybe (SZ defaultSize defaultSize) $
                           findProperty propertySZ rootNode
 
+-- | Returns the 'CoordState' for a coordinate on a board.
+boardCoordState :: Coord -> BoardState -> CoordState
+boardCoordState (x, y) board = boardCoordStates board !! y !! x
+
 mapBoardCoords :: (Int -> Int -> CoordState -> a) -> BoardState -> [a]
 mapBoardCoords fn board =
   concatMap applyRow $ zip [0..] $ boardCoordStates board
@@ -489,10 +493,6 @@ updateCoordStates fn coords board =
 updateCoordStates' :: (CoordState -> CoordState) -> CoordList -> BoardState -> BoardState
 updateCoordStates' fn coords = updateCoordStates fn (expandCoordList coords)
 
--- | Extracts the 'CoordState' for a coordinate on a board.
-getCoordState :: Coord -> BoardState -> CoordState
-getCoordState (x, y) board = boardCoordStates board !! y !! x
-
 -- | Updates properties of a 'BoardState' given that the player of the given
 -- color has just made a move.  Increments the move number and updates the
 -- player turn.
@@ -573,7 +573,7 @@ data ApplyMoveGroup = ApplyMoveGroup { applyMoveGroupOrigin :: Coord
 -- move was successful, and the result if so.
 applyMove :: ApplyMoveParams -> Color -> Coord -> BoardState -> ApplyMoveResult
 applyMove params color xy board =
-  let currentStone = coordStone $ getCoordState xy board
+  let currentStone = coordStone $ boardCoordState xy board
   in case currentStone of
     Just color -> if allowOverwrite params
                   then moveResult
@@ -599,11 +599,11 @@ applyMove params color xy board =
           | otherwise = ApplyMoveOk boardWithCaptures
 
 -- | Capture if there is a liberty-less group of a color at a point on
--- a board.  Removes captures stones from the board and accumulates
+-- a board.  Removes captured stones from the board and accumulates
 -- points for captured stones.
 maybeCapture :: Color -> Coord -> (BoardState, Int) -> (BoardState, Int)
 maybeCapture color xy result@(board, _) =
-  if coordStone (getCoordState xy board) /= Just color
+  if coordStone (boardCoordState xy board) /= Just color
   then result
   else let group = computeGroup board xy
        in if applyMoveGroupLiberties group /= 0
@@ -612,7 +612,7 @@ maybeCapture color xy result@(board, _) =
 
 computeGroup :: BoardState -> Coord -> ApplyMoveGroup
 computeGroup board xy =
-  if isNothing (coordStone $ getCoordState xy board)
+  if isNothing (coordStone $ boardCoordState xy board)
   then error "computeGroup called on an empty point."
   else let groupCoords = bucketFill board xy
        in ApplyMoveGroup { applyMoveGroupOrigin = xy
@@ -644,7 +644,7 @@ adjacentPoints board (x, y) = execWriter $ do
 getLibertiesOfGroup :: BoardState -> [Coord] -> Int
 getLibertiesOfGroup board groupCoords =
   length $ nub $ concatMap findLiberties groupCoords
-  where findLiberties xy = filter (\xy' -> isNothing $ coordStone $ getCoordState xy' board)
+  where findLiberties xy = filter (\xy' -> isNothing $ coordStone $ boardCoordState xy' board)
                                   (adjacentPoints board xy)
 
 -- | Expands a single coordinate on a board into a list of all the
@@ -656,10 +656,10 @@ bucketFill board xy0 = bucketFill' Set.empty [xy0]
         bucketFill' known (xy:xys) =
           if Set.member xy known
           then bucketFill' known xys
-          else let new = filter ((stone0 ==) . coordStone . flip getCoordState board)
+          else let new = filter ((stone0 ==) . coordStone . flip boardCoordState board)
                                 (adjacentPoints board xy)
                in bucketFill' (Set.insert xy known) (new ++ xys)
-        stone0 = coordStone $ getCoordState xy0 board
+        stone0 = coordStone $ boardCoordState xy0 board
 
 -- | Returns whether it is legal to place a stone of the given color at a point
 -- on a board.  Accepts out-of-bound coordinates and returns false.

@@ -27,6 +27,7 @@ module Khumba.Goatee.Sgf.Monad (
   , execGoT
   , execGo
   , getCursor
+  , getCoordState
     -- * Navigation
   , Step(..)
   , goUp
@@ -47,7 +48,10 @@ module Khumba.Goatee.Sgf.Monad (
   , modifyProperty
   , modifyPropertyValue
   , modifyPropertyString
+  , modifyPropertyCoords
   , modifyGameInfo
+  , getMark
+  , modifyMark
     -- * Children
   , addChild
     -- * Event handling
@@ -72,7 +76,7 @@ import Control.Monad.Writer.Class
 import Control.Applicative
 import qualified Control.Monad.State as State
 import Control.Monad.State (StateT)
-import Data.List (find, mapAccumL, nub)
+import Data.List (delete, find, mapAccumL, nub)
 import Data.Maybe
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board
@@ -151,6 +155,10 @@ takeStepM step = case step of
 class Monad go => MonadGo go where
   -- | Returns the current cursor.
   getCursor :: go Cursor
+
+  -- | Returns the 'CoordState' at the given point.
+  getCoordState :: Coord -> go CoordState
+  getCoordState coord = liftM (boardCoordState coord . cursorBoard) getCursor
 
   -- | Navigates up the tree.  It must be valid to do so, otherwise 'fail' is
   -- called.  Fires a 'navigationEvent' after moving.
@@ -251,11 +259,45 @@ class Monad go => MonadGo go where
                  -- the conversion back to a string for emptiness.
              in if null $ sgfToString sgf then Nothing else Just sgf
 
+  -- | Mutates the 'CoordList'-valued property attached to the current node
+  -- according to the given function.  Conversion between @CoordList@ and
+  -- @[Coord]@ is performed automatically.  The input list will be empty if the
+  -- current node either has the property with an empty value, or doesn't have
+  -- the property.  Returning an empty list removes the property from the node,
+  -- if it was set.
+  --
+  -- Importantly, this might not be specific enough for properties such as 'DD'
+  -- and 'VW' where a present, empty list has different semantics from the
+  -- property not being present.  In that case, 'modifyPropertyValue' is better.
+  modifyPropertyCoords :: ValuedDescriptor d CoordList => d -> ([Coord] -> [Coord]) -> go ()
+  modifyPropertyCoords descriptor fn =
+    modifyPropertyValue descriptor $ \value -> case fn $ maybe [] expandCoordList value of
+      [] -> Nothing
+      coords -> Just $ buildCoordList coords
+
   -- | Mutates the game info for the current path, returning the new info.  If
   -- the current node or one of its ancestors has game info properties, then
   -- that node is modified.  Otherwise, properties are inserted on the root
   -- node.
   modifyGameInfo :: (GameInfo -> GameInfo) -> go GameInfo
+
+  -- | Returns the 'Mark' at a point on the current node.
+  getMark :: Coord -> go (Maybe Mark)
+  getMark = liftM coordMark . getCoordState
+
+  -- | Calls the given function to modify the presence of a 'Mark' on the
+  -- current node.
+  modifyMark :: (Maybe Mark -> Maybe Mark) -> Coord -> go ()
+  modifyMark fn coord = do
+    maybeOldMark <- getMark coord
+    case (maybeOldMark, fn maybeOldMark) of
+      (Just oldMark, Nothing) -> remove oldMark
+      (Nothing, Just newMark) -> add newMark
+      (Just oldMark, Just newMark) | oldMark /= newMark -> remove oldMark >> add newMark
+      (Just _, Just _) -> return ()
+      (Nothing, Nothing) -> return ()
+    where remove mark = modifyPropertyCoords (markProperty mark) (delete coord)
+          add mark = modifyPropertyCoords (markProperty mark) (coord:)
 
   -- | Adds a child node to the current node at the given index, shifting all
   -- existing children at and after the index to the right.  The index must in
