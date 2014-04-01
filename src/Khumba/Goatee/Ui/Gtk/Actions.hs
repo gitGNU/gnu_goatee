@@ -26,8 +26,10 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   , myFileSaveAction
   , myFileSaveAsAction
   , myToolActions
+  , myHelpAboutAction
   ) where
 
+import Control.Exception (IOException, catch)
 import Control.Monad
 import Data.Maybe
 import Graphics.UI.Gtk
@@ -36,12 +38,14 @@ import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Printer
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Ui.Gtk.Common
+import qualified Paths_goatee as Paths
 
 data Actions = Actions { myFileNewAction :: Action
                        , myFileOpenAction :: Action
                        , myFileSaveAction :: Action
                        , myFileSaveAsAction :: Action
                        , myToolActions :: ActionGroup
+                       , myHelpAboutAction :: Action
                        }
 
 create :: UiCtrl ui => UiRef ui -> IO Actions
@@ -85,11 +89,15 @@ create uiRef = do
     (\radioAction -> do ui <- readUiRef uiRef
                         setTool ui =<< fmap toEnum (radioActionGetCurrentValue radioAction))
 
+  helpAboutAction <- actionNew "About" "About" Nothing Nothing
+  on helpAboutAction actionActivated helpAbout
+
   return Actions { myFileNewAction = fileNewAction
                  , myFileOpenAction = fileOpenAction
                  , myFileSaveAction = fileSaveAction
                  , myFileSaveAsAction = fileSaveAsAction
                  , myToolActions = toolActions
+                 , myHelpAboutAction = helpAboutAction
                  }
 
 initialize :: Actions -> IO ()
@@ -160,3 +168,39 @@ fileSave uiRef = do
       -- TODO Don't just write a single tree.
       writeFile path $
         printCollection Collection { collectionTrees = [cursorNode $ cursorRoot cursor] }
+
+helpAbout :: IO ()
+helpAbout = do
+  about <- aboutDialogNew
+  license <- fmap (fromMaybe fallbackLicense) readLicense
+  set about [ aboutDialogProgramName := "Goatee"
+            , aboutDialogCopyright := "Copyright 2014 Bryan Gardiner"
+            , aboutDialogLicense := Just license
+            , aboutDialogWebsite := "http://khumba.net/projects/goatee"
+            , aboutDialogAuthors := ["Bryan Gardiner <bog@khumba.net>"]
+            ]
+  dialogRun about
+  widgetDestroy about
+  return ()
+
+readLicense :: IO (Maybe String)
+readLicense = do
+  path <- Paths.getDataFileName "LICENSE"
+  fmap Just (readFile path) `catch` \(_ :: IOException) -> return Nothing
+
+fallbackLicense :: String
+fallbackLicense =
+  "Could not read the license file." ++
+  "\n" ++
+  "\nGoatee is free software: you can redistribute it and/or modify" ++
+  "\nit under the terms of the GNU Affero General Public License as published by" ++
+  "\nthe Free Software Foundation, either version 3 of the License, or" ++
+  "\n(at your option) any later version." ++
+  "\n" ++
+  "\nGoatee is distributed in the hope that it will be useful," ++
+  "\nbut WITHOUT ANY WARRANTY; without even the implied warranty of" ++
+  "\nMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the" ++
+  "\nGNU Affero General Public License for more details." ++
+  "\n" ++
+  "\nYou should have received a copy of the GNU Affero General Public License" ++
+  "\nalong with Goatee.  If not, see <http://www.gnu.org/licenses/>."

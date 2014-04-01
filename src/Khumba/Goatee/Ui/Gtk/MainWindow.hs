@@ -146,6 +146,12 @@ create uiRef = do
       containerAdd menuToolMenu menuItem
       containerAdd toolbar toolItem
 
+  menuHelp <- menuItemNewWithMnemonic "_Help"
+  menuHelpMenu <- menuNew
+  menuShellAppend menuBar menuHelp
+  menuItemSetSubmenu menuHelp menuHelpMenu
+  addActionsToMenu menuHelpMenu actions [Actions.myHelpAboutAction]
+
   infoLine <- InfoLine.create uiRef
   boxPackStart boardBox (InfoLine.myLabel infoLine) PackNatural 0
 
