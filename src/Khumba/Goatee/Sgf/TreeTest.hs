@@ -18,7 +18,7 @@
 module Khumba.Goatee.Sgf.TreeTest (tests) where
 
 import Data.Version (showVersion)
-import Khumba.Goatee.Sgf.Base
+import Khumba.Goatee.App (applicationName)
 import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.TestInstances ()
 import Khumba.Goatee.Sgf.Tree

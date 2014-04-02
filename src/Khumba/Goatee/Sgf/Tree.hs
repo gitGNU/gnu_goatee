@@ -31,7 +31,7 @@ import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sortBy)
 import Data.Version (showVersion)
-import Khumba.Goatee.Sgf.Base
+import Khumba.Goatee.App (applicationName)
 import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Types
 import Paths_goatee (version)

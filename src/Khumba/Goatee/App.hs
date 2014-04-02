@@ -15,12 +15,26 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
--- | Properties of the SGF modules or Goatee in general.
-module Khumba.Goatee.Sgf.Base (
+-- | Properties of Goatee the application.
+module Khumba.Goatee.App (
   applicationName,
+  applicationCopyright,
+  applicationWebsite,
+  applicationAuthors,
   ) where
 
--- | A non-empty string containing the name of this application (@"Goatee"@).
--- Not to be localized.
+-- | A string containing the name of this application, @"Goatee"@.
 applicationName :: String
 applicationName = "Goatee"
+
+-- | A user-presentable copyright message.
+applicationCopyright :: String
+applicationCopyright = "Copyright 2014 Bryan Gardiner"
+
+-- | The home page for Goatee on the web.
+applicationWebsite :: String
+applicationWebsite = "http://khumba.net/projects/goatee"
+
+-- | A list of contributors to Goatee.
+applicationAuthors :: [String]
+applicationAuthors = ["Bryan Gardiner <bog@khumba.net>"]

@@ -33,6 +33,7 @@ import Control.Exception (IOException, catch, finally)
 import Control.Monad
 import Data.Maybe
 import Graphics.UI.Gtk
+import Khumba.Goatee.App
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Printer
@@ -176,11 +177,11 @@ helpAbout :: IO ()
 helpAbout = do
   about <- aboutDialogNew
   license <- fmap (fromMaybe fallbackLicense) readLicense
-  set about [ aboutDialogProgramName := "Goatee"
-            , aboutDialogCopyright := "Copyright 2014 Bryan Gardiner"
+  set about [ aboutDialogProgramName := applicationName
+            , aboutDialogCopyright := applicationCopyright
             , aboutDialogLicense := Just license
-            , aboutDialogWebsite := "http://khumba.net/projects/goatee"
-            , aboutDialogAuthors := ["Bryan Gardiner <bog@khumba.net>"]
+            , aboutDialogWebsite := applicationWebsite
+            , aboutDialogAuthors := applicationAuthors
             ]
   dialogRun about
   widgetDestroy about
