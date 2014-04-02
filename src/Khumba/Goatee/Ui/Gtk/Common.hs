@@ -218,7 +218,9 @@ type Registration = Unique
 -- the new modes, in that order.
 type ModesChangedHandler = UiModes -> UiModes -> IO ()
 
-type FilePathChangedHandler = Maybe String -> Maybe FilePath -> IO ()
+-- | A handler for taking action when the file path for the current game
+-- changes.  Passed the old path and the new path, in that order.
+type FilePathChangedHandler = Maybe FilePath -> Maybe FilePath -> IO ()
 
 modifyModesPure :: UiCtrl ui => ui -> (UiModes -> UiModes) -> IO ()
 modifyModesPure ui f = modifyModes ui (return . f)

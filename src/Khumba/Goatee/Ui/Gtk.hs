@@ -224,7 +224,12 @@ instance UiCtrl UiCtrlImpl where
 
   getFilePath = readIORef . uiFilePath
 
-  setFilePath = writeIORef . uiFilePath
+  setFilePath ui path = do
+    oldPath <- readIORef $ uiFilePath ui
+    writeIORef (uiFilePath ui) path
+    handlers <- readIORef $ uiFilePathChangedHandlers ui
+    forM_ (Map.elems handlers) $ \record ->
+      filePathChangedHandlerFn record oldPath path
 
   registerFilePathChangedHandler ui owner fireImmediately handler = do
     unique <- newUnique

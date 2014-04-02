@@ -29,7 +29,7 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   , myHelpAboutAction
   ) where
 
-import Control.Exception (IOException, catch)
+import Control.Exception (IOException, catch, finally)
 import Control.Monad
 import Data.Maybe
 import Graphics.UI.Gtk
@@ -122,39 +122,42 @@ fileOpen uiRef = do
   mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
   response <- dialogRun dialog
   widgetHide dialog
-  when (response == ResponseOk) $ do
-    maybePath <- fileChooserGetFilename dialog
-    when (isJust maybePath) $ do
-      let path = fromJust maybePath
-      loadResult <- openFile (Just ui) path
-      case loadResult of
-        Left parseError -> do
-          errorDialog <- messageDialogNew
-                         Nothing
-                         []
-                         MessageError
-                         ButtonsOk
-                         ("Error loading " ++ path ++ ".\n\n" ++ show parseError)
-          dialogRun errorDialog
-          widgetDestroy errorDialog
-        Right _ -> return ()
-  widgetDestroy dialog
+  finally
+    (when (response == ResponseOk) $ do
+        maybePath <- fileChooserGetFilename dialog
+        when (isJust maybePath) $ do
+          let path = fromJust maybePath
+          loadResult <- openFile (Just ui) path
+          case loadResult of
+            Left parseError -> do
+              errorDialog <- messageDialogNew
+                             Nothing
+                             []
+                             MessageError
+                             ButtonsOk
+                             ("Error loading " ++ path ++ ".\n\n" ++ show parseError)
+              dialogRun errorDialog
+              widgetDestroy errorDialog
+            Right _ -> return ())
+    (widgetDestroy dialog)
 
 fileSaveAs :: UiCtrl ui => UiRef ui -> IO ()
 fileSaveAs uiRef = do
   ui <- readUiRef uiRef
-  dialog <- fileChooserDialogNew (Just "Save file")
+  dialog <- fileChooserDialogNew (Just "Save file as")
                                  Nothing
                                  FileChooserActionSave
                                  [(stockSave, ResponseOk),
                                   (stockCancel, ResponseCancel)]
   mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
   response <- dialogRun dialog
-  when (response == ResponseOk) $ do
-    maybePath <- fileChooserGetFilename dialog
-    whenMaybe maybePath $ \path -> do
-      setFilePath ui $ Just path
-      fileSave uiRef
+  finally
+    (when (response == ResponseOk) $ do
+        maybePath <- fileChooserGetFilename dialog
+        whenMaybe maybePath $ \path -> do
+          setFilePath ui $ Just path
+          fileSave uiRef)
+    (widgetDestroy dialog)
 
 fileSave :: UiCtrl ui => UiRef ui -> IO ()
 fileSave uiRef = do
