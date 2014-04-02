@@ -17,17 +17,21 @@
 
 module Khumba.Goatee.Sgf.TreeTest (tests) where
 
+import Data.Version (showVersion)
+import Khumba.Goatee.Sgf.Base
 import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.TestInstances ()
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Test.Common
+import Paths_goatee (version)
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Test)
 
 tests = testGroup "Khumba.Goatee.Sgf.Tree" [
   emptyNodeTests,
-  rootNodeWithSizeTests,
+  rootNodeTests,
   findPropertyTests,
   addPropertyTests,
   addChildTests
@@ -38,11 +42,17 @@ emptyNodeTests = testGroup "emptyNode" [
   testCase "has no children" $ [] @=? nodeChildren emptyNode
   ]
 
-rootNodeWithSizeTests = testGroup "rootNodeWithSize" [
+rootNodeTests = testGroup "rootNode" [
   testCase "sets SZ correctly" $ do
-    assertElem (SZ 9 9) $ nodeProperties $ rootNodeWithSize 9 9
-    assertElem (SZ 19 19) $ nodeProperties $ rootNodeWithSize 19 19
-    assertElem (SZ 9 5) $ nodeProperties $ rootNodeWithSize 9 5
+    assertElem (SZ 9 9) $ nodeProperties $ rootNode $ Just (9, 9)
+    assertElem (SZ 19 19) $ nodeProperties $ rootNode $ Just (19, 19)
+    assertElem (SZ 9 5) $ nodeProperties $ rootNode $ Just (9, 5),
+
+  testCase "sets AP correctly" $ do
+    let ap = AP (toSimpleText applicationName)
+                (toSimpleText $ showVersion version)
+    assertElem ap $ nodeProperties $ rootNode Nothing
+    assertElem ap $ nodeProperties $ rootNode $ Just (9, 9)
   ]
 
 findPropertyTests = testGroup "findProperty" [

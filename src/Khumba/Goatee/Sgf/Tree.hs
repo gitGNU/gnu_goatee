@@ -18,7 +18,8 @@
 -- | SGF data structures modelling the hierarchical game tree.
 module Khumba.Goatee.Sgf.Tree (
   Collection(..),
-  Node(..), emptyNode, rootNodeWithSize,
+  Node(..), NodeWithDeepEquality(..),
+  emptyNode, rootNode,
   findProperty, findProperty', findPropertyValue, findPropertyValue',
   addProperty, addChild, addChildAt,
   validateNode
@@ -29,8 +30,11 @@ import Control.Monad
 import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sortBy)
+import Data.Version (showVersion)
+import Khumba.Goatee.Sgf.Base
 import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Types
+import Paths_goatee (version)
 
 -- | An SGF collection of game trees.
 data Collection = Collection { collectionTrees :: [Node]
@@ -41,19 +45,43 @@ data Collection = Collection { collectionTrees :: [Node]
 -- nodes.
 data Node = Node { nodeProperties :: [Property]
                  , nodeChildren :: [Node]
-                 } deriving (Eq, Show)
+                 } deriving (Show)
+
+-- | A wrapper around 'Node' with an 'Eq' instance that considers two nodes
+-- equal iff they contain the same properties (not necessarily in the same
+-- order), and if they contain children (in the same order) whose nodes are
+-- recursively equal.
+--
+-- This instance is not on 'Node' directly because it is not the only obvious
+-- sense of equality (only comparing properties would be another one), and it's
+-- also potentially expensive.
+newtype NodeWithDeepEquality = NodeWithDeepEquality { nodeWithDeepEquality :: Node }
+
+instance Eq NodeWithDeepEquality where
+  node1 == node2 =
+    let n1 = nodeWithDeepEquality node1
+        n2 = nodeWithDeepEquality node2
+    in propertiesSorted n1 == propertiesSorted n2 &&
+       deepChildren n1 == deepChildren n2
+    where propertiesSorted = sortBy (compare `on` show) . nodeProperties
+          deepChildren = map NodeWithDeepEquality . nodeChildren
 
 -- | A node with no properties and no children.
 emptyNode :: Node
 emptyNode = Node { nodeProperties = [], nodeChildren = [] }
 
-rootNodeWithSize :: Int -- ^ Board width
-                 -> Int -- ^ Board height
-                 -> Node
-rootNodeWithSize width height =
-  Node { nodeProperties = [SZ width height]
-       , nodeChildren = []
-       }
+-- | Returns a fresh root 'Node' with 'AP' set to Goatee and optionally with a
+-- board size set via 'SZ'.
+rootNode :: Maybe (Int, Int) -> Node
+rootNode maybeSize =
+  let props = FF 4 :
+              GM 1 :
+              AP (toSimpleText applicationName)
+                 (toSimpleText $ showVersion version) :
+              maybe [] ((:[]) . uncurry SZ) maybeSize
+  in Node { nodeProperties = props
+          , nodeChildren = []
+          }
 
 -- | Searches for a matching property in a node's property list.
 findProperty :: Descriptor a => a -> Node -> Maybe Property

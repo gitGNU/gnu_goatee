@@ -19,6 +19,7 @@ module Khumba.Goatee.Sgf.BoardTest (tests) where
 
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.TestInstances ()
 import Khumba.Goatee.Sgf.TestUtils
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types

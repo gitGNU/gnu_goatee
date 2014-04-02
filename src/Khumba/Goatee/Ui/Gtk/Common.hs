@@ -172,8 +172,7 @@ class UiCtrl a where
   openBoard :: Maybe a -> Maybe FilePath -> Node -> IO a
 
   openNewBoard :: Maybe a -> Maybe (Int, Int) -> IO a
-  openNewBoard ui maybeSize =
-    openBoard ui Nothing $ maybe emptyNode (uncurry rootNodeWithSize) maybeSize
+  openNewBoard ui = openBoard ui Nothing . rootNode
 
   openFile :: Maybe a -> FilePath -> IO (Either String a)
   openFile ui file = do

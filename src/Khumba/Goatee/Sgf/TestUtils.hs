@@ -20,7 +20,7 @@ module Khumba.Goatee.Sgf.TestUtils (
   node
   , node1
   , node'
-  , rootNode
+  , root
   , child
   , sortProperties
   ) where
@@ -44,9 +44,11 @@ node' props children = emptyNode { nodeProperties = props
                                 , nodeChildren = children
                                 }
 
-rootNode :: Int -> Int -> [Property] -> [Node] -> Node
-rootNode width height props =
-  foldr addChild $ foldr addProperty (rootNodeWithSize width height) props
+-- | Creates a root node that starts with only a 'SZ' property.  This is more
+-- minimal than 'rootNode'.
+root :: Int -> Int -> [Property] -> [Node] -> Node
+root width height props =
+  foldr addChild $ foldr addProperty emptyNode (SZ width height:props)
 
 child :: Int -> Cursor -> Cursor
 child = flip cursorChild

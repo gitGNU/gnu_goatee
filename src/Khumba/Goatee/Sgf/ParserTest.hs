@@ -23,6 +23,7 @@ import Data.Maybe
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Parser
 import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.TestInstances ()
 import Khumba.Goatee.Sgf.TestUtils
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
@@ -83,34 +84,34 @@ baseCaseTests = testGroup "base cases" [
     parseOrFail "(;)" (@?= emptyNode),
 
   testCase "works with only a size property" $ do
-    parseOrFail "(;SZ[1])" (@?= rootNode 1 1 [] [])
-    parseOrFail "(;SZ[9])" (@?= rootNode 9 9 [] [])
+    parseOrFail "(;SZ[1])" (@?= root 1 1 [] [])
+    parseOrFail "(;SZ[9])" (@?= root 9 9 [] [])
   ]
 
 whitespaceTests = testGroup "whitespace handling" [
   testCase "parses with no extra whitespace" $
     parseOrFail "(;SZ[4];AB[aa][bb]AW[cc];W[dd])"
-    (@?= rootNode 4 4 [] [node1 [AB $ coords [(0,0), (1,1)], AW $ coords [(2,2)]] $
-                          node [W $ Just (3,3)]]),
+    (@?= root 4 4 [] [node1 [AB $ coords [(0,0), (1,1)], AW $ coords [(2,2)]] $
+                      node [W $ Just (3,3)]]),
 
   testCase "parses with spaces between nodes" $
-    parseOrFail "(;SZ[1] ;B[])" (@?= rootNode 1 1 [] [node [B Nothing]]),
+    parseOrFail "(;SZ[1] ;B[])" (@?= root 1 1 [] [node [B Nothing]]),
 
   testCase "parses with spaces between properties" $
-    parseOrFail "(;SZ[1] AB[aa])" (@?= rootNode 1 1 [AB $ coords [(0,0)]] []),
+    parseOrFail "(;SZ[1] AB[aa])" (@?= root 1 1 [AB $ coords [(0,0)]] []),
 
   testCase "parses with spaces between a property's name and value" $
-    parseOrFail "(;SZ [1])" (@?= rootNode 1 1 [] []),
+    parseOrFail "(;SZ [1])" (@?= root 1 1 [] []),
 
   testCase "parses with spaces between property values" $
-    parseOrFail "(;SZ[2]AB[aa] [bb])" (@?= rootNode 2 2 [AB $ coords [(0,0), (1,1)]] []),
+    parseOrFail "(;SZ[2]AB[aa] [bb])" (@?= root 2 2 [AB $ coords [(0,0), (1,1)]] []),
 
   testCase "parses with spaces between many elements" $
     parseOrFail " ( ; SZ [4] ; AB [aa:ad] [bb] AW [cc] ; W [dd] ; B [] ) "
-    (@?= rootNode 4 4 [] [node1 [AB $ coords' [(1,1)] [((0,0), (0,3))],
-                                 AW $ coords [(2,2)]] $
-                          node1 [W $ Just (3,3)] $
-                          node [B Nothing]])
+    (@?= root 4 4 [] [node1 [AB $ coords' [(1,1)] [((0,0), (0,3))],
+                             AW $ coords [(2,2)]] $
+                      node1 [W $ Just (3,3)] $
+                      node [B Nothing]])
 
   -- TODO Test handling of whitespace between an unknown property name and
   -- [value].
@@ -118,27 +119,27 @@ whitespaceTests = testGroup "whitespace handling" [
 
 passConversionTests = testGroup "B[tt]/W[tt] pass conversion" [
   testCase "converts B[tt] for a board sizes <=19x19" $ do
-    parseOrFail "(;SZ[1];B[tt])" (@?= rootNode 1 1 [] [node [B Nothing]])
-    parseOrFail "(;SZ[9];B[tt])" (@?= rootNode 9 9 [] [node [B Nothing]])
-    parseOrFail "(;SZ[19];B[tt])" (@?= rootNode 19 19 [] [node [B Nothing]]),
+    parseOrFail "(;SZ[1];B[tt])" (@?= root 1 1 [] [node [B Nothing]])
+    parseOrFail "(;SZ[9];B[tt])" (@?= root 9 9 [] [node [B Nothing]])
+    parseOrFail "(;SZ[19];B[tt])" (@?= root 19 19 [] [node [B Nothing]]),
 
   testCase "converts W[tt] for a board sizes <=19x19" $ do
-    parseOrFail "(;SZ[1];W[tt])" (@?= rootNode 1 1 [] [node [W Nothing]])
-    parseOrFail "(;SZ[9];W[tt])" (@?= rootNode 9 9 [] [node [W Nothing]])
-    parseOrFail "(;SZ[19];W[tt])" (@?= rootNode 19 19 [] [node [W Nothing]]),
+    parseOrFail "(;SZ[1];W[tt])" (@?= root 1 1 [] [node [W Nothing]])
+    parseOrFail "(;SZ[9];W[tt])" (@?= root 9 9 [] [node [W Nothing]])
+    parseOrFail "(;SZ[19];W[tt])" (@?= root 19 19 [] [node [W Nothing]]),
 
   testCase "doesn't convert B[tt] for a board sizes >19x19" $ do
-    parseOrFail "(;SZ[20];B[tt])" (@?= rootNode 20 20 [] [node [B $ Just (19, 19)]])
-    parseOrFail "(;SZ[21];B[tt])" (@?= rootNode 21 21 [] [node [B $ Just (19, 19)]]),
+    parseOrFail "(;SZ[20];B[tt])" (@?= root 20 20 [] [node [B $ Just (19, 19)]])
+    parseOrFail "(;SZ[21];B[tt])" (@?= root 21 21 [] [node [B $ Just (19, 19)]]),
 
   testCase "doesn't convert W[tt] for a board sizes >19x19" $ do
-    parseOrFail "(;SZ[20];W[tt])" (@?= rootNode 20 20 [] [node [W $ Just (19, 19)]])
-    parseOrFail "(;SZ[21];W[tt])" (@?= rootNode 21 21 [] [node [W $ Just (19, 19)]]),
+    parseOrFail "(;SZ[20];W[tt])" (@?= root 20 20 [] [node [W $ Just (19, 19)]])
+    parseOrFail "(;SZ[21];W[tt])" (@?= root 21 21 [] [node [W $ Just (19, 19)]]),
 
   testCase "doesn't convert non-move properties" $ do
     -- TODO These should error, rather than parsing fine.
-    parseOrFail "(;SZ[9];AB[tt])" (@?= rootNode 9 9 [] [node [AB $ coords [(19, 19)]]])
-    parseOrFail "(;SZ[9];TR[tt])" (@?= rootNode 9 9 [] [node [TR $ coords [(19, 19)]]])
+    parseOrFail "(;SZ[9];AB[tt])" (@?= root 9 9 [] [node [AB $ coords [(19, 19)]]])
+    parseOrFail "(;SZ[9];TR[tt])" (@?= root 9 9 [] [node [TR $ coords [(19, 19)]]])
   ]
 
 propertyValueArityTests = testGroup "property value arities" [

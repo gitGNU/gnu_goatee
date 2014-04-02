@@ -24,6 +24,7 @@ import Data.Maybe
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad
 import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.TestInstances ()
 import Khumba.Goatee.Sgf.TestUtils
 import Khumba.Goatee.Sgf.Types
 import Test.Framework (testGroup)
