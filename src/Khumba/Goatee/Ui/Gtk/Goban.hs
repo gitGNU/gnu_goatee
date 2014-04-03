@@ -26,6 +26,7 @@ module Khumba.Goatee.Ui.Gtk.Goban (
 
 import Control.Applicative ((<$>))
 import Control.Monad
+import qualified Data.Foldable as F
 import Data.IORef
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk hiding (Color, Cursor, drawLine)
@@ -67,10 +68,10 @@ stoneBorderColor color = case color of
 stoneBorderThickness :: Double
 stoneBorderThickness = 0.03
 
--- | The opacity, in @[0, 1]@, of a stone that should be drawn as transparent,
--- e.g. when hovering over a empty point on the board.
-transparentStoneOpacity :: Double
-transparentStoneOpacity = 0.7
+-- | The opacity, in @[0, 1]@, of a stone that should be drawn dimmed because of
+-- 'DD'.
+dimmedPointOpacity :: Double
+dimmedPointOpacity = 0.3
 
 -- | Returns the color that should be used to draw a 'Mark' on either an empty
 -- point, or one with a stone of the given color.
@@ -264,8 +265,6 @@ drawBoard uiRef hoverStateRef drawingArea = do
   hoverState <- readIORef hoverStateRef
 
   let board = cursorBoard cursor
-      cols = fromIntegral $ boardWidth board
-      rows = fromIntegral $ boardHeight board
 
   drawWindow <- widgetGetDrawWindow drawingArea
   changeCoords <- applyBoardCoordinates board drawingArea
@@ -276,14 +275,8 @@ drawBoard uiRef hoverStateRef drawingArea = do
     setRgb boardBgColor
     paint
 
-    setSourceRGB 0 0 0
-    rectangle 0.5 0.5 (cols - 1) (rows - 1)
+    -- Draw the grid and all points.
     gridLineWidth <- fst <$> deviceToUserDistance 1 0
-    setLineWidth gridLineWidth
-    -- TODO Don't draw any grid here.
-    stroke
-
-    -- Draw all points and the grid.
     sequence_ $ flip mapBoardCoords board $
       drawCoord board gridLineWidth (gridLineWidth * 2) tool hoverState
 
@@ -312,20 +305,24 @@ drawCoord board gridWidth gridBorderWidth tool hoverState x y coordInitial = do
         Just (hx, hy) | x == hx && y == hy ->
           modifyCoordForHover tool board hoverState coordInitial
         _ -> coordInitial
-  when (coordVisible coordToDraw) $ do
-    -- TODO Draw dimmed if (coordDimmed coordToDraw) is true.
+  when (coordVisible coordToDraw) $
     let x' = fromIntegral x
         y' = fromIntegral y
-    -- Translate the grid so that we can draw the stone from (0,0) to (1,1).
-    translate x' y'
-    -- Draw the grid, stone (if present), and mark (if present).
-    drawGrid board gridWidth gridBorderWidth x y
-    case coordStone coordToDraw of
-      Nothing -> return ()
-      Just color -> drawStone color False
-    maybe (return ()) (drawMark $ coordStone coordToDraw) $ coordMark coordToDraw
-    -- Restore the coordinate system for the next stone.
-    translate (-x') (-y')
+        draw = do
+          -- Translate the grid so that we can draw the stone from (0,0) to (1,1).
+          translate x' y'
+          -- Draw the grid, stone (if present), and mark (if present).
+          drawGrid board gridWidth gridBorderWidth x y
+          F.mapM_ drawStone $ coordStone coordToDraw
+          maybe (return ()) (drawMark $ coordStone coordToDraw) $ coordMark coordToDraw
+          -- Restore the coordinate system for the next stone.
+          translate (-x') (-y')
+    in if coordDimmed coordToDraw
+       then do pushGroup
+               draw
+               popGroupToSource
+               paintWithAlpha dimmedPointOpacity
+       else draw
 
 -- | Given a current tool, board, and hover, modifies a 'CoordState' to reflect
 -- that the user is hovering over the point.  The effect depends on the tool.
@@ -387,17 +384,13 @@ drawGrid board gridWidth gridBorderWidth x y = do
   setAntialias AntialiasDefault
 
 -- | Draws a stone from @(0, 0)@ to @(1, 1)@ in user coordinates.
-drawStone :: Color -- ^ The color of stone to draw.
-          -> Bool  -- ^ If true, the stone is transparent; if false, opaque.
-          -> Render ()
--- TODO drawStone transparency is unused, use or remove.
-drawStone color transparent = do
-  let opacity = if transparent then transparentStoneOpacity else 1
+drawStone :: Color -> Render ()
+drawStone color = do
   arc 0.5 0.5 (0.5 - stoneBorderThickness / 2) 0 (2 * pi)
-  setRgbA (stoneColor color) opacity
+  setRgb $ stoneColor color
   fillPreserve
   setLineWidth stoneBorderThickness
-  setRgbA (stoneBorderColor color) opacity
+  setRgb $ stoneBorderColor color
   stroke
 
 -- | Draws the given mark on the current point.  The color should be that of the
@@ -481,6 +474,3 @@ rgb255 r g b = (r / 255, g / 255, b / 255)
 
 setRgb :: Rgb -> Render ()
 setRgb (r, g, b) = setSourceRGB r g b
-
-setRgbA :: Rgb -> Double -> Render ()
-setRgbA (r, g, b) = setSourceRGBA r g b
