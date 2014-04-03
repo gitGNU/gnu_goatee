@@ -277,8 +277,29 @@ drawBoard uiRef hoverStateRef drawingArea = do
 
     -- Draw the grid and all points.
     gridLineWidth <- fst <$> deviceToUserDistance 1 0
-    sequence_ $ flip mapBoardCoords board $
-      drawCoord board gridLineWidth (gridLineWidth * 2) tool hoverState
+
+    let coordStatesToDraw :: [(Int, Int, CoordState)]
+        coordStatesToDraw = flip mapBoardCoords board $ \x y state ->
+          let state' = case hoverCoord hoverState of
+                Just (hx, hy) | x == hx && y == hy ->
+                  modifyCoordForHover tool board hoverState state
+                _ -> state
+          in (x, y, state')
+
+        drawCoord' = drawCoord board gridLineWidth (gridLineWidth * 2)
+
+    -- First draw points that are visible and not dimmed.
+    forM_ coordStatesToDraw $ \(x, y, state) ->
+      when (coordVisible state && not (coordDimmed state)) $ drawCoord' x y state
+
+    -- Then draw visible but dimmed points.  This is performed under a single
+    -- Cairo group for performance reasons.  (Having a group for each dimmed
+    -- point is *really* slow with a board full of dimmed points.)
+    pushGroup
+    forM_ coordStatesToDraw $ \(x, y, state) ->
+      when (coordVisible state && coordDimmed state) $ drawCoord' x y state
+    popGroupToSource
+    paintWithAlpha dimmedPointOpacity
 
     -- Draw non-CoordState-based annotations.
     unless (null (boardLines board) && null (boardArrows board)) $ do
@@ -292,37 +313,21 @@ drawBoard uiRef hoverStateRef drawingArea = do
 drawCoord :: BoardState -- ^ The board being drawn.
           -> Double     -- ^ The pixel width of the grid in the board's interior.
           -> Double     -- ^ The pixel width of the grid on the board's border.
-          -> Tool       -- ^ The current tool.
-          -> HoverState -- ^ The current hover state.
           -> Int        -- ^ The x-index of the point to be drawn.
           -> Int        -- ^ The y-index of the point to be drawn.
           -> CoordState -- ^ The point to be drawn.
           -> Render ()
-drawCoord board gridWidth gridBorderWidth tool hoverState x y coordInitial = do
-  -- If the mouse is hovering over the coord, then modify its appearance
-  -- according to the selected tool.
-  let coordToDraw = case hoverCoord hoverState of
-        Just (hx, hy) | x == hx && y == hy ->
-          modifyCoordForHover tool board hoverState coordInitial
-        _ -> coordInitial
-  when (coordVisible coordToDraw) $
-    let x' = fromIntegral x
-        y' = fromIntegral y
-        draw = do
-          -- Translate the grid so that we can draw the stone from (0,0) to (1,1).
-          translate x' y'
-          -- Draw the grid, stone (if present), and mark (if present).
-          drawGrid board gridWidth gridBorderWidth x y
-          F.mapM_ drawStone $ coordStone coordToDraw
-          maybe (return ()) (drawMark $ coordStone coordToDraw) $ coordMark coordToDraw
-          -- Restore the coordinate system for the next stone.
-          translate (-x') (-y')
-    in if coordDimmed coordToDraw
-       then do pushGroup
-               draw
-               popGroupToSource
-               paintWithAlpha dimmedPointOpacity
-       else draw
+drawCoord board gridWidth gridBorderWidth x y coord = do
+  let x' = fromIntegral x
+      y' = fromIntegral y
+  -- Translate the grid so that we can draw the stone from (0,0) to (1,1).
+  translate x' y'
+  -- Draw the grid, stone (if present), and mark (if present).
+  drawGrid board gridWidth gridBorderWidth x y
+  F.mapM_ drawStone $ coordStone coord
+  maybe (return ()) (drawMark $ coordStone coord) $ coordMark coord
+  -- Restore the coordinate system for the next stone.
+  translate (-x') (-y')
 
 -- | Given a current tool, board, and hover, modifies a 'CoordState' to reflect
 -- that the user is hovering over the point.  The effect depends on the tool.
