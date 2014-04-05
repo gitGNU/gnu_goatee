@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-echo "Hlint:"
+echo "HLint:"
 echo
 hlint src
 hlintResult=$?
@@ -71,11 +71,36 @@ while read file; do
 done < <(find hooks src -type f)
 # TODO ^ Rewrite this process substitution in a POSIX-friendly manner.
 
+# Check that all tracked files are listed in goatee.cabal.
+sdistResult=1
+set -e
+sdistDir="$(mktemp -d)"
+set +e
+cabal sdist --list-sources="$sdistDir/sdist-files-raw" >/dev/null
+if ! test -r "$sdistDir/sdist-files-raw"; then
+    echo "Failed to list source distribution files."
+else
+    sed 's!^\./!!' <"$sdistDir/sdist-files-raw" | sort | uniq >"$sdistDir/sdist-files"
+    git ls-files | sort >"$sdistDir/tracked-files"
+    if ! cmp "$sdistDir/tracked-files" "$sdistDir/sdist-files" >/dev/null; then
+	echo
+	echo "Some files are missing from the source distribution."
+	echo "Please add them to the Cabal file."
+	echo "Diff between expected (tracked) files and actual files:"
+	echo
+	diff -u "$sdistDir/tracked-files" "$sdistDir/sdist-files"
+    else
+	sdistResult=0
+    fi
+fi
+rm -rf "$sdistDir"
+
 if test $hlintResult -eq 0 \
     -a $whitespaceResult -eq 0 \
     -a $tabsResult -eq 0 \
     -a $longLinesResult -eq 0 \
-    -a $legalResult -eq 0; then
+    -a $legalResult -eq 0 \
+    -a $sdistResult -eq 0; then
     exit 0
 else
     exit 1

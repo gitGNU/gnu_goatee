@@ -8,34 +8,121 @@ copyright: Copyright 2014 Bryan Gardiner
 author: Bryan Gardiner <bog@khumba.net>
 maintainer: Bryan Gardiner <bog@khumba.net>
 homepage: http://khumba.net/projects/goatee
+bug-reports: https://savannah.nongnu.org/projects/goatee/
 tested-with: GHC
-cabal-version: >=1.2
+cabal-version: >=1.8
 build-type: Simple
 data-files: LICENSE
+extra-source-files:
+    cabal.sh
+    hooks/git-pre-commit
+    hooks/lint
+    README
+    test.sh
 description:
     Goatee is a game editor for Go, written in Haskell.  It is developed in two
     parts: a library for working with SGF files, and a GUI for filling your Go
     fancy.  It aims to be full-featured, supporting all of the SGF spec and
     allowing for full customization of the game records you create.
 
+source-repository head
+    type: git
+    location: git://git.sv.gnu.org/goatee.git
+
+library
+    build-depends:
+        base,
+        containers,
+        mtl,
+        parsec,
+        template-haskell
+    exposed-modules:
+        Khumba.Goatee.App
+        Khumba.Goatee.Common
+        Khumba.Goatee.Sgf.Board
+        Khumba.Goatee.Sgf.Monad
+        Khumba.Goatee.Sgf.Parser
+        Khumba.Goatee.Sgf.Printer
+        Khumba.Goatee.Sgf.Property
+        Khumba.Goatee.Sgf.Tree
+        Khumba.Goatee.Sgf.Types
+    extensions:
+        FlexibleContexts
+        FlexibleInstances
+        FunctionalDependencies
+        MultiParamTypeClasses
+        UndecidableInstances
+    ghc-options: -W -fwarn-incomplete-patterns
+    hs-source-dirs: src
+    other-modules:
+        Khumba.Goatee.Sgf.Property.Base
+        Khumba.Goatee.Sgf.Property.Info
+        Paths_goatee
 
 executable goatee
     main-is: Main.hs
-    hs-source-dirs: src
-    other-modules: Paths_goatee
-    build-depends: base, cairo, containers, filepath, gtk, mtl, parsec,
+    build-depends:
+        base,
+        cairo,
+        containers,
+        filepath,
+        gtk,
+        goatee,
+        mtl,
+        parsec,
         template-haskell
-    extensions: ExistentialQuantification, FlexibleContexts, FlexibleInstances,
-        FunctionalDependencies, MultiParamTypeClasses, ScopedTypeVariables,
-        UndecidableInstances, ViewPatterns
+    extensions:
+        ExistentialQuantification
+        FlexibleContexts
+        FlexibleInstances
+        FunctionalDependencies
+        MultiParamTypeClasses
+        ScopedTypeVariables
+        UndecidableInstances
+        ViewPatterns
     ghc-options: -W -fwarn-incomplete-patterns
+    hs-source-dirs: src
+    other-modules:
+        Khumba.Goatee.Ui.Gtk.Actions
+        Khumba.Goatee.Ui.Gtk.Common
+        Khumba.Goatee.Ui.Gtk.GamePropertiesPanel
+        Khumba.Goatee.Ui.Gtk.Goban
+        Khumba.Goatee.Ui.Gtk
+        Khumba.Goatee.Ui.Gtk.InfoLine
+        Khumba.Goatee.Ui.Gtk.MainWindow
+        Khumba.Goatee.Ui.Gtk.Utils
+        Khumba.Goatee.Ui.Wx
+        Paths_goatee
 
 test-suite test-goatee
     type: exitcode-stdio-1.0
     main-is: Test.hs
     hs-source-dirs: src
-    build-depends: base, containers, HUnit, mtl, test-framework,
-                   test-framework-hunit
-    extensions: FlexibleContexts, FlexibleInstances, FunctionalDependencies,
-        MultiParamTypeClasses, UndecidableInstances
+    build-depends:
+        base,
+        containers,
+        HUnit,
+        mtl,
+        parsec,
+        template-haskell,
+        test-framework,
+        test-framework-hunit
+    extensions:
+        FlexibleContexts
+        FlexibleInstances
+        FunctionalDependencies
+        MultiParamTypeClasses
+        UndecidableInstances
     ghc-options: -W -fwarn-incomplete-patterns
+    other-modules:
+        Khumba.Goatee.CommonTest
+        Khumba.Goatee.Sgf.BoardTest
+        Khumba.Goatee.Sgf.MonadTest
+        Khumba.Goatee.Sgf.ParserTest
+        Khumba.Goatee.Sgf.PropertyTest
+        Khumba.Goatee.Sgf.TestInstances
+        Khumba.Goatee.Sgf.TestUtils
+        Khumba.Goatee.Sgf.TreeTest
+        Khumba.Goatee.Sgf.TypesTest
+        Khumba.Goatee.Test.Common
+        Test
