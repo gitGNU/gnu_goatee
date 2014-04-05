@@ -28,6 +28,7 @@ module Khumba.Goatee.Ui.Gtk.MainWindow (
 import Control.Applicative ((<$>))
 import Control.Monad
 import Control.Monad.Trans (liftIO)
+import qualified Data.Foldable as F
 import Data.IORef
 import Data.List (intersperse)
 import qualified Data.Map as Map
@@ -47,7 +48,7 @@ import qualified Khumba.Goatee.Ui.Gtk.Goban as Goban
 import Khumba.Goatee.Ui.Gtk.Goban (Goban)
 import qualified Khumba.Goatee.Ui.Gtk.InfoLine as InfoLine
 import Khumba.Goatee.Ui.Gtk.InfoLine (InfoLine)
-import System.FilePath
+import System.FilePath (takeFileName)
 import System.IO (hPutStrLn, stderr)
 
 -- | If false, then the up and down keys will move toward and away
@@ -75,7 +76,8 @@ data MainWindow ui = MainWindow { myUi :: UiRef ui
                                 , myGamePropertiesPanel :: GamePropertiesPanel ui
                                 , myGoban :: Goban ui
                                 , myInfoLine :: InfoLine ui
-                                , myFileChangedHandler :: IORef (Maybe Registration)
+                                , myDirtyChangedHandler :: IORef (Maybe Registration)
+                                , myFilePathChangedHandler :: IORef (Maybe Registration)
                                 }
 
 create :: UiCtrl ui => UiRef ui -> IO (MainWindow ui)
@@ -173,7 +175,8 @@ create uiRef = do
   gamePropertiesPanel <- GamePropertiesPanel.create uiRef
   notebookAppendPage controlsBook (GamePropertiesPanel.myWidget gamePropertiesPanel) "Properties"
 
-  fileChangedHandler <- newIORef Nothing
+  dirtyChangedHandler <- newIORef Nothing
+  filePathChangedHandler <- newIORef Nothing
 
   let mw = MainWindow { myUi = uiRef
                       , myWindow = window
@@ -181,7 +184,8 @@ create uiRef = do
                       , myGamePropertiesPanel = gamePropertiesPanel
                       , myGoban = goban
                       , myInfoLine = infoLine
-                      , myFileChangedHandler = fileChangedHandler
+                      , myDirtyChangedHandler = dirtyChangedHandler
+                      , myFilePathChangedHandler = filePathChangedHandler
                       }
 
   on window deleteEvent $ liftIO $ destruct mw >> return False
@@ -194,8 +198,10 @@ initialize me = do
   ui <- readUiRef (myUi me)
   windowCountInc ui
 
-  writeIORef (myFileChangedHandler me) =<<
-    liftM Just (registerFilePathChangedHandler ui "MainWindow" True $ const $ updateFilePath me)
+  writeIORef (myDirtyChangedHandler me) =<<
+    liftM Just (registerDirtyChangedHandler ui "MainWindow" False $ \_ -> updateWindowTitle me)
+  writeIORef (myFilePathChangedHandler me) =<<
+    liftM Just (registerFilePathChangedHandler ui "MainWindow" True $ \_ _ -> updateWindowTitle me)
 
   Actions.initialize $ myActions me
   GamePropertiesPanel.initialize $ myGamePropertiesPanel me
@@ -209,12 +215,21 @@ destruct me = do
   Goban.destruct $ myGoban me
   InfoLine.destruct $ myInfoLine me
 
+  ui <- readUiRef (myUi me)
+  F.mapM_ (unregisterDirtyChangedHandler ui) =<< readIORef (myDirtyChangedHandler me)
+  F.mapM_ (unregisterFilePathChangedHandler ui) =<< readIORef (myFilePathChangedHandler me)
+
   -- A main window owns a UI controller.  Once a main window is destructed,
   -- there should be no remaining handlers registered.
   -- TODO Revisit this if we have multiple windows under a controller.
-  ui <- readUiRef (myUi me)
   registeredHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
     "MainWindow.destruct: Warning, there are still handler(s) registered:" ++
+    concatMap (\handler -> "\n- " ++ show handler) handlers
+  registeredDirtyChangedHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
+    "MainWindow.destruct: Warning, there are still dirty changed handler(s) registered:" ++
+    concatMap (\handler -> "\n- " ++ show handler) handlers
+  registeredFilePathChangedHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
+    "MainWindow.destruct: Warning, there are still file path changed handler(s) registered:" ++
     concatMap (\handler -> "\n- " ++ show handler) handlers
   registeredModesChangedHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
     "MainWindow.destruct: Warning, there are still modes changed handler(s) registered:" ++
@@ -233,6 +248,11 @@ addActionsToMenu menu actions accessors =
   forM_ accessors $ \accessor ->
   containerAdd menu =<< actionCreateMenuItem (accessor actions)
 
-updateFilePath :: UiCtrl ui => MainWindow ui -> Maybe String -> IO ()
-updateFilePath me newPath =
-  windowSetTitle (myWindow me) $ maybe "(Untitled)" takeFileName newPath ++ " - Goatee"
+updateWindowTitle :: UiCtrl ui => MainWindow ui -> IO ()
+updateWindowTitle me = do
+  ui <- readUiRef $ myUi me
+  filePath <- getFilePath ui
+  dirty <- getDirty ui
+  let title = maybe "(Untitled)" takeFileName filePath ++ " - Goatee"
+      addDirty = if dirty then ('*':) else id
+  windowSetTitle (myWindow me) $ addDirty title

@@ -35,15 +35,15 @@ import Graphics.UI.Gtk hiding (Cursor, on)
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Tree
 import qualified Khumba.Goatee.Sgf.Monad as Monad
-import Khumba.Goatee.Sgf.Monad (Event, on)
+import Khumba.Goatee.Sgf.Monad (Event, on, childAddedEvent, propertiesChangedEvent)
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Khumba.Goatee.Ui.Gtk.MainWindow as MainWindow
 
 data UiHandler = forall handler. UiHandler String (Event UiGoM handler) handler
 
-data ModesChangedHandlerRecord =
-  ModesChangedHandlerRecord { modesChangedHandlerOwner :: String
-                            , modesChangedHandlerFn :: ModesChangedHandler
+data DirtyChangedHandlerRecord =
+  DirtyChangedHandlerRecord { dirtyChangedHandlerOwner :: String
+                            , dirtyChangedHandlerFn :: DirtyChangedHandler
                             }
 
 data FilePathChangedHandlerRecord =
@@ -51,7 +51,13 @@ data FilePathChangedHandlerRecord =
                                , filePathChangedHandlerFn :: FilePathChangedHandler
                                }
 
+data ModesChangedHandlerRecord =
+  ModesChangedHandlerRecord { modesChangedHandlerOwner :: String
+                            , modesChangedHandlerFn :: ModesChangedHandler
+                            }
+
 data UiCtrlImpl = UiCtrlImpl { uiAppState :: AppState
+                             , uiDirty :: IORef Bool
                              , uiFilePath :: IORef (Maybe FilePath)
                              , uiModes :: IORef UiModes
                              , uiCursor :: MVar Cursor
@@ -61,10 +67,12 @@ data UiCtrlImpl = UiCtrlImpl { uiAppState :: AppState
                              , uiBaseAction :: IORef (UiGoM ())
 
                                -- Ui action-related properties:
-                             , uiModesChangedHandlers ::
-                               IORef (Map Registration ModesChangedHandlerRecord)
+                             , uiDirtyChangedHandlers ::
+                               IORef (Map Registration DirtyChangedHandlerRecord)
                              , uiFilePathChangedHandlers ::
                                IORef (Map Registration FilePathChangedHandlerRecord)
+                             , uiModesChangedHandlers ::
+                               IORef (Map Registration ModesChangedHandlerRecord)
                              }
 
 instance UiCtrl UiCtrlImpl where
@@ -198,19 +206,23 @@ instance UiCtrl UiCtrlImpl where
     cursorVar <- newMVar cursor
     mainWindow <- MainWindow.create uiRef
 
+    dirty <- newIORef False
     filePath <- newIORef maybePath
     uiHandlers <- newIORef Map.empty
-    baseAction <- newIORef $ return ()
-    modesChangedHandlers <- newIORef Map.empty
+    baseAction <- newIORef $ buildBaseAction (readUiRef uiRef) Map.empty
+    dirtyChangedHandlers <- newIORef Map.empty
     filePathChangedHandlers <- newIORef Map.empty
+    modesChangedHandlers <- newIORef Map.empty
     let ui = UiCtrlImpl { uiAppState = appState
+                        , uiDirty = dirty
                         , uiFilePath = filePath
                         , uiModes = modesVar
                         , uiCursor = cursorVar
                         , uiHandlers = uiHandlers
                         , uiBaseAction = baseAction
-                        , uiModesChangedHandlers = modesChangedHandlers
+                        , uiDirtyChangedHandlers = dirtyChangedHandlers
                         , uiFilePathChangedHandlers = filePathChangedHandlers
+                        , uiModesChangedHandlers = modesChangedHandlers
                         }
     writeIORef uiRef' $ Just ui
 
@@ -250,6 +262,40 @@ instance UiCtrl UiCtrlImpl where
     when found $ writeIORef (uiFilePathChangedHandlers ui) handlers'
     return found
 
+  registeredFilePathChangedHandlers =
+    liftM (map filePathChangedHandlerOwner . Map.elems) . readIORef . uiFilePathChangedHandlers
+
+  getDirty = readIORef . uiDirty
+
+  setDirty ui newDirty = do
+    oldDirty <- readIORef $ uiDirty ui
+    unless (oldDirty == newDirty) $ do
+      writeIORef (uiDirty ui) newDirty
+      handlers <- readIORef $ uiDirtyChangedHandlers ui
+      forM_ (map dirtyChangedHandlerFn $ Map.elems handlers) ($ newDirty)
+
+  registerDirtyChangedHandler ui owner fireImmediately handler = do
+    unique <- newUnique
+    modifyIORef (uiDirtyChangedHandlers ui) $ Map.insert unique
+      DirtyChangedHandlerRecord { dirtyChangedHandlerOwner = owner
+                                , dirtyChangedHandlerFn = handler
+                                }
+    when fireImmediately $ do
+      dirty <- readIORef $ uiDirty ui
+      handler dirty
+    return unique
+
+  unregisterDirtyChangedHandler ui unique = do
+    handlers <- readIORef $ uiDirtyChangedHandlers ui
+    let (handlers', found) = if Map.member unique handlers
+                             then (Map.delete unique handlers, True)
+                             else (handlers, False)
+    when found $ writeIORef (uiDirtyChangedHandlers ui) handlers'
+    return found
+
+  registeredDirtyChangedHandlers =
+    liftM (map dirtyChangedHandlerOwner . Map.elems) . readIORef . uiDirtyChangedHandlers
+
 -- | 'runUiGo' for 'UiCtrlImpl' is implemented by taking the cursor MVar,
 -- running a Go action, putting the MVar, then running handlers.  Many types of
 -- actions the UI wants to perform need to be able to take the cursor
@@ -272,16 +318,26 @@ startNewBoard = openNewBoard Nothing
 startFile :: FilePath -> IO (Either String UiCtrlImpl)
 startFile = openFile Nothing
 
+buildBaseAction :: IO UiCtrlImpl -> Map Registration UiHandler -> UiGoM ()
+buildBaseAction uiGetter handlers =
+  let setDirtyTrue = afterGo $ do
+        ui <- uiGetter
+        setDirty ui True
+  in foldl' (\io (UiHandler _ event handler) -> io >> on event handler)
+            (do -- TODO This really calls for some sort of event hierarchy, so
+                -- that we can listen for all mutating events here, rather than
+                -- making it easy to forget to add new events here.
+                on childAddedEvent $ \_ _ -> setDirtyTrue
+                on propertiesChangedEvent $ \_ _ -> setDirtyTrue)
+            handlers
+
 rebuildBaseAction :: UiCtrlImpl -> IO ()
-rebuildBaseAction ui = do
-  handlers <- readIORef $ uiHandlers ui
-  writeIORef (uiBaseAction ui) $
-    foldl' (\io (UiHandler _ event handler) -> io >> on event handler)
-           (return ())
-           handlers
+rebuildBaseAction ui =
+  readIORef (uiHandlers ui) >>=
+  writeIORef (uiBaseAction ui) . buildBaseAction (return ui)
 
 fireModesChangedHandlers :: UiCtrlImpl -> UiModes -> UiModes -> IO ()
 fireModesChangedHandlers ui oldModes newModes = do
-  handlers <- readIORef (uiModesChangedHandlers ui)
+  handlers <- readIORef $ uiModesChangedHandlers ui
   forM_ (Map.elems handlers) $ \handler ->
     modesChangedHandlerFn handler oldModes newModes

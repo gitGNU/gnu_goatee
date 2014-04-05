@@ -167,11 +167,13 @@ fileSave uiRef = do
   maybePath <- getFilePath ui
   case maybePath of
     Nothing -> fileSaveAs uiRef
-    Just path ->
+    Just path -> do
       -- TODO Exception handling when the write fails.
       -- TODO Don't just write a single tree.
+      -- TODO Only save when dirty?  (Be careful not to break Save As on a non-dirty game.)
       writeFile path $
         printCollection Collection { collectionTrees = [cursorNode $ cursorRoot cursor] }
+      setDirty ui False
 
 helpAbout :: IO ()
 helpAbout = do

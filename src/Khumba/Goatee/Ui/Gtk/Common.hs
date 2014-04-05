@@ -26,8 +26,9 @@ module Khumba.Goatee.Ui.Gtk.Common (
   , runUiGoPure
   , UiCtrl(..)
   , Registration
-  , ModesChangedHandler
+  , DirtyChangedHandler
   , FilePathChangedHandler
+  , ModesChangedHandler
   , modifyModesPure
   , setTool
   , UiRef(UiRef)
@@ -209,17 +210,51 @@ class UiCtrl a where
   -- and removed.
   unregisterFilePathChangedHandler :: a -> Registration -> IO Bool
 
+  -- | Returns the owners of the currently registered 'FilePathChangedHandler's.
+  registeredFilePathChangedHandlers :: a -> IO [String]
+
+  -- | Returns whether the UI is dirty, i.e. whether there are unsaved changes
+  -- to the current game.
+  getDirty :: a -> IO Bool
+
+  -- | Sets the dirty state of the UI.
+  setDirty :: a -> Bool -> IO ()
+
+  -- | Registers a handler that will execute when the dirty state of the UI
+  -- changes.
+  registerDirtyChangedHandler :: a
+                              -> String
+                                 -- ^ The name of the caller, used to track what
+                                 -- components registered what handlers.
+                              -> Bool
+                                 -- ^ If true, the handler will be called
+                                 -- immediately after registration.
+                              -> DirtyChangedHandler
+                              -> IO Registration
+
+  -- | Unregisters the handler for a 'Registration' that was returned from
+  -- 'registerDirtyChangedHandler'.  Returns true if such a handler was found
+  -- and removed.
+  unregisterDirtyChangedHandler :: a -> Registration -> IO Bool
+
+  -- | Returns the owners of the currently registered 'DirtyChangedHandler's.
+  registeredDirtyChangedHandlers :: a -> IO [String]
+
 -- | A key that refers to registration of a handler with a UI controller.  Used
 -- to unregister handlers.
 type Registration = Unique
 
--- | A handler for taking action when UI modes change.  Passed the old modes and
--- the new modes, in that order.
-type ModesChangedHandler = UiModes -> UiModes -> IO ()
+-- | A handler for when the dirty state of the UI changes.  Passed the new dirty
+-- state.  The old dirty state is the logical negation of the new state.
+type DirtyChangedHandler = Bool -> IO ()
 
 -- | A handler for taking action when the file path for the current game
 -- changes.  Passed the old path and the new path, in that order.
 type FilePathChangedHandler = Maybe FilePath -> Maybe FilePath -> IO ()
+
+-- | A handler for taking action when UI modes change.  Passed the old modes and
+-- the new modes, in that order.
+type ModesChangedHandler = UiModes -> UiModes -> IO ()
 
 modifyModesPure :: UiCtrl ui => ui -> (UiModes -> UiModes) -> IO ()
 modifyModesPure ui f = modifyModes ui (return . f)
