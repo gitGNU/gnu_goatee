@@ -32,7 +32,7 @@ die() {
     (if test -s "$unstagedDiff"
         then git apply --whitespace=nowarn <"$unstagedDiff"
         else :
-	fi) && \
+        fi) && \
             git stash drop --quiet && \
             rm "$unstagedDiff"
     exit "${1:-1}"
