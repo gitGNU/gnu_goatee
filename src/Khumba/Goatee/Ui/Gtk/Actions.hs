@@ -25,6 +25,7 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   myFileSaveAsAction,
   myToolActions,
   myHelpAboutAction,
+  fileSave,
   ) where
 
 import Control.Exception (IOException, catch, finally)
@@ -34,15 +35,15 @@ import Graphics.UI.Gtk (
   Action,
   ActionGroup,
   AttrOp ((:=)),
-  ButtonsType (ButtonsOk),
+  ButtonsType (ButtonsOk, ButtonsYesNo),
   FileChooserAction (FileChooserActionOpen, FileChooserActionSave),
-  MessageType (MessageError),
+  MessageType (MessageError, MessageQuestion),
   RadioActionEntry (
     RadioActionEntry,
     radioActionAccelerator, radioActionLabel, radioActionName, radioActionStockId,
     radioActionTooltip, radioActionValue
     ),
-  ResponseId (ResponseCancel, ResponseOk),
+  ResponseId (ResponseCancel, ResponseOk, ResponseYes),
   aboutDialogAuthors, aboutDialogCopyright, aboutDialogLicense, aboutDialogNew,
   aboutDialogProgramName, aboutDialogWebsite,
   actionActivate, actionActivated, actionGroupAddActionWithAccel, actionGroupAddRadioActions,
@@ -57,12 +58,12 @@ import Graphics.UI.Gtk (
   widgetDestroy, widgetHide,
   )
 import Khumba.Goatee.App
-import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Printer
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Paths_goatee as Paths
+import System.Directory (doesFileExist)
 
 data Actions = Actions { myFileNewAction :: Action
                        , myFileOpenAction :: Action
@@ -90,11 +91,11 @@ create ui = do
 
   fileSaveAsAction <- actionNew "FileSaveAs" "Save file as..." Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileSaveAsAction $ Just "<Control><Shift>s"
-  on fileSaveAsAction actionActivated $ fileSaveAs ui
+  on fileSaveAsAction actionActivated $ void $ fileSaveAs ui
 
   fileSaveAction <- actionNew "FileSave" "Save file" Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileSaveAction $ Just "<Control>s"
-  on fileSaveAction actionActivated $ fileSave ui
+  on fileSaveAction actionActivated $ void $ fileSave ui
 
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
@@ -154,7 +155,12 @@ fileOpen ui = do
             Right _ -> return ())
     (widgetDestroy dialog)
 
-fileSaveAs :: UiCtrl ui => ui -> IO ()
+-- | Presents a file save dialog for the user to specify a file to write the
+-- current game to.  If the user provides a filename, then the game is written.
+-- If the user names an existing file, then another dialog confirms overwriting
+-- the existing file.  Returns true iff the user accepted the dialog(s) and the
+-- game was saved.
+fileSaveAs :: UiCtrl ui => ui -> IO Bool
 fileSaveAs ui = do
   dialog <- fileChooserDialogNew (Just "Save file as")
                                  Nothing
@@ -164,14 +170,42 @@ fileSaveAs ui = do
   mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
   response <- dialogRun dialog
   finally
-    (when (response == ResponseOk) $ do
-        maybePath <- fileChooserGetFilename dialog
-        whenMaybe maybePath $ \path -> do
-          setFilePath ui $ Just path
-          fileSave ui)
+    (case response of
+        ResponseOk -> do
+          maybePath <- fileChooserGetFilename dialog
+          case maybePath of
+            Just path -> do
+              confirm <- confirmSaveIfAlreadyExists path
+              if confirm
+                then do setFilePath ui $ Just path
+                        fileSave ui
+                else return False
+            _ -> return False
+        _ -> return False)
     (widgetDestroy dialog)
 
-fileSave :: UiCtrl ui => ui -> IO ()
+-- | If the given file already exists, then the user is shown a dialog box
+-- asking whether the file should be overwritten.  Returns true if the user says
+-- yes, or if the file doesn't exist.
+confirmSaveIfAlreadyExists :: FilePath -> IO Bool
+confirmSaveIfAlreadyExists path = do
+  exists <- doesFileExist path
+  if exists
+    then do dialog <- messageDialogNew
+                      Nothing
+                      []
+                      MessageQuestion
+                      ButtonsYesNo
+                      (path ++ " already exists.  Overwrite?")
+            response <- dialogRun dialog
+            widgetDestroy dialog
+            return $ response == ResponseYes
+    else return True
+
+-- | Saves the current game to a file.  If the current game is not currently
+-- tied to a file, then this will act identically to 'fileSaveAs'.  Returns true
+-- iff the game was saved.
+fileSave :: UiCtrl ui => ui -> IO Bool
 fileSave ui = do
   cursor <- readCursor ui
   maybePath <- getFilePath ui
@@ -184,6 +218,7 @@ fileSave ui = do
       writeFile path $
         printCollection Collection { collectionTrees = [cursorNode $ cursorRoot cursor] }
       setDirty ui False
+      return True
 
 helpAbout :: IO ()
 helpAbout = do

@@ -49,6 +49,7 @@ module Khumba.Goatee.Ui.Gtk.Common (
   fileFiltersForSgf,
   ) where
 
+import Control.Applicative ((<$>))
 import Control.Concurrent.MVar (MVar, newMVar)
 import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
@@ -60,6 +61,7 @@ import Khumba.Goatee.Sgf.Monad
 import Khumba.Goatee.Sgf.Parser
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
+import System.FilePath (takeFileName)
 
 -- | A structure for holding global UI information.
 data AppState = AppState { appWindowCount :: MVar Int
@@ -184,6 +186,13 @@ class UiCtrl a where
   -- | Returns the path to the file that the UI is currently displaying, or
   -- nothing if the UI is displaying an unsaved game.
   getFilePath :: a -> IO (Maybe FilePath)
+
+  -- | Returns the filename (base name, with no directories before it) that is
+  -- currently open in the UI, or if the UI is showing an unsaved game, then a
+  -- fallback "untitled" string.  As this may not be a real filename, it should
+  -- be used for display purposes only, and not for actually writing to.
+  getFileName :: a -> IO String
+  getFileName ui = maybe untitledFileName takeFileName <$> getFilePath ui
 
   -- | Sets the path to the file that the UI is currently displaying.  This
   -- changes the value returned by 'getFilePath' but does not do any saving or
@@ -392,3 +401,8 @@ fileFiltersForSgf = do
   fileFilterSetName all "All files (*)"
   fileFilterAddPattern all "*"
   return [sgf, all]
+
+-- | The name to display in the UI for a game that has not yet been saved to
+-- disk.
+untitledFileName :: String
+untitledFileName = "(Untitled)"

@@ -25,7 +25,7 @@ module Khumba.Goatee.Ui.Gtk.MainWindow (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (forM_, liftM, unless)
+import Control.Monad (forM_, liftM, unless, when)
 import Control.Monad.Trans (liftIO)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
@@ -36,25 +36,32 @@ import Data.Maybe (fromJust, fromMaybe, isJust)
 import Data.Tree (drawTree, unfoldTree)
 import Graphics.UI.Gtk (
   Action,
+  ButtonsType (ButtonsNone),
+  DialogFlags (DialogDestroyWithParent, DialogModal),
   Menu,
+  MessageType (MessageQuestion),
   Modifier (Shift),
   Packing (PackGrow, PackNatural),
+  ResponseId (ResponseCancel, ResponseNo, ResponseYes),
   Window,
   actionCreateMenuItem, actionCreateToolItem, actionGroupGetAction,
   boxPackStart,
   containerAdd,
   deleteEvent,
+  dialogAddButton, dialogRun,
   eventKeyName, eventModifier,
   hPanedNew,
   keyPressEvent,
   menuBarNew, menuItemNewWithMnemonic, menuItemSetSubmenu, menuNew, menuShellAppend,
+  messageDialogNew,
   notebookAppendPage, notebookNew,
   on,
   panedAdd1, panedAdd2, panedSetPosition,
   separatorMenuItemNew, separatorToolItemNew,
+  stockCancel, stockSave, stockSaveAs,
   toolbarNew,
   vBoxNew,
-  widgetShowAll,
+  widgetDestroy, widgetShowAll,
   windowNew, windowSetDefaultSize, windowSetTitle,
   )
 import Khumba.Goatee.Common
@@ -69,7 +76,6 @@ import qualified Khumba.Goatee.Ui.Gtk.Goban as Goban
 import Khumba.Goatee.Ui.Gtk.Goban (Goban)
 import qualified Khumba.Goatee.Ui.Gtk.InfoLine as InfoLine
 import Khumba.Goatee.Ui.Gtk.InfoLine (InfoLine)
-import System.FilePath (takeFileName)
 import System.IO (hPutStrLn, stderr)
 
 -- | If false, then the up and down keys will move toward and away
@@ -209,8 +215,13 @@ create ui = do
                       , myFilePathChangedHandler = filePathChangedHandler
                       }
 
-  on window deleteEvent $ liftIO $ destroy me >> return False
   initialize me
+
+  on window deleteEvent $ liftIO $ do
+    close <- prepareToClose me
+    when close $ destroy me
+    return $ not close
+
   return me
 
 -- | Initialization that must be done after the 'UiCtrl' is available.
@@ -266,8 +277,36 @@ addActionsToMenu menu actions accessors =
 updateWindowTitle :: UiCtrl ui => MainWindow ui -> IO ()
 updateWindowTitle me = do
   let ui = myUi me
-  filePath <- getFilePath ui
+  fileName <- getFileName ui
   dirty <- getDirty ui
-  let title = maybe "(Untitled)" takeFileName filePath ++ " - Goatee"
+  let title = fileName ++ " - Goatee"
       addDirty = if dirty then ('*':) else id
   windowSetTitle (myWindow me) $ addDirty title
+
+-- | Should be called before destroying the window.  Checks the dirty state of
+-- UI; if dirty, then a dialog prompts the user whether the game should be saved
+-- before closing, and giving the option to cancel closing.  Returns true if the
+-- window should be closed.
+prepareToClose :: UiCtrl ui => MainWindow ui -> IO Bool
+prepareToClose me = do
+  let ui = myUi me
+  dirty <- getDirty ui
+  if dirty
+    then do filePath <- getFilePath ui
+            fileName <- getFileName ui
+            dialog <- messageDialogNew
+                      (Just $ myWindow me)
+                      [DialogModal, DialogDestroyWithParent]
+                      MessageQuestion
+                      ButtonsNone
+                      (fileName ++ " has unsaved changes.  Save before closing?")
+            dialogAddButton dialog (maybe stockSaveAs (const stockSave) filePath) ResponseYes
+            dialogAddButton dialog "Close without saving" ResponseNo
+            dialogAddButton dialog stockCancel ResponseCancel
+            result <- dialogRun dialog
+            widgetDestroy dialog
+            case result of
+              ResponseYes -> Actions.fileSave $ myUi me
+              ResponseNo -> return True
+              _ -> return False
+    else return True
