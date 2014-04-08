@@ -18,8 +18,8 @@
 module Khumba.Goatee.Sgf.ParserTest (tests) where
 
 import Control.Applicative ((<$>), (<*))
-import Control.Monad
-import Data.Maybe
+import Control.Monad (forM_)
+import Data.Maybe (catMaybes)
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Parser
 import Khumba.Goatee.Sgf.Property
@@ -29,7 +29,7 @@ import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit hiding (Node, Test)
+import Test.HUnit ((@?=), assertFailure)
 import Text.ParserCombinators.Parsec (CharParser, eof, parse)
 
 -- Parses a string as a complete SGF document.  On success, executes the

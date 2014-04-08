@@ -17,10 +17,13 @@
 
 -- | General GTK utilities that don't exist in the Gtk2Hs.
 module Khumba.Goatee.Ui.Gtk.Utils (
-  onEntryChange
+  onEntryChange,
   ) where
 
-import Graphics.UI.Gtk
+import Graphics.UI.Gtk (
+  EntryClass, entryBufferDeletedText, entryBufferInsertedText, entryGetBuffer, entryGetText,
+  on,
+  )
 
 -- | Registers a handler to be called when the value contained in the entry's
 -- buffer changes.  The handler is called with the new value.

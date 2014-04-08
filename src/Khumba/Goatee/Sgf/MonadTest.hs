@@ -18,9 +18,10 @@
 module Khumba.Goatee.Sgf.MonadTest (tests) where
 
 import Control.Arrow ((&&&))
-import Control.Monad.Writer
+import Control.Monad (forM_, liftM, replicateM_, void)
+import Control.Monad.Writer (Writer, execWriter, runWriter, tell)
 import Data.List (unfoldr)
-import Data.Maybe
+import Data.Maybe (fromJust)
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad
 import Khumba.Goatee.Sgf.Property
@@ -29,7 +30,7 @@ import Khumba.Goatee.Sgf.TestUtils
 import Khumba.Goatee.Sgf.Types
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit hiding (Node, Test)
+import Test.HUnit ((@=?), (@?=))
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 

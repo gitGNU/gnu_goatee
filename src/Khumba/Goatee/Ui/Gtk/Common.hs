@@ -18,45 +18,45 @@
 -- | Common dependencies among all GTK+ UI code.  Contains class definitions and
 -- some common data declarations.
 module Khumba.Goatee.Ui.Gtk.Common (
-  AppState(appWindowCount)
-  , newAppState
-    -- * UI controllers
-  , UiGoM
-  , afterGo
-  , runUiGoPure
-  , UiCtrl(..)
-  , Registration
-  , DirtyChangedHandler
-  , FilePathChangedHandler
-  , ModesChangedHandler
-  , modifyModesPure
-  , setTool
-  , UiRef(UiRef)
-  , readUiRef
-    -- * UI views
-  , UiView(..)
-  , ViewRegistrations
-  , viewNewRegistrations
-  , viewRegister
-  , viewUnregisterAll
-    -- * UI modes
-  , UiModes(..)
-  , ViewMode(..)
-  , defaultUiModes
-  , Tool(..)
-  , initialTool
-  , toolOrdering
-  , toolLabel
-  , toolToColor
-  , fileFiltersForSgf
+  AppState(appWindowCount),
+  newAppState,
+  -- * UI controllers
+  UiGoM,
+  afterGo,
+  runUiGoPure,
+  UiCtrl(..),
+  Registration,
+  DirtyChangedHandler,
+  FilePathChangedHandler,
+  ModesChangedHandler,
+  modifyModesPure,
+  setTool,
+  UiRef(UiRef),
+  readUiRef,
+  -- * UI views
+  UiView(..),
+  ViewRegistrations,
+  viewNewRegistrations,
+  viewRegister,
+  viewUnregisterAll,
+  -- * UI modes
+  UiModes(..),
+  ViewMode(..),
+  defaultUiModes,
+  Tool(..),
+  initialTool,
+  toolOrdering,
+  toolLabel,
+  toolToColor,
+  fileFiltersForSgf,
   ) where
 
-import Control.Concurrent.MVar
+import Control.Concurrent.MVar (MVar, newMVar)
 import Control.Monad ((<=<))
 import Control.Monad.Writer (Writer, runWriter, tell)
-import Data.IORef
+import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Unique (Unique)
-import Graphics.UI.Gtk hiding (Color, Cursor)
+import Graphics.UI.Gtk (FileFilter, fileFilterAddPattern, fileFilterNew, fileFilterSetName)
 import Khumba.Goatee.Common (Seq(..))
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad

@@ -22,7 +22,7 @@ import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Types
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit hiding (Test)
+import Test.HUnit ((@=?))
 
 tests = testGroup "Khumba.Goatee.Sgf.Property" [
   propertyMetadataTests,

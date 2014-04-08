@@ -30,7 +30,7 @@ module Khumba.Goatee.Sgf.Types (
   ArrowList, LineList, LabelList, Mark(..),
   GameResult(..), fromGameResult,
   WinReason(..),
-  Ruleset(..), RulesetType(..), fromRuleset, toRuleset
+  Ruleset(..), RulesetType(..), fromRuleset, toRuleset,
   ) where
 
 import Data.Char (isSpace)

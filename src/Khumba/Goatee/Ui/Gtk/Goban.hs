@@ -17,25 +17,56 @@
 
 -- | A widget that renders an interactive Go board.
 module Khumba.Goatee.Ui.Gtk.Goban (
-  Goban
-  , create
-  , destruct
-  , initialize
-  , myDrawingArea
+  Goban,
+  create,
+  destruct,
+  initialize,
+  myDrawingArea,
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad
+import Control.Monad (forM_, unless, when)
 import qualified Data.Foldable as F
-import Data.IORef
-import Graphics.Rendering.Cairo
-import Graphics.UI.Gtk hiding (Color, Cursor, drawLine)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Graphics.Rendering.Cairo (
+  Antialias (AntialiasDefault, AntialiasNone),
+  Render,
+  arc,
+  closePath,
+  deviceToUser,
+  deviceToUserDistance,
+  fillPreserve,
+  liftIO,
+  lineTo,
+  moveTo,
+  paint,
+  paintWithAlpha,
+  popGroupToSource,
+  pushGroup,
+  rotate,
+  scale,
+  setAntialias,
+  setLineWidth,
+  setSourceRGB,
+  stroke,
+  translate,
+  )
+import Graphics.UI.Gtk (
+  DrawingArea,
+  EventMask (ButtonPressMask, LeaveNotifyMask, PointerMotionMask),
+  buttonPressEvent,
+  drawingAreaNew,
+  eventCoordinates,
+  exposeEvent,
+  leaveNotifyEvent,
+  motionNotifyEvent,
+  on,
+  renderWithDrawable,
+  widgetAddEvents, widgetGetDrawWindow, widgetGetSize, widgetQueueDraw,
+  )
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board hiding (isValidMove)
-import Khumba.Goatee.Sgf.Monad (
-  modifyMark,
-  childAddedEvent, navigationEvent, propertiesChangedEvent,
-  )
+import Khumba.Goatee.Sgf.Monad hiding (on)
 import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Ui.Gtk.Common
 

@@ -18,66 +18,49 @@
 -- | A monad for working with game trees.
 module Khumba.Goatee.Sgf.Monad (
   -- * The Go monad
-  GoT
-  , GoM
-  , runGoT
-  , runGo
-  , evalGoT
-  , evalGo
-  , execGoT
-  , execGo
-  , getCursor
-  , getCoordState
-    -- * Navigation
-  , Step(..)
-  , goUp
-  , goDown
-  , goToRoot
-  , goToGameInfoNode
-    -- * Remembering positions
-  , pushPosition
-  , popPosition
-  , dropPosition
-    -- * Properties
-  , getProperties
-  , modifyProperties
-  , getProperty
-  , getPropertyValue
-  , putProperty
-  , deleteProperty
-  , modifyProperty
-  , modifyPropertyValue
-  , modifyPropertyString
-  , modifyPropertyCoords
-  , modifyGameInfo
-  , getMark
-  , modifyMark
-    -- * Children
-  , addChild
-    -- * Event handling
-  , Event
-  , on
-  , fire
-    -- * Events
-  , childAddedEvent
-  , ChildAddedHandler
-  , gameInfoChangedEvent
-  , GameInfoChangedHandler
-  , navigationEvent
-  , NavigationHandler
-  , propertiesChangedEvent
-  , PropertiesChangedHandler
+  GoT, GoM,
+  runGoT, runGo,
+  evalGoT, evalGo,
+  execGoT, execGo,
+  getCursor, getCoordState,
+  -- * Navigation
+  Step(..), goUp, goDown, goToRoot, goToGameInfoNode,
+  -- * Remembering positions
+  pushPosition, popPosition, dropPosition,
+  -- * Properties
+  getProperties,
+  modifyProperties,
+  getProperty,
+  getPropertyValue,
+  putProperty,
+  deleteProperty,
+  modifyProperty,
+  modifyPropertyValue,
+  modifyPropertyString,
+  modifyPropertyCoords,
+  modifyGameInfo,
+  getMark,
+  modifyMark,
+  -- * Children
+  addChild,
+  -- * Event handling
+  Event, on, fire,
+  -- * Events
+  childAddedEvent, ChildAddedHandler,
+  gameInfoChangedEvent, GameInfoChangedHandler,
+  navigationEvent, NavigationHandler,
+  propertiesChangedEvent, PropertiesChangedHandler,
   ) where
 
-import Control.Monad
+import Control.Applicative ((<$>), Applicative ((<*>), pure))
+import Control.Monad (ap, liftM, when)
 import Control.Monad.Identity (Identity, runIdentity)
-import Control.Monad.Trans
-import Control.Monad.Writer.Class
-import Control.Applicative
+import Control.Monad.Trans (MonadIO, MonadTrans, lift, liftIO)
+import Control.Monad.Writer.Class (MonadWriter, listen, pass, tell, writer)
 import qualified Control.Monad.State as State
 import Control.Monad.State (StateT)
 import Data.List (delete, find, mapAccumL, nub)
-import Data.Maybe
+import Data.Maybe (fromMaybe, isJust, isNothing)
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Property

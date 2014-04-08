@@ -28,13 +28,13 @@ module Khumba.Goatee.Sgf.Board (
   Cursor(..), rootCursor, cursorRoot, cursorChild, cursorChildren,
   cursorChildCount, cursorChildPlayingAt, cursorProperties,
   cursorModifyNode,
-  colorToMove
+  colorToMove,
   ) where
 
 import Control.Monad (unless, when)
 import Control.Monad.Writer (execWriter, tell)
 import Data.List (find, intercalate, nub)
-import Data.Maybe
+import Data.Maybe (fromMaybe, isJust, isNothing)
 import qualified Data.Set as Set
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Property

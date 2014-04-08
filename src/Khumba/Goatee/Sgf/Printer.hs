@@ -17,11 +17,11 @@
 
 -- | Functions for serializing SGF trees.
 module Khumba.Goatee.Sgf.Printer (
-  printCollection
+  printCollection,
   ) where
 
-import Control.Monad
-import Control.Monad.Writer
+import Control.Monad (forM_)
+import Control.Monad.Writer (Writer, runWriter, tell)
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Tree

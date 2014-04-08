@@ -17,20 +17,20 @@
 
 -- | Common utilities used throughout the project.
 module Khumba.Goatee.Common (
-  listReplace
-  , listUpdate
-  , fromLeft
-  , fromRight
-  , onLeft
-  , onRight
-  , andEithers
-  , mapTuple
-  , whenMaybe
-  , cond
-  , whileM
-  , whileM'
-  , doWhileM
-  , Seq(..)
+  listReplace,
+  listUpdate,
+  fromLeft,
+  fromRight,
+  onLeft,
+  onRight,
+  andEithers,
+  mapTuple,
+  whenMaybe,
+  cond,
+  whileM,
+  whileM',
+  doWhileM,
+  Seq(..),
   ) where
 
 import Control.Arrow ((***))

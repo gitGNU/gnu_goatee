@@ -18,11 +18,12 @@
 -- | Main module, controls application start-up.
 module Main (main) where
 
-import Control.Monad
-import Graphics.UI.Gtk
+import Control.Monad (void)
+import Graphics.UI.Gtk (initGUI, mainGUI)
 --import Graphics.UI.WX (start)
---import Khumba.Goatee.Sgf
+--import Khumba.Goatee.Sgf.Board
 --import Khumba.Goatee.Sgf.Parser
+--import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Ui.Gtk
 --import Khumba.Goatee.Ui.Wx
 --import System.Environment (getArgs)

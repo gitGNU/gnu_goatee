@@ -18,15 +18,15 @@
 -- | A text widget that displays information about the game, including some
 -- overall information, as well as the current board position.
 module Khumba.Goatee.Ui.Gtk.InfoLine (
-  InfoLine
-  , create
-  , destruct
-  , initialize
-  , myLabel
+  InfoLine,
+  create,
+  destruct,
+  initialize,
+  myLabel,
   ) where
 
-import Data.Maybe
-import Graphics.UI.Gtk hiding (Cursor)
+import Data.Maybe (fromMaybe)
+import Graphics.UI.Gtk (Label, labelNew, labelSetMarkup)
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad (getCursor, childAddedEvent, navigationEvent, propertiesChangedEvent)
 import Khumba.Goatee.Ui.Gtk.Common

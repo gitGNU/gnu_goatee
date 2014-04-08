@@ -52,13 +52,17 @@ module Khumba.Goatee.Sgf.Property.Base (
   variationModePrinter,
   gameResultPrinter,
   rulesetPrinter,
-  unknownPropertyPrinter
+  unknownPropertyPrinter,
   ) where
 
-import Control.Monad
-import Data.Char
+import Control.Monad (liftM)
+import Data.Char (chr, ord)
 import Khumba.Goatee.Sgf.Types
-import Language.Haskell.TH
+import Language.Haskell.TH (
+  DecsQ, Name,
+  appE, caseE, conE, conP, lam1E, match, mkName, newName,
+  normalB, recP, stringE, valD, varE, varP, wildP,
+  )
 
 -- | An SGF property that gives a node meaning.
 data Property =

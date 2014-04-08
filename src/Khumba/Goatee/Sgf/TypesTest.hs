@@ -22,7 +22,7 @@ import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Test.Common
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit hiding (Test)
+import Test.HUnit ((@=?), Assertion)
 
 tests = testGroup "Khumba.Goatee.Sgf.Types" [
   expandCoordListTests,

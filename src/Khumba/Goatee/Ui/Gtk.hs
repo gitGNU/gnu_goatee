@@ -18,20 +18,28 @@
 -- | The main module for the GTK+ UI, used by clients of the UI.  Also
 -- implements the UI controller.
 module Khumba.Goatee.Ui.Gtk (
-  startBoard
-  , startNewBoard
-  , startFile
+  startBoard,
+  startNewBoard,
+  startFile,
   ) where
 
-import Control.Concurrent.MVar
-import Control.Monad
+import Control.Concurrent.MVar (MVar, newMVar, takeMVar, readMVar, putMVar, modifyMVar, modifyMVar_)
+import Control.Monad (forM_, liftM, unless, when)
 import Data.Foldable (foldl')
-import Data.IORef
+import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (isNothing)
 import Data.Unique (newUnique)
-import Graphics.UI.Gtk hiding (Cursor, on)
+import Graphics.UI.Gtk (
+  ButtonsType (ButtonsOk),
+  DialogFlags (DialogDestroyWithParent, DialogModal),
+  MessageType (MessageError),
+  dialogRun,
+  mainQuit,
+  messageDialogNew,
+  widgetDestroy,
+  )
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Tree
 import qualified Khumba.Goatee.Sgf.Monad as Monad

@@ -22,11 +22,11 @@ module Khumba.Goatee.Sgf.Tree (
   emptyNode, rootNode,
   findProperty, findProperty', findPropertyValue, findPropertyValue',
   addProperty, addChild, addChildAt,
-  validateNode
+  validateNode,
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad
+import Control.Monad (forM_, unless, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sortBy)

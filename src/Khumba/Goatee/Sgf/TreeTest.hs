@@ -27,7 +27,7 @@ import Khumba.Goatee.Test.Common
 import Paths_goatee (version)
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit hiding (Test)
+import Test.HUnit ((@=?), (@?=))
 
 tests = testGroup "Khumba.Goatee.Sgf.Tree" [
   emptyNodeTests,

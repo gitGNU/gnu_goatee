@@ -17,22 +17,47 @@
 
 -- | GTK+ 'Action' definitions.
 module Khumba.Goatee.Ui.Gtk.Actions (
-  Actions
-  , create
-  , initialize
-  , destruct
-  , myFileNewAction
-  , myFileOpenAction
-  , myFileSaveAction
-  , myFileSaveAsAction
-  , myToolActions
-  , myHelpAboutAction
+  Actions,
+  create,
+  initialize,
+  destruct,
+  myFileNewAction,
+  myFileOpenAction,
+  myFileSaveAction,
+  myFileSaveAsAction,
+  myToolActions,
+  myHelpAboutAction,
   ) where
 
 import Control.Exception (IOException, catch, finally)
-import Control.Monad
-import Data.Maybe
-import Graphics.UI.Gtk
+import Control.Monad (void, when)
+import Data.Maybe (fromJust, fromMaybe, isJust)
+import Graphics.UI.Gtk (
+  Action,
+  ActionGroup,
+  AttrOp ((:=)),
+  ButtonsType (ButtonsOk),
+  FileChooserAction (FileChooserActionOpen, FileChooserActionSave),
+  MessageType (MessageError),
+  RadioActionEntry (
+    RadioActionEntry,
+    radioActionAccelerator, radioActionLabel, radioActionName, radioActionStockId,
+    radioActionTooltip, radioActionValue
+    ),
+  ResponseId (ResponseCancel, ResponseOk),
+  aboutDialogAuthors, aboutDialogCopyright, aboutDialogLicense, aboutDialogNew,
+  aboutDialogProgramName, aboutDialogWebsite,
+  actionActivate, actionActivated, actionGroupAddActionWithAccel, actionGroupAddRadioActions,
+  actionGroupGetAction, actionGroupNew, actionNew,
+  fileChooserAddFilter, fileChooserDialogNew, fileChooserGetFilename,
+  dialogRun,
+  messageDialogNew,
+  on,
+  radioActionGetCurrentValue,
+  set,
+  stockCancel, stockOpen, stockSave,
+  widgetDestroy, widgetHide,
+  )
 import Khumba.Goatee.App
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board

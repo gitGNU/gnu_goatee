@@ -17,12 +17,12 @@
 
 -- | Test utilities for working with the SGF modules.
 module Khumba.Goatee.Sgf.TestUtils (
-  node
-  , node1
-  , node'
-  , root
-  , child
-  , sortProperties
+  node,
+  node1,
+  node',
+  root,
+  child,
+  sortProperties,
   ) where
 
 import Data.Function (on)

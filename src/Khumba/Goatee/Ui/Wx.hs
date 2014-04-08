@@ -18,14 +18,84 @@
 -- | A wxWidgets implementation of a Go board UI.
 module Khumba.Goatee.Ui.Wx where
 
-import Control.Concurrent.MVar
-import Control.Monad
-import Data.Maybe
-import Khumba.Goatee.Sgf
-import Khumba.Goatee.Common
-import Graphics.UI.WX hiding (Color, when)
-import Graphics.UI.WXCore.WxcDefs (wxBU_EXACTFIT)
+import Control.Concurrent.MVar (MVar, newMVar, modifyMVar, modifyMVar_, readMVar)
+import Control.Monad (join, void, when)
+import Data.Maybe (fromMaybe, isJust)
+import Khumba.Goatee.Sgf.Board
+import Khumba.Goatee.Sgf.Tree
+import Khumba.Goatee.Sgf.Types
 import qualified Graphics.UI.WX as WX
+import Graphics.UI.WX (
+  BrushKind (BrushHatch, BrushSolid),
+  DashStyle (DashDot),
+  DC,
+  HatchStyle (HatchFDiagonal),
+  Panel,
+  Point,
+  Point2 (Point),
+  Prop ((:=)),
+  Rect,
+  Size,
+  Size2D (Size),
+  PenKind (PenDash, PenSolid),
+  Window,
+  frame,
+  pointNull,
+  splitterWindow,
+  sizeNull,
+  black,
+  white,
+  buttonEx,
+  panel,
+  fullRepaintOnResize,
+  brushColor,
+  paint,
+  motion,
+  resize,
+  click,
+  menuPane,
+  staticText,
+  repaint,
+  brushKind,
+  circle,
+  clientSize,
+  close,
+  colorBlue,
+  colorGreen,
+  colorRed,
+  column,
+  command,
+  container,
+  dcWith,
+  downKey,
+  drawRect,
+  fill,
+  get,
+  hfill,
+  layout,
+  leftKey,
+  line,
+  menuBar,
+  menuItem,
+  menuLine,
+  menuQuit,
+  on,
+  penColor,
+  penKind,
+  pointAdd,
+  pt,
+  rectFromSize,
+  rgb,
+  rightKey,
+  row,
+  set,
+  sz,
+  text,
+  upKey,
+  vsplit,
+  widget,
+  )
+import Graphics.UI.WXCore.WxcDefs (wxBU_EXACTFIT)
 
 --data UiState = UiState { uiCursor :: MVar Cursor
 --                       }
@@ -75,9 +145,6 @@ data MouseState = MouseState { mouseCoordX :: Int
                              } deriving (Eq)
 
 boardFrame cursor = do
-  let board = cursorBoard cursor
-      info = boardGameInfo board
-
   -- Create variables for UI state.
   canvasInfoVar <- newMVar CanvasInfo { canvasSize = sizeNull
                                       , canvasBoardUL = pointNull
@@ -85,7 +152,6 @@ boardFrame cursor = do
                                       , canvasStoneRadius = 0
                                       }
   cursorVar <- newMVar cursor
-  toolVar <- newMVar ToolPlay
   mouseVar <- newMVar MouseState { mouseCoordX = -1
                                  , mouseCoordY = -1
                                  , mouseIsValidMove = False
@@ -151,7 +217,7 @@ boardFrame cursor = do
                    in doGoTo (return . findBottom)
 
   set boardPanel [on resize := onCanvasResize,
-                  on paint := drawBoard cursorVar canvasInfoVar mouseVar boardPanel,
+                  on paint := drawBoard cursorVar canvasInfoVar mouseVar,
                   on motion := updateMouseLocation canvasInfoVar cursorVar mouseVar False doRedraw,
                   on click := handleClick canvasInfoVar cursorVar mouseVar doRedraw]
 
@@ -162,11 +228,11 @@ boardFrame cursor = do
 
   -- Create a menubar.
   menuFile <- menuPane [text := "&File"]
-  menuFileNew <- menuItem menuFile [text := "&New\tCtrl+N",
-                                    on command := boardFrame $ rootCursor emptyNode]
+  menuItem menuFile [text := "&New\tCtrl+N",
+                     on command := boardFrame $ rootCursor emptyNode]
   menuLine menuFile
   -- TODO This is close, not quit.
-  menuFileQuit <- menuQuit menuFile [on command := close frame]
+  menuQuit menuFile [on command := close frame]
 
   -- Set up the window's layout.
   set frame [menuBar := [menuFile],
@@ -244,7 +310,6 @@ updateMouseLocation :: MVar CanvasInfo
 updateMouseLocation canvasInfoVar cursorVar mouseVar forceStateUpdate onChanged (Point x y) = do
   CanvasInfo { canvasBoardUL = Point x0 y0
              , canvasStoneLength = sl
-             , canvasStoneRadius = sr
              } <- readMVar canvasInfoVar
   let ix = (x - x0) `div` sl
       iy = (y - y0) `div` sl
@@ -311,20 +376,15 @@ handleClick canvasInfoVar cursorVar mouseVar onChanged mousePoint = do
 drawBoard :: MVar Cursor
           -> MVar CanvasInfo
           -> MVar MouseState
-          -> Panel a
           -> DC ()
           -> Rect
           -> IO ()
-drawBoard cursorVar canvasInfoVar mouseVar boardPanel dc _ = do
+drawBoard cursorVar canvasInfoVar mouseVar dc _ = do
   canvasInfo <- readMVar canvasInfoVar
   cursor <- readMVar cursorVar
   mouse <- readMVar mouseVar
   let board = cursorBoard cursor
-      CanvasInfo { canvasSize = canvasSize
-                 , canvasBoardUL = topLeft
-                 , canvasStoneLength = sl
-                 , canvasStoneRadius = sr
-                 } = canvasInfo
+      CanvasInfo { canvasSize = canvasSize } = canvasInfo
 
   -- Draw the background.
   set dc [penKind := PenSolid, brushKind := BrushSolid]
@@ -343,12 +403,12 @@ drawCoord :: BoardState
              -> CoordState
              -> IO ()
 drawCoord board canvasInfo mouse dc ix iy coord =
-  case coordVisibility coord of
-    CoordInvisible -> return ()
-    CoordDimmed -> dcWith dc
-                          [penKind := PenDash DashDot, brushKind := BrushHatch HatchFDiagonal]
-                          draw
-    CoordVisible -> draw
+  when (coordVisible coord) $
+  if coordDimmed coord
+  then dcWith dc
+       [penKind := PenDash DashDot, brushKind := BrushHatch HatchFDiagonal]
+       draw
+  else draw
   where draw = case coordStone coord of
           Just color -> drawStone canvasInfo dc ix iy (stoneStyle color)
           Nothing ->

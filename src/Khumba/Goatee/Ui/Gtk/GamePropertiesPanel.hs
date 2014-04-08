@@ -18,16 +18,38 @@
 -- | A panel that displays a vertical list of controls for editing a game's
 -- 'GameInfo'.
 module Khumba.Goatee.Ui.Gtk.GamePropertiesPanel (
-  GamePropertiesPanel
-  , create
-  , initialize
-  , destruct
-  , myWidget
+  GamePropertiesPanel,
+  create,
+  initialize,
+  destruct,
+  myWidget,
   ) where
 
-import Control.Monad
-import Data.Maybe
-import Graphics.UI.Gtk hiding (Cursor)
+import Control.Monad (forM_, void, when)
+import Data.Maybe (fromMaybe)
+import Graphics.UI.Gtk (
+  Entry,
+  Packing (PackGrow, PackNatural),
+  PolicyType (PolicyAutomatic),
+  TextView,
+  Widget,
+  WrapMode (WrapWord),
+  boxPackStart,
+  bufferChanged,
+  containerAdd,
+  entryNew, entrySetText,
+  get,
+  hSeparatorNew,
+  labelNewWithMnemonic, labelSetMnemonicWidget,
+  on,
+  scrolledWindowNew,
+  scrolledWindowSetPolicy,
+  tableAttachDefaults, tableNew, tableSetRowSpacing,
+  textBufferSetText, textBufferText,
+  textViewGetBuffer, textViewNew, textViewSetWrapMode,
+  toWidget,
+  vBoxNew,
+  )
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad hiding (on)
 import Khumba.Goatee.Sgf.Property

@@ -17,43 +17,48 @@
 
 -- | A parser for reading SGF files.
 module Khumba.Goatee.Sgf.Parser (
-  ParseError
-  , parseString
-  , parseFile
+  ParseError,
+  parseString,
+  parseFile,
 
-    -- * Visible for testing
-  , single
-  , number
-  , real
-  , double
-  , color
-  , text
-  , simpleText
-  , line
-  , point
-  , stone
-  , move
-  , compose
-  , gameType
-  , variationMode
-  , boardSize
-  , gameResult
-  , ruleset
+  -- * Visible for testing
+  single,
+  number,
+  real,
+  double,
+  color,
+  text,
+  simpleText,
+  line,
+  point,
+  stone,
+  move,
+  compose,
+  gameType,
+  variationMode,
+  boardSize,
+  gameResult,
+  ruleset,
   ) where
 
 import Control.Applicative ((<$), (<$>), (<*), (*>))
-import Control.Monad
-import Data.Char
+import Control.Monad (liftM, liftM2)
+import Data.Char (isUpper, ord)
 import qualified Data.Map as Map
 import Data.Map (Map)
-import Data.Maybe
-import Data.Monoid
+import Data.Maybe (catMaybes, fromMaybe)
+import Data.Monoid (Monoid, mappend, mconcat, mempty)
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Common
-import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec (
+  (<?>), (<|>), CharParser, ParseError,
+  anyChar, char, choice, digit, eof, many, many1,
+  noneOf, oneOf, option, parse, space, spaces, string,
+  try, upper,
+  )
 
 -- TODO Support FF versions 1-4.
 supportedFormatVersions :: [Int]

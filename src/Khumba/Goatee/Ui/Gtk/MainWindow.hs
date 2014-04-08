@@ -17,25 +17,47 @@
 
 -- | Implementation of the main window that contains the game board.
 module Khumba.Goatee.Ui.Gtk.MainWindow (
-  MainWindow
-  , create
-  , initialize
-  , destruct
-  , display
-  , myWindow
+  MainWindow,
+  create,
+  initialize,
+  destruct,
+  display,
+  myWindow,
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad
+import Control.Monad (forM_, liftM, unless)
 import Control.Monad.Trans (liftIO)
 import qualified Data.Foldable as F
-import Data.IORef
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (intersperse)
 import qualified Data.Map as Map
 import Data.Map (Map)
-import Data.Maybe
+import Data.Maybe (fromJust, fromMaybe, isJust)
 import Data.Tree (drawTree, unfoldTree)
-import Graphics.UI.Gtk
+import Graphics.UI.Gtk (
+  Action,
+  Menu,
+  Modifier (Shift),
+  Packing (PackGrow, PackNatural),
+  Window,
+  actionCreateMenuItem, actionCreateToolItem, actionGroupGetAction,
+  boxPackStart,
+  containerAdd,
+  deleteEvent,
+  eventKeyName, eventModifier,
+  hPanedNew,
+  keyPressEvent,
+  menuBarNew, menuItemNewWithMnemonic, menuItemSetSubmenu, menuNew, menuShellAppend,
+  notebookAppendPage, notebookNew,
+  on,
+  panedAdd1, panedAdd2, panedSetPosition,
+  separatorMenuItemNew, separatorToolItemNew,
+  toolbarNew,
+  vBoxNew,
+  widgetShowAll,
+  windowNew, windowSetDefaultSize, windowSetTitle,
+  )
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Tree

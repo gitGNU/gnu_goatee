@@ -20,12 +20,12 @@ module Khumba.Goatee.CommonTest (tests) where
 import qualified Control.Monad.State as State
 import Control.Monad.State (StateT, get, put, runStateT)
 import Control.Monad.Writer (execWriter, tell)
-import Data.IORef
-import Data.Monoid (mempty, mappend)
+import Data.IORef (modifyIORef, newIORef, readIORef)
+import Data.Monoid (mappend, mempty)
 import Khumba.Goatee.Common
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit hiding (Test)
+import Test.HUnit ((@=?))
 
 tests = testGroup "Khumba.Goatee.Common" [
   listReplaceTests,
