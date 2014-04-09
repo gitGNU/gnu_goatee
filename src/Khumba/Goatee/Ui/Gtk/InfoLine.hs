@@ -20,8 +20,7 @@
 module Khumba.Goatee.Ui.Gtk.InfoLine (
   InfoLine,
   create,
-  destruct,
-  initialize,
+  destroy,
   myLabel,
   ) where
 
@@ -31,24 +30,28 @@ import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad (getCursor, childAddedEvent, navigationEvent, propertiesChangedEvent)
 import Khumba.Goatee.Ui.Gtk.Common
 
-data InfoLine ui = InfoLine { myUi :: UiRef ui
+data InfoLine ui = InfoLine { myUi :: ui
                             , myRegistrations :: ViewRegistrations
                             , myLabel :: Label
                             }
 
 instance UiCtrl ui => UiView (InfoLine ui) ui where
   viewName = const "InfoLine"
-  viewUiRef = myUi
+  viewCtrl = myUi
   viewRegistrations = myRegistrations
 
-create :: UiCtrl ui => UiRef ui -> IO (InfoLine ui)
-create uiRef = do
+create :: UiCtrl ui => ui -> IO (InfoLine ui)
+create ui = do
   label <- labelNew Nothing
   registrations <- viewNewRegistrations
-  return InfoLine { myUi = uiRef
-                  , myRegistrations = registrations
-                  , myLabel = label
-                  }
+
+  let me = InfoLine { myUi = ui
+                    , myRegistrations = registrations
+                    , myLabel = label
+                    }
+
+  initialize me
+  return me
 
 initialize :: UiCtrl ui => InfoLine ui -> IO ()
 initialize me = do
@@ -58,13 +61,12 @@ initialize me = do
   viewRegister me propertiesChangedEvent $ const $ const updateAfter
   update me
 
-destruct :: UiCtrl ui => InfoLine ui -> IO ()
-destruct = viewUnregisterAll
+destroy :: UiCtrl ui => InfoLine ui -> IO ()
+destroy = viewUnregisterAll
 
 update :: UiCtrl ui => InfoLine ui -> IO ()
 update me = do
-  ui <- readUiRef $ myUi me
-  cursor <- readCursor ui
+  cursor <- readCursor $ myUi me
   updateWithCursor me cursor
 
 updateWithCursor :: UiCtrl ui => InfoLine ui -> Cursor -> IO ()

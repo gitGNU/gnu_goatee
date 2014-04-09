@@ -31,8 +31,6 @@ module Khumba.Goatee.Ui.Gtk.Common (
   ModesChangedHandler,
   modifyModesPure,
   setTool,
-  UiRef(UiRef),
-  readUiRef,
   -- * UI views
   UiView(..),
   ViewRegistrations,
@@ -52,7 +50,6 @@ module Khumba.Goatee.Ui.Gtk.Common (
   ) where
 
 import Control.Concurrent.MVar (MVar, newMVar)
-import Control.Monad ((<=<))
 import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Unique (Unique)
@@ -264,13 +261,6 @@ modifyModesPure ui f = modifyModes ui (return . f)
 setTool :: UiCtrl ui => ui -> Tool -> IO ()
 setTool ui tool = modifyModesPure ui $ \modes -> modes { uiTool = tool }
 
--- | An IO variable that points to a 'UiCtrl'.
-newtype UiRef ui = UiRef { getUiRef :: IORef (Maybe ui) }
-
-readUiRef :: UiCtrl ui => UiRef ui -> IO ui
-readUiRef = maybe (fail message) return <=< readIORef . getUiRef
-  where message = "readUiRef failed; can't call me during initial UI setup."
-
 -- | A UI widget that listens to the state of a 'UiCtrl'.  This class makes it
 -- easy to register and unregister event handlers with 'viewRegister' and
 -- 'viewUnregisterAll'.
@@ -279,7 +269,7 @@ class UiCtrl ui => UiView view ui | view -> ui where
   viewName :: view -> String
 
   -- | A reference to the view's controller.
-  viewUiRef :: view -> UiRef ui
+  viewCtrl :: view -> ui
 
   -- | An updatable list of registrations for event handlers the view has
   -- registered.
@@ -294,8 +284,8 @@ viewNewRegistrations = newIORef []
 -- | Registers a handler for an event on a view.
 viewRegister :: UiView view ui => view -> Event UiGoM handler -> handler -> IO ()
 viewRegister view event handler = do
-  let name = viewName view
-  ui <- readUiRef $ viewUiRef view
+  let ui = viewCtrl view
+      name = viewName view
   registration <- register ui name event handler
   modifyIORef (viewRegistrations view) (registration:)
 
@@ -303,8 +293,8 @@ viewRegister view event handler = do
 -- 'viewRegistrations'.
 viewUnregisterAll :: UiView view ui => view -> IO ()
 viewUnregisterAll view = do
-  let registrations = viewRegistrations view
-  ui <- readUiRef $ viewUiRef view
+  let ui = viewCtrl view
+      registrations = viewRegistrations view
   readIORef registrations >>= mapM_ (unregister ui)
   writeIORef registrations []
 

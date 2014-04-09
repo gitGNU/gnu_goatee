@@ -19,8 +19,6 @@
 module Khumba.Goatee.Ui.Gtk.Actions (
   Actions,
   create,
-  initialize,
-  destruct,
   myFileNewAction,
   myFileOpenAction,
   myFileSaveAction,
@@ -74,8 +72,8 @@ data Actions = Actions { myFileNewAction :: Action
                        , myHelpAboutAction :: Action
                        }
 
-create :: UiCtrl ui => UiRef ui -> IO Actions
-create uiRef = do
+create :: UiCtrl ui => ui -> IO Actions
+create ui = do
   let tools = enumFrom minBound
 
   -- File actions.
@@ -84,21 +82,19 @@ create uiRef = do
   -- TODO Accelerators aren't working.
   fileNewAction <- actionNew "FileNew" "New file" Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileNewAction $ Just "<Control>n"
-  on fileNewAction actionActivated $ do
-    ui <- readUiRef uiRef
-    void $ openNewBoard (Just ui) Nothing
+  on fileNewAction actionActivated $ void $ openNewBoard (Just ui) Nothing
 
   fileOpenAction <- actionNew "FileOpen" "Open file..." Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileOpenAction $ Just "<Control>o"
-  on fileOpenAction actionActivated $ fileOpen uiRef
+  on fileOpenAction actionActivated $ fileOpen ui
 
   fileSaveAsAction <- actionNew "FileSaveAs" "Save file as..." Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileSaveAsAction $ Just "<Control><Shift>s"
-  on fileSaveAsAction actionActivated $ fileSaveAs uiRef
+  on fileSaveAsAction actionActivated $ fileSaveAs ui
 
   fileSaveAction <- actionNew "FileSave" "Save file" Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileSaveAction $ Just "<Control>s"
-  on fileSaveAction actionActivated $ fileSave uiRef
+  on fileSaveAction actionActivated $ fileSave ui
 
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
@@ -112,11 +108,14 @@ create uiRef = do
                        , radioActionValue = fromEnum tool
                        })
     (fromEnum initialTool)
-    (\radioAction -> do ui <- readUiRef uiRef
-                        setTool ui =<< fmap toEnum (radioActionGetCurrentValue radioAction))
+    (\radioAction -> setTool ui =<< fmap toEnum (radioActionGetCurrentValue radioAction))
 
   helpAboutAction <- actionNew "About" "About" Nothing Nothing
   on helpAboutAction actionActivated helpAbout
+
+  actionActivate =<<
+    fmap (fromMaybe $ error $ "Could not find the initial tool " ++ show initialTool ++ ".")
+         (actionGroupGetAction toolActions $ show initialTool)
 
   return Actions { myFileNewAction = fileNewAction
                  , myFileOpenAction = fileOpenAction
@@ -126,20 +125,8 @@ create uiRef = do
                  , myHelpAboutAction = helpAboutAction
                  }
 
-initialize :: Actions -> IO ()
-initialize actions =
-  -- Activate 'initialTool' (requires the controller, so we can't do it in the
-  -- construction phase).
-  actionActivate =<<
-    fmap (fromMaybe $ error $ "Could not find the initial tool " ++ show initialTool ++ ".")
-         (actionGroupGetAction (myToolActions actions) $ show initialTool)
-
-destruct :: Actions -> IO ()
-destruct _ = return ()
-
-fileOpen :: UiCtrl ui => UiRef ui -> IO ()
-fileOpen uiRef = do
-  ui <- readUiRef uiRef
+fileOpen :: UiCtrl ui => ui -> IO ()
+fileOpen ui = do
   dialog <- fileChooserDialogNew (Just "Open a file")
                                  Nothing
                                  FileChooserActionOpen
@@ -167,9 +154,8 @@ fileOpen uiRef = do
             Right _ -> return ())
     (widgetDestroy dialog)
 
-fileSaveAs :: UiCtrl ui => UiRef ui -> IO ()
-fileSaveAs uiRef = do
-  ui <- readUiRef uiRef
+fileSaveAs :: UiCtrl ui => ui -> IO ()
+fileSaveAs ui = do
   dialog <- fileChooserDialogNew (Just "Save file as")
                                  Nothing
                                  FileChooserActionSave
@@ -182,16 +168,15 @@ fileSaveAs uiRef = do
         maybePath <- fileChooserGetFilename dialog
         whenMaybe maybePath $ \path -> do
           setFilePath ui $ Just path
-          fileSave uiRef)
+          fileSave ui)
     (widgetDestroy dialog)
 
-fileSave :: UiCtrl ui => UiRef ui -> IO ()
-fileSave uiRef = do
-  ui <- readUiRef uiRef
+fileSave :: UiCtrl ui => ui -> IO ()
+fileSave ui = do
   cursor <- readCursor ui
   maybePath <- getFilePath ui
   case maybePath of
-    Nothing -> fileSaveAs uiRef
+    Nothing -> fileSaveAs ui
     Just path -> do
       -- TODO Exception handling when the write fails.
       -- TODO Don't just write a single tree.

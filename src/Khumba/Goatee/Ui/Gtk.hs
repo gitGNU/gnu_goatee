@@ -203,24 +203,19 @@ instance UiCtrl UiCtrlImpl where
     when (count == 0) mainQuit
 
   openBoard maybeUi maybePath rootNode = do
-    uiRef' <- newIORef Nothing
-    let uiRef = UiRef uiRef'
-        cursor = rootCursor rootNode
-
     appState <- case maybeUi of
       Nothing -> newAppState
       Just ui -> return $ uiAppState ui
-    modesVar <- newIORef defaultUiModes
-    cursorVar <- newMVar cursor
-    mainWindow <- MainWindow.create uiRef
-
     dirty <- newIORef False
     filePath <- newIORef maybePath
+    modesVar <- newIORef defaultUiModes
+    cursorVar <- newMVar $ rootCursor rootNode
     uiHandlers <- newIORef Map.empty
-    baseAction <- newIORef $ buildBaseAction (readUiRef uiRef) Map.empty
+    baseAction <- newIORef $ return ()
     dirtyChangedHandlers <- newIORef Map.empty
     filePathChangedHandlers <- newIORef Map.empty
     modesChangedHandlers <- newIORef Map.empty
+
     let ui = UiCtrlImpl { uiAppState = appState
                         , uiDirty = dirty
                         , uiFilePath = filePath
@@ -232,13 +227,12 @@ instance UiCtrl UiCtrlImpl where
                         , uiFilePathChangedHandlers = filePathChangedHandlers
                         , uiModesChangedHandlers = modesChangedHandlers
                         }
-    writeIORef uiRef' $ Just ui
 
-    -- Do initialization that requires the 'UiCtrl' to be available.
-    MainWindow.initialize mainWindow
+    rebuildBaseAction ui
+
+    mainWindow <- MainWindow.create ui
     readMVar (appWindowCount appState) >>= \n -> unless (n > 0) $
       fail "UiCtrlImpl expected MainWindow to increment the open window count."
-
     MainWindow.display mainWindow
     return ui
 
@@ -326,23 +320,19 @@ startNewBoard = openNewBoard Nothing
 startFile :: FilePath -> IO (Either String UiCtrlImpl)
 startFile = openFile Nothing
 
-buildBaseAction :: IO UiCtrlImpl -> Map Registration UiHandler -> UiGoM ()
-buildBaseAction uiGetter handlers =
-  let setDirtyTrue = afterGo $ do
-        ui <- uiGetter
-        setDirty ui True
-  in foldl' (\io (UiHandler _ event handler) -> io >> on event handler)
-            (do -- TODO This really calls for some sort of event hierarchy, so
-                -- that we can listen for all mutating events here, rather than
-                -- making it easy to forget to add new events here.
-                on childAddedEvent $ \_ _ -> setDirtyTrue
-                on propertiesChangedEvent $ \_ _ -> setDirtyTrue)
-            handlers
-
 rebuildBaseAction :: UiCtrlImpl -> IO ()
 rebuildBaseAction ui =
-  readIORef (uiHandlers ui) >>=
-  writeIORef (uiBaseAction ui) . buildBaseAction (return ui)
+  readIORef (uiHandlers ui) >>= writeIORef (uiBaseAction ui) . buildBaseAction
+  where buildBaseAction =
+          foldl' (\io (UiHandler _ event handler) -> io >> on event handler)
+                 commonAction
+        commonAction = do
+          -- TODO This really calls for some sort of event hierarchy, so
+          -- that we can listen for all mutating events here, rather than
+          -- making it easy to forget to add new events here.
+          on childAddedEvent $ \_ _ -> setDirtyTrue
+          on propertiesChangedEvent $ \_ _ -> setDirtyTrue
+        setDirtyTrue = afterGo $ setDirty ui True
 
 fireModesChangedHandlers :: UiCtrlImpl -> UiModes -> UiModes -> IO ()
 fireModesChangedHandlers ui oldModes newModes = do

@@ -20,8 +20,7 @@
 module Khumba.Goatee.Ui.Gtk.GamePropertiesPanel (
   GamePropertiesPanel,
   create,
-  initialize,
-  destruct,
+  destroy,
   myWidget,
   ) where
 
@@ -59,7 +58,7 @@ import Khumba.Goatee.Ui.Gtk.Common
 import Khumba.Goatee.Ui.Gtk.Utils
 
 data GamePropertiesPanel ui =
-  GamePropertiesPanel { myUi :: UiRef ui
+  GamePropertiesPanel { myUi :: ui
                       , myRegistrations :: ViewRegistrations
                       , myWidget :: Widget
                       , myBlackName :: Entry
@@ -73,11 +72,11 @@ data GamePropertiesPanel ui =
 
 instance UiCtrl ui => UiView (GamePropertiesPanel ui) ui where
   viewName = const "GamePropertiesPanel"
-  viewUiRef = myUi
+  viewCtrl = myUi
   viewRegistrations = myRegistrations
 
-create :: UiCtrl ui => UiRef ui -> IO (GamePropertiesPanel ui)
-create uiRef = do
+create :: UiCtrl ui => ui -> IO (GamePropertiesPanel ui)
+create ui = do
   let rows = 8
       cols = 2
   box <- vBoxNew False 0
@@ -140,21 +139,24 @@ create uiRef = do
 
   registrations <- viewNewRegistrations
 
-  return GamePropertiesPanel { myUi = uiRef
-                             , myRegistrations = registrations
-                             , myWidget = toWidget box
-                             , myBlackName = blackNameEntry
-                             , myBlackRank = blackRankEntry
-                             , myBlackTeam = blackTeamEntry
-                             , myWhiteName = whiteNameEntry
-                             , myWhiteRank = whiteRankEntry
-                             , myWhiteTeam = whiteTeamEntry
-                             , myComment = comment
-                             }
+  let me = GamePropertiesPanel { myUi = ui
+                               , myRegistrations = registrations
+                               , myWidget = toWidget box
+                               , myBlackName = blackNameEntry
+                               , myBlackRank = blackRankEntry
+                               , myBlackTeam = blackTeamEntry
+                               , myWhiteName = whiteNameEntry
+                               , myWhiteRank = whiteRankEntry
+                               , myWhiteTeam = whiteTeamEntry
+                               , myComment = comment
+                               }
+
+  initialize me
+  return me
 
 initialize :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
 initialize me = do
-  ui <- readUiRef $ myUi me
+  let ui = myUi me
 
   -- Watch for game info changes.
   viewRegister me gameInfoChangedEvent $ \_ newInfo ->
@@ -185,8 +187,8 @@ initialize me = do
           runUiGo ui $ void $ modifyGameInfo (updater value)
         strToMaybe str = if null str then Nothing else Just str
 
-destruct :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
-destruct = viewUnregisterAll
+destroy :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
+destroy = viewUnregisterAll
 
 updateUi :: GamePropertiesPanel ui -> Cursor -> IO ()
 updateUi me cursor = do

@@ -19,8 +19,7 @@
 module Khumba.Goatee.Ui.Gtk.Goban (
   Goban,
   create,
-  destruct,
-  initialize,
+  destroy,
   myDrawingArea,
   ) where
 
@@ -127,14 +126,14 @@ boardAnnotationArrowWidth = 0.1
 -- | A GTK widget that renders a Go board.
 --
 -- @ui@ should be an instance of 'UiCtrl'.
-data Goban ui = Goban { myUi :: UiRef ui
+data Goban ui = Goban { myUi :: ui
                       , myRegistrations :: ViewRegistrations
                       , myDrawingArea :: DrawingArea
                       }
 
 instance UiCtrl ui => UiView (Goban ui) ui where
   viewName = const "Goban"
-  viewUiRef = myUi
+  viewCtrl = myUi
   viewRegistrations = myRegistrations
 
 -- | Holds data relating to the state of the mouse hovering over the board.
@@ -148,8 +147,8 @@ data HoverState = HoverState { hoverCoord :: Maybe Coord
                              } deriving (Show)
 
 -- | Creates a 'Goban' for rendering Go boards of the given size.
-create :: UiCtrl ui => UiRef ui -> IO (Goban ui)
-create uiRef = do
+create :: UiCtrl ui => ui -> IO (Goban ui)
+create ui = do
   hoverStateRef <- newIORef HoverState { hoverCoord = Nothing
                                        , hoverIsValidMove = False
                                        }
@@ -159,28 +158,31 @@ create uiRef = do
                                ButtonPressMask,
                                PointerMotionMask]
   on drawingArea exposeEvent $ liftIO $ do
-    drawBoard uiRef hoverStateRef drawingArea
+    drawBoard ui hoverStateRef drawingArea
     return True
 
   on drawingArea motionNotifyEvent $ do
     mouseCoord <- fmap Just eventCoordinates
-    liftIO $ handleMouseMove uiRef hoverStateRef drawingArea mouseCoord
+    liftIO $ handleMouseMove ui hoverStateRef drawingArea mouseCoord
     return True
   on drawingArea leaveNotifyEvent $ do
-    liftIO $ handleMouseMove uiRef hoverStateRef drawingArea Nothing
+    liftIO $ handleMouseMove ui hoverStateRef drawingArea Nothing
     return True
 
   on drawingArea buttonPressEvent $ do
     mouseXy <- eventCoordinates
-    liftIO $ doToolAtPoint uiRef drawingArea mouseXy
+    liftIO $ doToolAtPoint ui drawingArea mouseXy
     return True
 
   registrations <- viewNewRegistrations
 
-  return Goban { myUi = uiRef
-               , myRegistrations = registrations
-               , myDrawingArea = drawingArea
-               }
+  let me = Goban { myUi = ui
+                 , myRegistrations = registrations
+                 , myDrawingArea = drawingArea
+                 }
+
+  initialize me
+  return me
 
 initialize :: UiCtrl ui => Goban ui -> IO ()
 initialize me = do
@@ -192,8 +194,8 @@ initialize me = do
   -- changes.
   update me
 
-destruct :: UiCtrl ui => Goban ui -> IO ()
-destruct = viewUnregisterAll
+destroy :: UiCtrl ui => Goban ui -> IO ()
+destroy = viewUnregisterAll
 
 update :: UiCtrl ui => Goban ui -> IO ()
 update = widgetQueueDraw . myDrawingArea
@@ -201,13 +203,12 @@ update = widgetQueueDraw . myDrawingArea
 -- | Called when the mouse is moved.  Updates the 'HoverState' according to the
 -- new mouse location, and redraws the board if necessary.
 handleMouseMove :: UiCtrl a
-                => UiRef a
+                => a
                 -> IORef HoverState
                 -> DrawingArea
                 -> Maybe (Double, Double)
                 -> IO ()
-handleMouseMove uiRef hoverStateRef drawingArea maybeClickCoord = do
-  ui <- readUiRef uiRef
+handleMouseMove ui hoverStateRef drawingArea maybeClickCoord = do
   maybeXy <- case maybeClickCoord of
     Nothing -> return Nothing
     Just (mouseX, mouseY) -> do
@@ -218,9 +219,8 @@ handleMouseMove uiRef hoverStateRef drawingArea maybeClickCoord = do
 
 -- | Applies the current tool at the given GTK coordinate, if such an action is
 -- valid.
-doToolAtPoint :: UiCtrl ui => UiRef ui -> DrawingArea -> (Double, Double) -> IO ()
-doToolAtPoint uiRef drawingArea (mouseX, mouseY) = do
-  ui <- readUiRef uiRef
+doToolAtPoint :: UiCtrl ui => ui -> DrawingArea -> (Double, Double) -> IO ()
+doToolAtPoint ui drawingArea (mouseX, mouseY) = do
   cursor <- readCursor ui
   let board = cursorBoard cursor
   maybeXy <- gtkToBoardCoordinates board drawingArea mouseX mouseY
@@ -288,9 +288,8 @@ gtkToBoardCoordinates board drawingArea x y = do
            else Just result
 
 -- | Fully redraws the board based on the current controller and UI state.
-drawBoard :: UiCtrl ui => UiRef ui -> IORef HoverState -> DrawingArea -> IO ()
-drawBoard uiRef hoverStateRef drawingArea = do
-  ui <- readUiRef uiRef
+drawBoard :: UiCtrl ui => ui -> IORef HoverState -> DrawingArea -> IO ()
+drawBoard ui hoverStateRef drawingArea = do
   cursor <- readCursor ui
   tool <- fmap uiTool (readModes ui)
   hoverState <- readIORef hoverStateRef
