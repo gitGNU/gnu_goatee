@@ -20,17 +20,15 @@ module Khumba.Goatee.Ui.Gtk.Utils (
   onEntryChange,
   ) where
 
-import Graphics.UI.Gtk (
-  EntryClass, entryBufferDeletedText, entryBufferInsertedText, entryGetBuffer, entryGetText,
-  on,
-  )
+import Control.Monad (void)
+import Graphics.UI.Gtk (EditableClass, EntryClass, editableChanged, entryGetText, on)
 
 -- | Registers a handler to be called when the value contained in the entry's
 -- buffer changes.  The handler is called with the new value.
-onEntryChange :: EntryClass self => self -> (String -> IO ()) -> IO ()
-onEntryChange entry handler = do
-  buffer <- entryGetBuffer entry
-  on buffer entryBufferInsertedText $ \_ _ _ -> runHandler
-  on buffer entryBufferDeletedText $ \_ _ -> runHandler
-  return ()
+onEntryChange :: (EditableClass self, EntryClass self)
+              => self
+              -> (String -> IO ())
+              -> IO ()
+onEntryChange entry handler =
+  void $ on entry editableChanged runHandler
   where runHandler = entryGetText entry >>= handler
