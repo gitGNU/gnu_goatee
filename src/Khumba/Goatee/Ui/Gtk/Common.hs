@@ -54,7 +54,7 @@ import Control.Concurrent.MVar (MVar, newMVar)
 import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Unique (Unique)
-import Graphics.UI.Gtk (FileFilter, fileFilterAddPattern, fileFilterNew, fileFilterSetName)
+import Graphics.UI.Gtk (FileFilter, Window, fileFilterAddPattern, fileFilterNew, fileFilterSetName)
 import Khumba.Goatee.Common (Seq(..))
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad
@@ -168,6 +168,13 @@ class UiCtrl a where
   -- | Decrements a counter for the number of open windows.  When this reaches
   -- zero, the UI will exit.
   windowCountDec :: a -> IO ()
+
+  -- | Returns the 'Window' for the game's 'MainWindow'.
+  getMainWindow :: a -> IO Window
+
+  -- | Hides and releases the game's 'MainWindow' (in effect closing the game,
+  -- with no prompting).
+  destroyMainWindow :: a -> IO ()
 
   openBoard :: Maybe a -> Maybe FilePath -> Node -> IO a
 

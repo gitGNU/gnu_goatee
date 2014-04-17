@@ -24,7 +24,7 @@ module Khumba.Goatee.Ui.Gtk (
   ) where
 
 import Control.Concurrent.MVar (MVar, newMVar, takeMVar, readMVar, putMVar, modifyMVar, modifyMVar_)
-import Control.Monad (forM_, liftM, unless, when)
+import Control.Monad ((<=<), forM_, join, liftM, unless, when)
 import Data.Foldable (foldl')
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
@@ -46,6 +46,7 @@ import qualified Khumba.Goatee.Sgf.Monad as Monad
 import Khumba.Goatee.Sgf.Monad (Event, on, childAddedEvent, propertiesChangedEvent)
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Khumba.Goatee.Ui.Gtk.MainWindow as MainWindow
+import Khumba.Goatee.Ui.Gtk.MainWindow (MainWindow)
 
 data UiHandler = forall handler. UiHandler String (Event UiGoM handler) handler
 
@@ -69,6 +70,8 @@ data UiCtrlImpl = UiCtrlImpl { uiAppState :: AppState
                              , uiFilePath :: IORef (Maybe FilePath)
                              , uiModes :: IORef UiModes
                              , uiCursor :: MVar Cursor
+
+                             , uiMainWindow :: IORef (Maybe (MainWindow UiCtrlImpl))
 
                                -- Go monad action-related properties:
                              , uiHandlers :: IORef (Map Registration UiHandler)
@@ -202,6 +205,10 @@ instance UiCtrl UiCtrlImpl where
              \n -> let m = n - 1 in return (m, m)
     when (count == 0) mainQuit
 
+  getMainWindow = fmap MainWindow.myWindow . getMainWindow'
+
+  destroyMainWindow = MainWindow.destroy <=< getMainWindow'
+
   openBoard maybeUi maybePath rootNode = do
     appState <- case maybeUi of
       Nothing -> newAppState
@@ -210,6 +217,7 @@ instance UiCtrl UiCtrlImpl where
     filePath <- newIORef maybePath
     modesVar <- newIORef defaultUiModes
     cursorVar <- newMVar $ rootCursor rootNode
+    mainWindowRef <- newIORef Nothing
     uiHandlers <- newIORef Map.empty
     baseAction <- newIORef $ return ()
     dirtyChangedHandlers <- newIORef Map.empty
@@ -221,6 +229,7 @@ instance UiCtrl UiCtrlImpl where
                         , uiFilePath = filePath
                         , uiModes = modesVar
                         , uiCursor = cursorVar
+                        , uiMainWindow = mainWindowRef
                         , uiHandlers = uiHandlers
                         , uiBaseAction = baseAction
                         , uiDirtyChangedHandlers = dirtyChangedHandlers
@@ -233,6 +242,7 @@ instance UiCtrl UiCtrlImpl where
     mainWindow <- MainWindow.create ui
     readMVar (appWindowCount appState) >>= \n -> unless (n > 0) $
       fail "UiCtrlImpl expected MainWindow to increment the open window count."
+    writeIORef mainWindowRef $ Just mainWindow
     MainWindow.display mainWindow
     return ui
 
@@ -339,3 +349,11 @@ fireModesChangedHandlers ui oldModes newModes = do
   handlers <- readIORef $ uiModesChangedHandlers ui
   forM_ (Map.elems handlers) $ \handler ->
     modesChangedHandlerFn handler oldModes newModes
+
+-- | Retrieves the 'MainWindow' owned by the controller.  It is an error to call
+-- this before the main window has been set up.
+getMainWindow' :: UiCtrlImpl -> IO (MainWindow UiCtrlImpl)
+getMainWindow' ui = join $
+                    fmap (maybe (fail "getMainWindow: No window available.") return) $
+                    readIORef $
+                    uiMainWindow ui

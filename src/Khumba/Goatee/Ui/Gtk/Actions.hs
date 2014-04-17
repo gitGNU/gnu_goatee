@@ -23,9 +23,11 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   myFileOpenAction,
   myFileSaveAction,
   myFileSaveAsAction,
+  myFileCloseAction,
   myToolActions,
   myHelpAboutAction,
   fileSave,
+  fileClose,
   ) where
 
 import Control.Exception (IOException, catch, finally)
@@ -35,7 +37,8 @@ import Graphics.UI.Gtk (
   Action,
   ActionGroup,
   AttrOp ((:=)),
-  ButtonsType (ButtonsOk, ButtonsYesNo),
+  ButtonsType (ButtonsNone, ButtonsOk, ButtonsYesNo),
+  DialogFlags (DialogDestroyWithParent, DialogModal),
   FileChooserAction (FileChooserActionOpen, FileChooserActionSave),
   MessageType (MessageError, MessageQuestion),
   RadioActionEntry (
@@ -43,18 +46,18 @@ import Graphics.UI.Gtk (
     radioActionAccelerator, radioActionLabel, radioActionName, radioActionStockId,
     radioActionTooltip, radioActionValue
     ),
-  ResponseId (ResponseCancel, ResponseOk, ResponseYes),
+  ResponseId (ResponseCancel, ResponseNo, ResponseOk, ResponseYes),
   aboutDialogAuthors, aboutDialogCopyright, aboutDialogLicense, aboutDialogNew,
   aboutDialogProgramName, aboutDialogWebsite,
   actionActivate, actionActivated, actionGroupAddActionWithAccel, actionGroupAddRadioActions,
   actionGroupGetAction, actionGroupNew, actionNew,
   fileChooserAddFilter, fileChooserDialogNew, fileChooserGetFilename,
-  dialogRun,
+  dialogAddButton, dialogRun,
   messageDialogNew,
   on,
   radioActionGetCurrentValue,
   set,
-  stockCancel, stockOpen, stockSave,
+  stockCancel, stockOpen, stockSave, stockSaveAs,
   widgetDestroy, widgetHide,
   )
 import Khumba.Goatee.App
@@ -69,6 +72,7 @@ data Actions = Actions { myFileNewAction :: Action
                        , myFileOpenAction :: Action
                        , myFileSaveAction :: Action
                        , myFileSaveAsAction :: Action
+                       , myFileCloseAction :: Action
                        , myToolActions :: ActionGroup
                        , myHelpAboutAction :: Action
                        }
@@ -97,6 +101,10 @@ create ui = do
   actionGroupAddActionWithAccel fileActions fileSaveAction $ Just "<Control>s"
   on fileSaveAction actionActivated $ void $ fileSave ui
 
+  fileCloseAction <- actionNew "FileClose" "Close" Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileCloseAction $ Just "<Control>w"
+  on fileCloseAction actionActivated $ void $ fileClose ui
+
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
   actionGroupAddRadioActions toolActions
@@ -122,6 +130,7 @@ create ui = do
                  , myFileOpenAction = fileOpenAction
                  , myFileSaveAction = fileSaveAction
                  , myFileSaveAsAction = fileSaveAsAction
+                 , myFileCloseAction = fileCloseAction
                  , myToolActions = toolActions
                  , myHelpAboutAction = helpAboutAction
                  }
@@ -219,6 +228,43 @@ fileSave ui = do
         printCollection Collection { collectionTrees = [cursorNode $ cursorRoot cursor] }
       setDirty ui False
       return True
+
+-- | Closes the game and all UI windows, etc. attached to the given controller.
+-- If the game is dirty, then a dialog first prompts the user whether to save,
+-- throw away changes, or abort the closing.
+fileClose :: UiCtrl ui => ui -> IO Bool
+fileClose ui = do
+  close <- confirmFileClose ui
+  when close $ destroyMainWindow ui
+  return close
+
+-- | Should be called before destroying the main window.  Checks the dirty
+-- state of UI; if dirty, then a dialog prompts the user whether the game
+-- should be saved before closing, and giving the option to cancel closing.
+-- Returns true if the window should be closed.
+confirmFileClose :: UiCtrl ui => ui -> IO Bool
+confirmFileClose ui = do
+  dirty <- getDirty ui
+  if dirty
+    then do filePath <- getFilePath ui
+            fileName <- getFileName ui
+            window <- getMainWindow ui
+            dialog <- messageDialogNew
+                      (Just window)
+                      [DialogModal, DialogDestroyWithParent]
+                      MessageQuestion
+                      ButtonsNone
+                      (fileName ++ " has unsaved changes.  Save before closing?")
+            dialogAddButton dialog (maybe stockSaveAs (const stockSave) filePath) ResponseYes
+            dialogAddButton dialog "Close without saving" ResponseNo
+            dialogAddButton dialog stockCancel ResponseCancel
+            result <- dialogRun dialog
+            widgetDestroy dialog
+            case result of
+              ResponseYes -> fileSave ui
+              ResponseNo -> return True
+              _ -> return False
+    else return True
 
 helpAbout :: IO ()
 helpAbout = do
