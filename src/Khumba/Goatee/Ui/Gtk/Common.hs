@@ -18,8 +18,6 @@
 -- | Common dependencies among all GTK+ UI code.  Contains class definitions and
 -- some common data declarations.
 module Khumba.Goatee.Ui.Gtk.Common (
-  AppState(appWindowCount),
-  newAppState,
   -- * UI controllers
   UiGoM,
   afterGo,
@@ -50,7 +48,6 @@ module Khumba.Goatee.Ui.Gtk.Common (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Concurrent.MVar (MVar, newMVar)
 import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Unique (Unique)
@@ -62,17 +59,6 @@ import Khumba.Goatee.Sgf.Parser
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
 import System.FilePath (takeFileName)
-
--- | A structure for holding global UI information.
-data AppState = AppState { appWindowCount :: MVar Int
-                           -- ^ The number of open windows.  When this reaches
-                           -- zero, the UI will exit.
-                         }
-
-newAppState :: IO AppState
-newAppState = do
-  windowCount <- newMVar 0
-  return AppState { appWindowCount = windowCount }
 
 -- | A Go monad with handlers in the 'IO' monad.
 type UiGoM = GoT (Writer (Seq IO))
@@ -161,20 +147,14 @@ class UiCtrl a where
   -- | Returns the owners of the currently registered 'ModesChangedHandler's.
   registeredModesChangedHandlers :: a -> IO [String]
 
-  -- | Increments a counter for the number of open windows.  When this reaches
-  -- zero, the UI will exit.
-  windowCountInc :: a -> IO ()
-
-  -- | Decrements a counter for the number of open windows.  When this reaches
-  -- zero, the UI will exit.
-  windowCountDec :: a -> IO ()
-
   -- | Returns the 'Window' for the game's 'MainWindow'.
   getMainWindow :: a -> IO Window
 
-  -- | Hides and releases the game's 'MainWindow' (in effect closing the game,
-  -- with no prompting).
-  destroyMainWindow :: a -> IO ()
+  -- | Hides and releases the game's 'Khumba.Goatee.Ui.Gtk.MainWindow', and
+  -- shuts down the UI controller (in effect closing the game, with no
+  -- prompting).  If this is the last board open, then the application will
+  -- exit.
+  closeBoard :: a -> IO ()
 
   openBoard :: Maybe a -> Maybe FilePath -> Node -> IO a
 

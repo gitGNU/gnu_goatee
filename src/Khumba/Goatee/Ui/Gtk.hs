@@ -24,13 +24,13 @@ module Khumba.Goatee.Ui.Gtk (
   ) where
 
 import Control.Concurrent.MVar (MVar, newMVar, takeMVar, readMVar, putMVar, modifyMVar, modifyMVar_)
-import Control.Monad ((<=<), forM_, join, liftM, unless, when)
+import Control.Monad (forM_, join, liftM, unless, when)
 import Data.Foldable (foldl')
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (isNothing)
-import Data.Unique (newUnique)
+import Data.Unique (Unique, newUnique)
 import Graphics.UI.Gtk (
   ButtonsType (ButtonsOk),
   DialogFlags (DialogDestroyWithParent, DialogModal),
@@ -47,6 +47,34 @@ import Khumba.Goatee.Sgf.Monad (Event, on, childAddedEvent, propertiesChangedEve
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Khumba.Goatee.Ui.Gtk.MainWindow as MainWindow
 import Khumba.Goatee.Ui.Gtk.MainWindow (MainWindow)
+
+-- | A structure for holding global application information about all open
+-- boards.
+data AppState = AppState { appControllers :: MVar (Map CtrlId UiCtrlImpl)
+                           -- ^ Maps all of the open boards' controllers by
+                           -- their IDs.
+                         }
+
+-- | Creates an 'AppState' that is holding no controllers.
+newAppState :: IO AppState
+newAppState = do
+  controllers <- newMVar Map.empty
+  return AppState { appControllers = controllers }
+
+-- | Registers a 'UiCtrlImpl' with an 'AppState'.
+appStateRegister :: AppState -> UiCtrlImpl -> IO ()
+appStateRegister appState ui =
+  modifyMVar_ (appControllers appState) $ return . Map.insert (uiCtrlId ui) ui
+
+-- | Unregisters a 'UiCtrlImpl' from an 'AppState'.  If the 'AppState' is left
+-- with no controllers, then the GTK+ main loop is shut down and the application
+-- exits.
+appStateUnregister :: AppState -> UiCtrlImpl -> IO ()
+appStateUnregister appState ui = do
+  ctrls' <- modifyMVar (appControllers appState) $ \ctrls ->
+    let ctrls' = Map.delete (uiCtrlId ui) ctrls
+    in return (ctrls', ctrls')
+  when (Map.null ctrls') mainQuit
 
 data UiHandler = forall handler. UiHandler String (Event UiGoM handler) handler
 
@@ -65,7 +93,13 @@ data ModesChangedHandlerRecord =
                             , modesChangedHandlerFn :: ModesChangedHandler
                             }
 
-data UiCtrlImpl = UiCtrlImpl { uiAppState :: AppState
+-- | A unique ID that identifies a 'UiCtrlImpl'.
+newtype CtrlId = CtrlId Unique
+               deriving (Eq, Ord)
+
+-- | Implementation of 'UiCtrl'.
+data UiCtrlImpl = UiCtrlImpl { uiCtrlId :: CtrlId
+                             , uiAppState :: AppState
                              , uiDirty :: IORef Bool
                              , uiFilePath :: IORef (Maybe FilePath)
                              , uiModes :: IORef UiModes
@@ -197,22 +231,15 @@ instance UiCtrl UiCtrlImpl where
   registeredModesChangedHandlers =
     liftM (map modesChangedHandlerOwner . Map.elems) . readIORef . uiModesChangedHandlers
 
-  windowCountInc ui =
-    modifyMVar_ (appWindowCount $ uiAppState ui) (return . (+ 1))
-
-  windowCountDec ui = do
-    count <- modifyMVar (appWindowCount $ uiAppState ui) $
-             \n -> let m = n - 1 in return (m, m)
-    when (count == 0) mainQuit
-
   getMainWindow = fmap MainWindow.myWindow . getMainWindow'
 
-  destroyMainWindow = MainWindow.destroy <=< getMainWindow'
+  closeBoard ui = do
+    MainWindow.destroy =<< getMainWindow' ui
+    appStateUnregister (uiAppState ui) ui
 
   openBoard maybeUi maybePath rootNode = do
-    appState <- case maybeUi of
-      Nothing -> newAppState
-      Just ui -> return $ uiAppState ui
+    ctrlId <- fmap CtrlId newUnique
+    appState <- maybe newAppState (return . uiAppState) maybeUi
     dirty <- newIORef False
     filePath <- newIORef maybePath
     modesVar <- newIORef defaultUiModes
@@ -224,7 +251,8 @@ instance UiCtrl UiCtrlImpl where
     filePathChangedHandlers <- newIORef Map.empty
     modesChangedHandlers <- newIORef Map.empty
 
-    let ui = UiCtrlImpl { uiAppState = appState
+    let ui = UiCtrlImpl { uiCtrlId = ctrlId
+                        , uiAppState = appState
                         , uiDirty = dirty
                         , uiFilePath = filePath
                         , uiModes = modesVar
@@ -237,11 +265,10 @@ instance UiCtrl UiCtrlImpl where
                         , uiModesChangedHandlers = modesChangedHandlers
                         }
 
+    appStateRegister appState ui
     rebuildBaseAction ui
 
     mainWindow <- MainWindow.create ui
-    readMVar (appWindowCount appState) >>= \n -> unless (n > 0) $
-      fail "UiCtrlImpl expected MainWindow to increment the open window count."
     writeIORef mainWindowRef $ Just mainWindow
     MainWindow.display mainWindow
     return ui

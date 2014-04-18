@@ -222,7 +222,6 @@ create ui = do
 initialize :: UiCtrl ui => MainWindow ui -> IO ()
 initialize me = do
   let ui = myUi me
-  windowCountInc ui
 
   writeIORef (myDirtyChangedHandler me) =<<
     liftM Just (registerDirtyChangedHandler ui "MainWindow" False $ \_ -> updateWindowTitle me)
@@ -256,7 +255,6 @@ destroy me = do
     concatMap (\handler -> "\n- " ++ show handler) handlers
 
   widgetDestroy $ myWindow me
-  windowCountDec ui
 
 -- | Makes a 'MainWindow' visible.
 display :: MainWindow ui -> IO ()

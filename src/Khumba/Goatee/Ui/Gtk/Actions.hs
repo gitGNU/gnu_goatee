@@ -235,7 +235,7 @@ fileSave ui = do
 fileClose :: UiCtrl ui => ui -> IO Bool
 fileClose ui = do
   close <- confirmFileClose ui
-  when close $ destroyMainWindow ui
+  when close $ closeBoard ui
   return close
 
 -- | Should be called before destroying the main window.  Checks the dirty
