@@ -213,7 +213,7 @@ create ui = do
   initialize me
 
   on window deleteEvent $ liftIO $ do
-    Actions.fileClose ui
+    fileClose ui
     return True
 
   return me

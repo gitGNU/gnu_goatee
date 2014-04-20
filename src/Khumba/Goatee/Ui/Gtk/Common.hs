@@ -150,12 +150,6 @@ class UiCtrl a where
   -- | Returns the 'Window' for the game's 'MainWindow'.
   getMainWindow :: a -> IO Window
 
-  -- | Hides and releases the game's 'Khumba.Goatee.Ui.Gtk.MainWindow', and
-  -- shuts down the UI controller (in effect closing the game, with no
-  -- prompting).  If this is the last board open, then the application will
-  -- exit.
-  closeBoard :: a -> IO ()
-
   openBoard :: Maybe a -> Maybe FilePath -> Node -> IO a
 
   openNewBoard :: Maybe a -> Maybe (Int, Int) -> IO a
@@ -169,6 +163,31 @@ class UiCtrl a where
       Right collection ->
         fmap Right $ openBoard ui (Just file) $ head $ collectionTrees collection
       Left err -> return $ Left err
+
+  -- | Prompts with an open file dialog for a game to open, then opens the
+  -- selected game if the user picks one.
+  fileOpen :: a -> IO ()
+
+  -- | Saves the current game to a file.  If the current game is not currently
+  -- tied to a file, then this will act identically to 'fileSaveAs'.  Returns true
+  -- iff the game was saved.
+  fileSave :: a -> IO Bool
+
+  -- | Presents a file save dialog for the user to specify a file to write the
+  -- current game to.  If the user provides a filename, then the game is
+  -- written.  If the user names an existing file, then another dialog confirms
+  -- overwriting the existing file.  Returns true iff the user accepted the
+  -- dialog(s) and the game was saved.
+  fileSaveAs :: a -> IO Bool
+
+  -- | Closes the game and all UI windows, etc. attached to the given controller.
+  -- If the game is dirty, then a dialog first prompts the user whether to save,
+  -- throw away changes, or abort the closing.
+  fileClose :: a -> IO Bool
+
+  -- | Presents the user with an about dialog that shows general information
+  -- about the application to the user (authorship, license, etc.).
+  helpAbout :: a -> IO ()
 
   -- | Returns the path to the file that the UI is currently displaying, or
   -- nothing if the UI is displaying an unsaved game.
