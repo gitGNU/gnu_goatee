@@ -185,6 +185,11 @@ class UiCtrl a where
   -- throw away changes, or abort the closing.
   fileClose :: a -> IO Bool
 
+  -- | Closes all open games and exits the program.  If any games are dirty then
+  -- we check if the user wants to save them.  If the user clicks cancel at any
+  -- point then shutdown is cancelled and no games are closed.
+  fileQuit :: a -> IO Bool
+
   -- | Presents the user with an about dialog that shows general information
   -- about the application to the user (authorship, license, etc.).
   helpAbout :: a -> IO ()

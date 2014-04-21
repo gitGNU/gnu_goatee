@@ -24,6 +24,7 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   myFileSaveAction,
   myFileSaveAsAction,
   myFileCloseAction,
+  myFileQuitAction,
   myToolActions,
   myHelpAboutAction,
   ) where
@@ -50,6 +51,7 @@ data Actions = Actions { myFileNewAction :: Action
                        , myFileSaveAction :: Action
                        , myFileSaveAsAction :: Action
                        , myFileCloseAction :: Action
+                       , myFileQuitAction :: Action
                        , myToolActions :: ActionGroup
                        , myHelpAboutAction :: Action
                        }
@@ -82,6 +84,10 @@ create ui = do
   actionGroupAddActionWithAccel fileActions fileCloseAction $ Just "<Control>w"
   on fileCloseAction actionActivated $ void $ fileClose ui
 
+  fileQuitAction <- actionNew "FileQuit" "Quit" Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileQuitAction $ Just "<Control>q"
+  on fileQuitAction actionActivated $ void $ fileQuit ui
+
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
   actionGroupAddRadioActions toolActions
@@ -108,6 +114,7 @@ create ui = do
                  , myFileSaveAction = fileSaveAction
                  , myFileSaveAsAction = fileSaveAsAction
                  , myFileCloseAction = fileCloseAction
+                 , myFileQuitAction = fileQuitAction
                  , myToolActions = toolActions
                  , myHelpAboutAction = helpAboutAction
                  }

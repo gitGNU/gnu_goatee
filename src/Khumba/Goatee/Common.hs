@@ -27,6 +27,8 @@ module Khumba.Goatee.Common (
   mapTuple,
   whenMaybe,
   cond,
+  if',
+  andM,
   whileM,
   whileM',
   doWhileM,
@@ -93,6 +95,18 @@ whenMaybe = flip $ maybe (return ())
 cond :: a -> [(Bool, a)] -> a
 cond fallback ((test, body):rest) = if test then body else cond fallback rest
 cond fallback _ = fallback
+
+-- | A function form of @if@ that takes its test last.
+if' :: a -> a -> Bool -> a
+if' true false test = if test then true else false
+
+-- | 'and' in a monad.  Executes the actions in the list in order.  If any
+-- action returns false then the remaining actions are skipped and the result is
+-- false.  Otherwise all actions returned true, and the result is true.  An
+-- empty list returns true.
+andM :: Monad m => [m Bool] -> m Bool
+andM (x:xs) = x >>= if' (andM xs) (return False)
+andM _ = return True
 
 -- | @whileM test body@ repeatedly evaluates @test@ until it returns false.
 -- Every time @test@ returns true, @body@ is executed once.

@@ -146,7 +146,10 @@ create ui = do
     , Actions.myFileSaveAsAction
     ]
   containerAdd menuFileMenu =<< separatorMenuItemNew
-  addActionsToMenu menuFileMenu actions [Actions.myFileCloseAction]
+  addActionsToMenu menuFileMenu actions
+    [ Actions.myFileCloseAction
+    , Actions.myFileQuitAction
+    ]
 
   menuTool <- menuItemNewWithMnemonic "_Tool"
   menuToolMenu <- menuNew

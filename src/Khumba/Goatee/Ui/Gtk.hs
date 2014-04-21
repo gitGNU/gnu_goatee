@@ -50,6 +50,7 @@ import Graphics.UI.Gtk (
   set,
   )
 import Khumba.Goatee.App
+import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Printer
 import Khumba.Goatee.Sgf.Tree
@@ -351,6 +352,12 @@ instance UiCtrl UiCtrlImpl where
     close <- confirmFileClose ui
     when close $ closeBoard ui
     return close
+
+  fileQuit ui = do
+    ctrls <- fmap Map.elems $ readMVar $ appControllers $ uiAppState ui
+    okayToClose <- andM $ map confirmFileClose ctrls
+    when okayToClose $ mapM_ closeBoard ctrls
+    return okayToClose
 
   helpAbout _ = do
     about <- aboutDialogNew
