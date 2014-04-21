@@ -23,51 +23,35 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   myFileOpenAction,
   myFileSaveAction,
   myFileSaveAsAction,
+  myFileCloseAction,
+  myFileQuitAction,
   myToolActions,
   myHelpAboutAction,
   ) where
 
-import Control.Exception (IOException, catch, finally)
-import Control.Monad (void, when)
-import Data.Maybe (fromJust, fromMaybe, isJust)
+import Control.Monad (void)
+import Data.Maybe (fromMaybe)
 import Graphics.UI.Gtk (
   Action,
   ActionGroup,
-  AttrOp ((:=)),
-  ButtonsType (ButtonsOk),
-  FileChooserAction (FileChooserActionOpen, FileChooserActionSave),
-  MessageType (MessageError),
   RadioActionEntry (
     RadioActionEntry,
     radioActionAccelerator, radioActionLabel, radioActionName, radioActionStockId,
     radioActionTooltip, radioActionValue
     ),
-  ResponseId (ResponseCancel, ResponseOk),
-  aboutDialogAuthors, aboutDialogCopyright, aboutDialogLicense, aboutDialogNew,
-  aboutDialogProgramName, aboutDialogWebsite,
   actionActivate, actionActivated, actionGroupAddActionWithAccel, actionGroupAddRadioActions,
   actionGroupGetAction, actionGroupNew, actionNew,
-  fileChooserAddFilter, fileChooserDialogNew, fileChooserGetFilename,
-  dialogRun,
-  messageDialogNew,
   on,
   radioActionGetCurrentValue,
-  set,
-  stockCancel, stockOpen, stockSave,
-  widgetDestroy, widgetHide,
   )
-import Khumba.Goatee.App
-import Khumba.Goatee.Common
-import Khumba.Goatee.Sgf.Board
-import Khumba.Goatee.Sgf.Printer
-import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Ui.Gtk.Common
-import qualified Paths_goatee as Paths
 
 data Actions = Actions { myFileNewAction :: Action
                        , myFileOpenAction :: Action
                        , myFileSaveAction :: Action
                        , myFileSaveAsAction :: Action
+                       , myFileCloseAction :: Action
+                       , myFileQuitAction :: Action
                        , myToolActions :: ActionGroup
                        , myHelpAboutAction :: Action
                        }
@@ -88,13 +72,21 @@ create ui = do
   actionGroupAddActionWithAccel fileActions fileOpenAction $ Just "<Control>o"
   on fileOpenAction actionActivated $ fileOpen ui
 
-  fileSaveAsAction <- actionNew "FileSaveAs" "Save file as..." Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileSaveAsAction $ Just "<Control><Shift>s"
-  on fileSaveAsAction actionActivated $ fileSaveAs ui
-
   fileSaveAction <- actionNew "FileSave" "Save file" Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileSaveAction $ Just "<Control>s"
-  on fileSaveAction actionActivated $ fileSave ui
+  on fileSaveAction actionActivated $ void $ fileSave ui
+
+  fileSaveAsAction <- actionNew "FileSaveAs" "Save file as..." Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileSaveAsAction $ Just "<Control><Shift>s"
+  on fileSaveAsAction actionActivated $ void $ fileSaveAs ui
+
+  fileCloseAction <- actionNew "FileClose" "Close" Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileCloseAction $ Just "<Control>w"
+  on fileCloseAction actionActivated $ void $ fileClose ui
+
+  fileQuitAction <- actionNew "FileQuit" "Quit" Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileQuitAction $ Just "<Control>q"
+  on fileQuitAction actionActivated $ void $ fileQuit ui
 
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
@@ -111,7 +103,7 @@ create ui = do
     (\radioAction -> setTool ui =<< fmap toEnum (radioActionGetCurrentValue radioAction))
 
   helpAboutAction <- actionNew "About" "About" Nothing Nothing
-  on helpAboutAction actionActivated helpAbout
+  on helpAboutAction actionActivated $ helpAbout ui
 
   actionActivate =<<
     fmap (fromMaybe $ error $ "Could not find the initial tool " ++ show initialTool ++ ".")
@@ -121,102 +113,8 @@ create ui = do
                  , myFileOpenAction = fileOpenAction
                  , myFileSaveAction = fileSaveAction
                  , myFileSaveAsAction = fileSaveAsAction
+                 , myFileCloseAction = fileCloseAction
+                 , myFileQuitAction = fileQuitAction
                  , myToolActions = toolActions
                  , myHelpAboutAction = helpAboutAction
                  }
-
-fileOpen :: UiCtrl ui => ui -> IO ()
-fileOpen ui = do
-  dialog <- fileChooserDialogNew (Just "Open a file")
-                                 Nothing
-                                 FileChooserActionOpen
-                                 [(stockOpen, ResponseOk),
-                                  (stockCancel, ResponseCancel)]
-  mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
-  response <- dialogRun dialog
-  widgetHide dialog
-  finally
-    (when (response == ResponseOk) $ do
-        maybePath <- fileChooserGetFilename dialog
-        when (isJust maybePath) $ do
-          let path = fromJust maybePath
-          loadResult <- openFile (Just ui) path
-          case loadResult of
-            Left parseError -> do
-              errorDialog <- messageDialogNew
-                             Nothing
-                             []
-                             MessageError
-                             ButtonsOk
-                             ("Error loading " ++ path ++ ".\n\n" ++ show parseError)
-              dialogRun errorDialog
-              widgetDestroy errorDialog
-            Right _ -> return ())
-    (widgetDestroy dialog)
-
-fileSaveAs :: UiCtrl ui => ui -> IO ()
-fileSaveAs ui = do
-  dialog <- fileChooserDialogNew (Just "Save file as")
-                                 Nothing
-                                 FileChooserActionSave
-                                 [(stockSave, ResponseOk),
-                                  (stockCancel, ResponseCancel)]
-  mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
-  response <- dialogRun dialog
-  finally
-    (when (response == ResponseOk) $ do
-        maybePath <- fileChooserGetFilename dialog
-        whenMaybe maybePath $ \path -> do
-          setFilePath ui $ Just path
-          fileSave ui)
-    (widgetDestroy dialog)
-
-fileSave :: UiCtrl ui => ui -> IO ()
-fileSave ui = do
-  cursor <- readCursor ui
-  maybePath <- getFilePath ui
-  case maybePath of
-    Nothing -> fileSaveAs ui
-    Just path -> do
-      -- TODO Exception handling when the write fails.
-      -- TODO Don't just write a single tree.
-      -- TODO Only save when dirty?  (Be careful not to break Save As on a non-dirty game.)
-      writeFile path $
-        printCollection Collection { collectionTrees = [cursorNode $ cursorRoot cursor] }
-      setDirty ui False
-
-helpAbout :: IO ()
-helpAbout = do
-  about <- aboutDialogNew
-  license <- fmap (fromMaybe fallbackLicense) readLicense
-  set about [ aboutDialogProgramName := applicationName
-            , aboutDialogCopyright := applicationCopyright
-            , aboutDialogLicense := Just license
-            , aboutDialogWebsite := applicationWebsite
-            , aboutDialogAuthors := applicationAuthors
-            ]
-  dialogRun about
-  widgetDestroy about
-  return ()
-
-readLicense :: IO (Maybe String)
-readLicense = do
-  path <- Paths.getDataFileName "LICENSE"
-  fmap Just (readFile path) `catch` \(_ :: IOException) -> return Nothing
-
-fallbackLicense :: String
-fallbackLicense =
-  "Could not read the license file." ++
-  "\n" ++
-  "\nGoatee is free software: you can redistribute it and/or modify" ++
-  "\nit under the terms of the GNU Affero General Public License as published by" ++
-  "\nthe Free Software Foundation, either version 3 of the License, or" ++
-  "\n(at your option) any later version." ++
-  "\n" ++
-  "\nGoatee is distributed in the hope that it will be useful," ++
-  "\nbut WITHOUT ANY WARRANTY; without even the implied warranty of" ++
-  "\nMERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the" ++
-  "\nGNU Affero General Public License for more details." ++
-  "\n" ++
-  "\nYou should have received a copy of the GNU Affero General Public License" ++
-  "\nalong with Goatee.  If not, see <http://www.gnu.org/licenses/>."

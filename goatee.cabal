@@ -65,6 +65,7 @@ executable goatee
         base,
         cairo,
         containers,
+        directory,
         filepath,
         gtk,
         goatee,

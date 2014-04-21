@@ -18,6 +18,7 @@
 module Khumba.Goatee.CommonTest (tests) where
 
 import qualified Control.Monad.State as State
+import Control.Monad.Identity (runIdentity)
 import Control.Monad.State (StateT, get, put, runStateT)
 import Control.Monad.Writer (execWriter, tell)
 import Data.IORef (modifyIORef, newIORef, readIORef)
@@ -27,6 +28,8 @@ import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit ((@=?))
 
+{-# ANN module "HLint: ignore Use camelCase" #-}
+
 tests = testGroup "Khumba.Goatee.Common" [
   listReplaceTests,
   onLeftTests,
@@ -35,6 +38,8 @@ tests = testGroup "Khumba.Goatee.Common" [
   mapTupleTests,
   whenMaybeTests,
   condTests,
+  if'Tests,
+  andMTests,
   whileMTests,
   whileM'Tests,
   doWhileMTests,
@@ -130,6 +135,43 @@ condTests = testGroup "cond" [
     2 @=? cond 0 [(False, 1), (True, 2), (True, 3)]
     1 @=? cond 0 [(True, 1), (True, 2), (True, 3)]
   ]
+
+if'Tests = testGroup "if'" [
+  testCase "detects true" $ "yes" @=? if' "yes" "no" True,
+
+  testCase "detects false" $ "no" @=? if' "yes" "no" False
+  ]
+
+andMTests = testGroup "andM" [
+  testCase "empty list returns true" $ True @=? runIdentity (andM []),
+
+  testCase "aborts after an immediate true" $ do
+    ref <- newIORef 0
+    result <- andM [addToRef ref 1 >> return False,
+                    addToRef ref 2 >> return True]
+    False @=? result
+    (1 @=?) =<< readIORef ref,
+
+  testCase "aborts on a false after trues" $ do
+    ref <- newIORef 0
+    result <- andM [addToRef ref 1 >> return True,
+                    addToRef ref 2 >> return True,
+                    addToRef ref 4 >> return False,
+                    addToRef ref 8 >> return False,
+                    addToRef ref 16 >> return False]
+    False @=? result
+    (7 @=?) =<< readIORef ref,
+
+  testCase "executes all trues" $ do
+    ref <- newIORef 0
+    result <- andM [addToRef ref 1 >> return True,
+                    addToRef ref 2 >> return True,
+                    addToRef ref 4 >> return True,
+                    addToRef ref 8 >> return True]
+    True @=? result
+    (15 @=?) =<< readIORef ref
+  ]
+  where addToRef ref num = modifyIORef ref (+ num)
 
 whileMTests = testGroup "whileM" [
   testCase "never executes the body if the first test returns false" $

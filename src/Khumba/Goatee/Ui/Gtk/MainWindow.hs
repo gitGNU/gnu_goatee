@@ -54,7 +54,7 @@ import Graphics.UI.Gtk (
   separatorMenuItemNew, separatorToolItemNew,
   toolbarNew,
   vBoxNew,
-  widgetShowAll,
+  widgetDestroy, widgetShowAll,
   windowNew, windowSetDefaultSize, windowSetTitle,
   )
 import Khumba.Goatee.Common
@@ -69,7 +69,6 @@ import qualified Khumba.Goatee.Ui.Gtk.Goban as Goban
 import Khumba.Goatee.Ui.Gtk.Goban (Goban)
 import qualified Khumba.Goatee.Ui.Gtk.InfoLine as InfoLine
 import Khumba.Goatee.Ui.Gtk.InfoLine (InfoLine)
-import System.FilePath (takeFileName)
 import System.IO (hPutStrLn, stderr)
 
 -- | If false, then the up and down keys will move toward and away
@@ -146,6 +145,11 @@ create ui = do
     , Actions.myFileSaveAction
     , Actions.myFileSaveAsAction
     ]
+  containerAdd menuFileMenu =<< separatorMenuItemNew
+  addActionsToMenu menuFileMenu actions
+    [ Actions.myFileCloseAction
+    , Actions.myFileQuitAction
+    ]
 
   menuTool <- menuItemNewWithMnemonic "_Tool"
   menuToolMenu <- menuNew
@@ -209,15 +213,18 @@ create ui = do
                       , myFilePathChangedHandler = filePathChangedHandler
                       }
 
-  on window deleteEvent $ liftIO $ destroy me >> return False
   initialize me
+
+  on window deleteEvent $ liftIO $ do
+    fileClose ui
+    return True
+
   return me
 
 -- | Initialization that must be done after the 'UiCtrl' is available.
 initialize :: UiCtrl ui => MainWindow ui -> IO ()
 initialize me = do
   let ui = myUi me
-  windowCountInc ui
 
   writeIORef (myDirtyChangedHandler me) =<<
     liftM Just (registerDirtyChangedHandler ui "MainWindow" False $ \_ -> updateWindowTitle me)
@@ -250,7 +257,7 @@ destroy me = do
     "MainWindow.destroy: Warning, there are still modes changed handler(s) registered:" ++
     concatMap (\handler -> "\n- " ++ show handler) handlers
 
-  windowCountDec ui
+  widgetDestroy $ myWindow me
 
 -- | Makes a 'MainWindow' visible.
 display :: MainWindow ui -> IO ()
@@ -266,8 +273,8 @@ addActionsToMenu menu actions accessors =
 updateWindowTitle :: UiCtrl ui => MainWindow ui -> IO ()
 updateWindowTitle me = do
   let ui = myUi me
-  filePath <- getFilePath ui
+  fileName <- getFileName ui
   dirty <- getDirty ui
-  let title = maybe "(Untitled)" takeFileName filePath ++ " - Goatee"
+  let title = fileName ++ " - Goatee"
       addDirty = if dirty then ('*':) else id
   windowSetTitle (myWindow me) $ addDirty title

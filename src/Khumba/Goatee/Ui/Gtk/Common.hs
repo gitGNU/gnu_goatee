@@ -18,8 +18,6 @@
 -- | Common dependencies among all GTK+ UI code.  Contains class definitions and
 -- some common data declarations.
 module Khumba.Goatee.Ui.Gtk.Common (
-  AppState(appWindowCount),
-  newAppState,
   -- * UI controllers
   UiGoM,
   afterGo,
@@ -49,28 +47,18 @@ module Khumba.Goatee.Ui.Gtk.Common (
   fileFiltersForSgf,
   ) where
 
-import Control.Concurrent.MVar (MVar, newMVar)
+import Control.Applicative ((<$>))
 import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Unique (Unique)
-import Graphics.UI.Gtk (FileFilter, fileFilterAddPattern, fileFilterNew, fileFilterSetName)
+import Graphics.UI.Gtk (FileFilter, Window, fileFilterAddPattern, fileFilterNew, fileFilterSetName)
 import Khumba.Goatee.Common (Seq(..))
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad
 import Khumba.Goatee.Sgf.Parser
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
-
--- | A structure for holding global UI information.
-data AppState = AppState { appWindowCount :: MVar Int
-                           -- ^ The number of open windows.  When this reaches
-                           -- zero, the UI will exit.
-                         }
-
-newAppState :: IO AppState
-newAppState = do
-  windowCount <- newMVar 0
-  return AppState { appWindowCount = windowCount }
+import System.FilePath (takeFileName)
 
 -- | A Go monad with handlers in the 'IO' monad.
 type UiGoM = GoT (Writer (Seq IO))
@@ -159,13 +147,8 @@ class UiCtrl a where
   -- | Returns the owners of the currently registered 'ModesChangedHandler's.
   registeredModesChangedHandlers :: a -> IO [String]
 
-  -- | Increments a counter for the number of open windows.  When this reaches
-  -- zero, the UI will exit.
-  windowCountInc :: a -> IO ()
-
-  -- | Decrements a counter for the number of open windows.  When this reaches
-  -- zero, the UI will exit.
-  windowCountDec :: a -> IO ()
+  -- | Returns the 'Window' for the game's 'MainWindow'.
+  getMainWindow :: a -> IO Window
 
   openBoard :: Maybe a -> Maybe FilePath -> Node -> IO a
 
@@ -181,9 +164,46 @@ class UiCtrl a where
         fmap Right $ openBoard ui (Just file) $ head $ collectionTrees collection
       Left err -> return $ Left err
 
+  -- | Prompts with an open file dialog for a game to open, then opens the
+  -- selected game if the user picks one.
+  fileOpen :: a -> IO ()
+
+  -- | Saves the current game to a file.  If the current game is not currently
+  -- tied to a file, then this will act identically to 'fileSaveAs'.  Returns true
+  -- iff the game was saved.
+  fileSave :: a -> IO Bool
+
+  -- | Presents a file save dialog for the user to specify a file to write the
+  -- current game to.  If the user provides a filename, then the game is
+  -- written.  If the user names an existing file, then another dialog confirms
+  -- overwriting the existing file.  Returns true iff the user accepted the
+  -- dialog(s) and the game was saved.
+  fileSaveAs :: a -> IO Bool
+
+  -- | Closes the game and all UI windows, etc. attached to the given controller.
+  -- If the game is dirty, then a dialog first prompts the user whether to save,
+  -- throw away changes, or abort the closing.
+  fileClose :: a -> IO Bool
+
+  -- | Closes all open games and exits the program.  If any games are dirty then
+  -- we check if the user wants to save them.  If the user clicks cancel at any
+  -- point then shutdown is cancelled and no games are closed.
+  fileQuit :: a -> IO Bool
+
+  -- | Presents the user with an about dialog that shows general information
+  -- about the application to the user (authorship, license, etc.).
+  helpAbout :: a -> IO ()
+
   -- | Returns the path to the file that the UI is currently displaying, or
   -- nothing if the UI is displaying an unsaved game.
   getFilePath :: a -> IO (Maybe FilePath)
+
+  -- | Returns the filename (base name, with no directories before it) that is
+  -- currently open in the UI, or if the UI is showing an unsaved game, then a
+  -- fallback "untitled" string.  As this may not be a real filename, it should
+  -- be used for display purposes only, and not for actually writing to.
+  getFileName :: a -> IO String
+  getFileName ui = maybe untitledFileName takeFileName <$> getFilePath ui
 
   -- | Sets the path to the file that the UI is currently displaying.  This
   -- changes the value returned by 'getFilePath' but does not do any saving or
@@ -392,3 +412,8 @@ fileFiltersForSgf = do
   fileFilterSetName all "All files (*)"
   fileFilterAddPattern all "*"
   return [sgf, all]
+
+-- | The name to display in the UI for a game that has not yet been saved to
+-- disk.
+untitledFileName :: String
+untitledFileName = "(Untitled)"
