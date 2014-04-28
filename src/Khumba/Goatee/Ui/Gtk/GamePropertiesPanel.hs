@@ -30,7 +30,7 @@ import Graphics.UI.Gtk (
   Entry,
   Packing (PackGrow, PackNatural),
   PolicyType (PolicyAutomatic),
-  TextView,
+  TextBuffer, TextView,
   Widget,
   WrapMode (WrapWord),
   boxPackStart,
@@ -55,6 +55,7 @@ import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Ui.Gtk.Common
+import Khumba.Goatee.Ui.Gtk.Latch
 import Khumba.Goatee.Ui.Gtk.Utils
 
 data GamePropertiesPanel ui =
@@ -68,6 +69,14 @@ data GamePropertiesPanel ui =
                       , myWhiteRank :: Entry
                       , myWhiteTeam :: Entry
                       , myComment :: TextView
+                      , myCommentLatch :: Latch
+                        -- ^ When a 'TextBuffer' is programatically assigned to,
+                        -- two change events are fired, one to delete the old
+                        -- text and one to insert the new text.  We don't want
+                        -- to handle the intermediate value by writing it back
+                        -- to the model because this triggers dirtyness.  So we
+                        -- hold this latch on while we are doing a model-to-view
+                        -- update in order to avoid this problem.
                       }
 
 instance UiCtrl ui => UiView (GamePropertiesPanel ui) ui where
@@ -131,6 +140,7 @@ create ui = do
   addSeparator 7
 
   comment <- textViewNew
+  commentLatch <- newLatch
   textViewSetWrapMode comment WrapWord
   commentScroll <- scrolledWindowNew Nothing Nothing
   scrolledWindowSetPolicy commentScroll PolicyAutomatic PolicyAutomatic
@@ -149,6 +159,7 @@ create ui = do
                                , myWhiteRank = whiteRankEntry
                                , myWhiteTeam = whiteTeamEntry
                                , myComment = comment
+                               , myCommentLatch = commentLatch
                                }
 
   initialize me
@@ -171,9 +182,7 @@ initialize me = do
   updateUi me =<< readCursor ui
 
   commentBuffer <- textViewGetBuffer $ myComment me
-  on commentBuffer bufferChanged $ do
-    newComment <- get commentBuffer textBufferText
-    runUiGo ui $ modifyPropertyString propertyC $ const newComment
+  on commentBuffer bufferChanged $ handleCommentBufferChanged me commentBuffer
 
   connectEntryToGameInfo ui myBlackName $ \x info -> info { gameInfoBlackName = strToMaybe x }
   connectEntryToGameInfo ui myBlackRank $ \x info -> info { gameInfoBlackRank = strToMaybe x }
@@ -190,7 +199,15 @@ initialize me = do
 destroy :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
 destroy = viewUnregisterAll
 
-updateUi :: GamePropertiesPanel ui -> Cursor -> IO ()
+handleCommentBufferChanged :: UiCtrl ui => GamePropertiesPanel ui -> TextBuffer -> IO ()
+handleCommentBufferChanged me commentBuffer =
+  -- Don't push the new comment value back to the model if we're already
+  -- updating the view from the model.
+  whenLatchOff (myCommentLatch me) $ do
+    newComment <- get commentBuffer textBufferText
+    runUiGo (myUi me) $ modifyPropertyString propertyC $ const newComment
+
+updateUi :: UiCtrl ui => GamePropertiesPanel ui -> Cursor -> IO ()
 updateUi me cursor = do
   updateUiGameInfo me $ boardGameInfo $ cursorBoard cursor
   updateUiNodeInfo me cursor
@@ -205,9 +222,14 @@ updateUiGameInfo me info =
          (gameInfoWhiteTeamName, myWhiteTeam)] $ \(getter, entry) ->
     entrySetText (entry me) $ fromMaybe "" $ getter info
 
-updateUiNodeInfo :: GamePropertiesPanel ui -> Cursor -> IO ()
+updateUiNodeInfo :: UiCtrl ui => GamePropertiesPanel ui -> Cursor -> IO ()
 updateUiNodeInfo me cursor = do
   let newText = maybe "" fromText $ findPropertyValue propertyC $ cursorNode cursor
   buf <- textViewGetBuffer $ myComment me
   oldText <- get buf textBufferText
-  when (oldText /= newText) $ textBufferSetText buf newText
+  when (oldText /= newText) $ do
+    withLatchOn (myCommentLatch me) $ textBufferSetText buf newText
+    -- It's not necessary to call this handler, but we do for consistency, since
+    -- all other widgets currently behave this way (write back and forth until
+    -- synchronized).
+    handleCommentBufferChanged me buf

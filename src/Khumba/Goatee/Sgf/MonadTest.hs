@@ -350,7 +350,23 @@ modifyPropertyTests = testGroup "modifyProperty" [
         action' = modifyProperty propertyBM $ \(Just (BM Double2)) -> Just $ BM Double1
         cursor'' = execGo action' cursor'
     sortProperties (cursorProperties cursor') @?= [B $ Just (1,1), BM Double2]
-    sortProperties (cursorProperties cursor'') @?= [B $ Just (1,1), BM Double1]
+    sortProperties (cursorProperties cursor'') @?= [B $ Just (1,1), BM Double1],
+
+  testCase "fires an event when changing a property" $ do
+    let cursor = rootCursor $ node [B $ Just (0,0)]
+        action = do on propertiesChangedEvent $ \[B (Just (0,0))] [] -> tell [0]
+                    modifyProperty propertyB $ \(Just (B (Just (0,0)))) -> Nothing
+        (cursor', log) = runWriter (execGoT action cursor)
+    [0] @=? log
+    [] @=? cursorProperties cursor',
+
+  testCase "modifying but not actually changing a property doesn't fire an event" $ do
+    let cursor = rootCursor $ node [B $ Just (0,0)]
+        action = do on propertiesChangedEvent $ \_ _ -> tell ["Event fired."]
+                    modifyProperty propertyB $ \p@(Just (B {})) -> p
+        (cursor', log) = runWriter (execGoT action cursor)
+    [B $ Just (0,0)] @=? cursorProperties cursor'
+    [] @=? log
   ]
 
 modifyPropertyValueTests = testGroup "modifyPropertyValue" [

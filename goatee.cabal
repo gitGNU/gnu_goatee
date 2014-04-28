@@ -88,6 +88,7 @@ executable goatee
         Khumba.Goatee.Ui.Gtk.Common
         Khumba.Goatee.Ui.Gtk.GamePropertiesPanel
         Khumba.Goatee.Ui.Gtk.Goban
+        Khumba.Goatee.Ui.Gtk.Latch
         Khumba.Goatee.Ui.Gtk
         Khumba.Goatee.Ui.Gtk.InfoLine
         Khumba.Goatee.Ui.Gtk.MainWindow
@@ -126,4 +127,5 @@ test-suite test-goatee
         Khumba.Goatee.Sgf.TreeTest
         Khumba.Goatee.Sgf.TypesTest
         Khumba.Goatee.Test.Common
+        Khumba.Goatee.Ui.Gtk.LatchTest
         Test

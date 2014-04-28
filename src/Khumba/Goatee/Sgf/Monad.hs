@@ -449,8 +449,8 @@ instance Monad m => MonadGo (GoT m) where
     case (old, new) of
       (Just _, Nothing) -> modifyProperties $ return . remove descriptor
       (Nothing, Just value') -> modifyProperties $ return . add value'
-      (Just value, Just value') -> when (value /= value') $ modifyProperties $
-                                   return . add value' . remove descriptor
+      (Just value, Just value') | value /= value' ->
+        modifyProperties $ return . add value' . remove descriptor
       _ -> return ()
     where remove descriptor = filter (not . propertyPredicate descriptor)
           add value = (value:)

@@ -24,6 +24,7 @@ import qualified Khumba.Goatee.Sgf.ParserTest
 import qualified Khumba.Goatee.Sgf.PropertyTest
 import qualified Khumba.Goatee.Sgf.TreeTest
 import qualified Khumba.Goatee.Sgf.TypesTest
+import qualified Khumba.Goatee.Ui.Gtk.LatchTest
 import Test.Framework (defaultMain)
 
 tests = [ Khumba.Goatee.CommonTest.tests
@@ -33,6 +34,7 @@ tests = [ Khumba.Goatee.CommonTest.tests
         , Khumba.Goatee.Sgf.PropertyTest.tests
         , Khumba.Goatee.Sgf.TreeTest.tests
         , Khumba.Goatee.Sgf.TypesTest.tests
+        , Khumba.Goatee.Ui.Gtk.LatchTest.tests
         ]
 
 main :: IO ()
