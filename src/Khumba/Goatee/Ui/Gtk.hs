@@ -144,6 +144,14 @@ instance UiCtrl UiCtrlImpl where
       writeIORef (uiModes ui) newModes
       fireModesChangedHandlers ui oldModes newModes
 
+  readVariationMode ui = do
+    cursor <- readCursor ui
+    modes <- readModes ui
+    return $
+      fromMaybe (rootInfoVariationMode $ gameInfoRootInfo $
+                 boardGameInfo $ cursorBoard cursor) $
+      uiOverrideVariationMode modes
+
   runUiGo ui go = do
     cursor <- takeMVar (uiCursor ui)
     runUiGo' ui go cursor

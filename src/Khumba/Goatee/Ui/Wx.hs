@@ -392,7 +392,7 @@ drawBoard cursorVar canvasInfoVar mouseVar dc _ = do
     map (:= boardBgColor) [penColor, brushColor]
 
   -- Draw the board.
-  sequence_ $ mapBoardCoords (drawCoord board canvasInfo mouse dc) board
+  sequence_ $ concat $ mapBoardCoords (drawCoord board canvasInfo mouse dc) board
 
 drawCoord :: BoardState
              -> CanvasInfo
@@ -402,7 +402,7 @@ drawCoord :: BoardState
              -> Int
              -> CoordState
              -> IO ()
-drawCoord board canvasInfo mouse dc ix iy coord =
+drawCoord board canvasInfo mouse dc iy ix coord =
   when (coordVisible coord) $
   if coordDimmed coord
   then dcWith dc
