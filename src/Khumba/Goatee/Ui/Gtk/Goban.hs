@@ -310,11 +310,11 @@ drawBoard :: UiCtrl ui => ui -> IORef HoverState -> DrawingArea -> IO ()
 drawBoard ui hoverStateRef drawingArea = do
   cursor <- readCursor ui
   modes <- readModes ui
-  variationMode <- readVariationMode ui
   hoverState <- readIORef hoverStateRef
 
   let board = cursorBoard cursor
       tool = uiTool modes
+      variationMode = rootInfoVariationMode $ gameInfoRootInfo $ boardGameInfo $ cursorBoard cursor
 
       variations :: [(Coord, Color)]
       variations = cursorVariations (variationModeSource variationMode) cursor

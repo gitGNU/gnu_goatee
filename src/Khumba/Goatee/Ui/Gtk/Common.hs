@@ -88,11 +88,6 @@ class UiCtrl a where
   -- a mode change event via 'fireViewModesChanged'.
   modifyModes :: a -> (UiModes -> IO UiModes) -> IO ()
 
-  -- | Reads the effective variation mode.  If the UI has an override variation
-  -- mode set via 'uiOverrideVariationMode', that that is returned; otherwise,
-  -- the board's variation mode as specified by the 'ST' property is returned.
-  readVariationMode :: a -> IO VariationMode
-
   -- | Runs a Go monad on the current cursor, updating the cursor and firing
   -- handlers as necessary.
   runUiGo :: a -> UiGoM b -> IO b
@@ -329,7 +324,6 @@ data UiModes = UiModes { uiViewMode :: ViewMode
                          -- ^ If true, announce the player whose turn it is with
                          -- blindfolds off.  If false, announce the player whose
                          -- turn it is with blindfolds on.
-                       , uiOverrideVariationMode :: Maybe VariationMode
                        , uiShowMoveNumberMode :: Bool
                        , uiTool :: Tool
                        } deriving (Eq, Show)
@@ -343,7 +337,6 @@ defaultUiModes :: UiModes
 defaultUiModes = UiModes { uiViewMode = ViewRegularMode
                          , uiViewOneColorModeColor = Black
                          , uiViewBlindModesAnnouncePlayer = True
-                         , uiOverrideVariationMode = Nothing
                          , uiShowMoveNumberMode = False
                          , uiTool = ToolPlay
                          }
