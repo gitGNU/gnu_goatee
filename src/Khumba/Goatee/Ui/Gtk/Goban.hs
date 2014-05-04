@@ -458,6 +458,8 @@ drawMark stone mark = do
 
 -- The coordinates for inscribing a triangle within a unit circle centered about
 -- @(0.5, 0.5)@, with radius @triangleRadius@.
+triangleRadius, trianglePoint1X, trianglePoint1Y, trianglePoint2X, trianglePoint2Y :: Double
+trianglePoint3X, trianglePoint3Y :: Double
 triangleRadius = 0.3
 trianglePoint1X = 0.5
 trianglePoint1Y = 0.5 - triangleRadius

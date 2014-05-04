@@ -337,6 +337,7 @@ isStarPoint width height
 isStarPoint' :: [Int] -> Int -> Int -> Bool
 isStarPoint' ixs x y = x `elem` ixs && y `elem` ixs
 
+isStarPoint9, isStarPoint13, isStarPoint19 :: Int -> Int -> Bool
 isStarPoint9 = isStarPoint' [2, 4, 6]
 isStarPoint13 = isStarPoint' [3, 6, 9]
 isStarPoint19 = isStarPoint' [3, 9, 15]

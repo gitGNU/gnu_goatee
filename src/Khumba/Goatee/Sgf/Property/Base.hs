@@ -55,13 +55,12 @@ module Khumba.Goatee.Sgf.Property.Base (
   unknownPropertyPrinter,
   ) where
 
-import Control.Monad (liftM)
 import Data.Char (chr, ord)
 import Khumba.Goatee.Sgf.Types
 import Language.Haskell.TH (
-  DecsQ, Name,
-  appE, caseE, conE, conP, lam1E, match, mkName, newName,
-  normalB, recP, stringE, valD, varE, varP, wildP,
+  Info (DataConI), DecsQ, Name, Type (AppT),
+  appE, appT, caseE, conE, conP, conT, lam1E, match, mkName, newName,
+  normalB, recP, reify, sigD, stringE, valD, varE, varP, wildP,
   )
 
 -- | An SGF property that gives a node meaning.
@@ -270,18 +269,21 @@ defProperty :: String
             -> DecsQ
 defProperty name propType inherited = do
   let propName = mkName name
+      varName = mkName $ "property" ++ name
   foo <- newName "foo"
-  liftM (:[]) $ valD
-    (varP $ mkName $ "property" ++ name)
-    (normalB [| makePropertyInfo name $(conE propType) inherited
-                $(lam1E (varP foo) $ caseE (varE foo)
-                  [match (recP propName [])
-                   (normalB $ conE $ mkName "True")
-                   [],
-                   match wildP (normalB $ conE $ mkName "False") []])
-                noValuePrinter
-              |])
-    []
+  sequence [
+    sigD varName $ conT $ mkName "PropertyInfo",
+    valD (varP varName)
+         (normalB [| makePropertyInfo name $(conE propType) inherited
+                     $(lam1E (varP foo) $ caseE (varE foo)
+                       [match (recP propName [])
+                        (normalB $ conE $ mkName "True")
+                        [],
+                        match wildP (normalB $ conE $ mkName "False") []])
+                     noValuePrinter
+                   |])
+         []
+    ]
 
 -- | Template Haskell function to declare a property that contains a value.
 --
@@ -296,25 +298,28 @@ defValuedProperty name propType inherited valuePrinter = do
       varName = mkName $ "property" ++ name
   foo <- newName "foo"
   bar <- newName "bar"
-  liftM (:[]) $ valD
-    (varP varName)
-    (normalB [| makeValuedPropertyInfo name $(conE propType) inherited
-                $(lam1E (varP foo) $ caseE (varE foo)
-                  [match (recP propName [])
-                         (normalB $ conE $ mkName "True")
-                         [],
-                   match wildP (normalB $ conE $ mkName "False") []])
-                $(varE valuePrinter)
-                $(lam1E (varP foo) $ caseE (varE foo)
-                  [match (conP propName [varP bar]) (normalB $ varE bar) [],
-                   match wildP
-                         (normalB
-                          [| error $ "Property value getter for " ++ $(stringE name) ++
-                             " applied to " ++ show $(varE foo) ++ "." |])
-                         []])
-                $(lam1E (varP foo) $ appE (conE propName) (varE foo))
-              |])
-    []
+  DataConI _ (AppT (AppT _ valueType) _) _ _ <- reify propName
+  sequence [
+    sigD varName $ appT (conT ''ValuedPropertyInfo) $ return valueType,
+    valD (varP varName)
+         (normalB [| makeValuedPropertyInfo name $(conE propType) inherited
+                     $(lam1E (varP foo) $ caseE (varE foo)
+                       [match (recP propName [])
+                              (normalB $ conE $ mkName "True")
+                              [],
+                        match wildP (normalB $ conE $ mkName "False") []])
+                     $(varE valuePrinter)
+                     $(lam1E (varP foo) $ caseE (varE foo)
+                       [match (conP propName [varP bar]) (normalB $ varE bar) [],
+                        match wildP
+                              (normalB
+                               [| error $ "Property value getter for " ++ $(stringE name) ++
+                                  " applied to " ++ show $(varE foo) ++ "." |])
+                              []])
+                     $(lam1E (varP foo) $ appE (conE propName) (varE foo))
+                   |])
+         []
+    ]
 
 -- A note about the naming of the functions here.  'printFoo' prints a foo with
 -- no decoration, whereas 'fooPrinter' prints a foo with '[]' around it.

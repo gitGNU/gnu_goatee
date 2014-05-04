@@ -113,6 +113,7 @@ data Step = GoUp Int
 
 -- | Reverses a step, such that taking a step then it's reverse will leave you
 -- where you started.
+reverseStep :: Step -> Step
 reverseStep step = case step of
   GoUp index -> GoDown index
   GoDown index -> GoUp index

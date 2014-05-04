@@ -66,6 +66,7 @@ $(defValuedProperty "SQ" 'GeneralProperty False 'coordListPrinter)
 $(defValuedProperty "TR" 'GeneralProperty False 'coordListPrinter)
 
 -- Root properties.
+propertyAP :: ValuedPropertyInfo (SimpleText, SimpleText)
 propertyAP = makeValuedPropertyInfo "AP" RootProperty False
              (\x -> case x of { AP {} -> True; _ -> False })
              (\(x, y) -> '[' : printStringlike True x ++
@@ -76,6 +77,7 @@ $(defValuedProperty "CA" 'RootProperty False 'stringlikePrinter)
 $(defValuedProperty "FF" 'RootProperty False 'numberPrinter)
 $(defValuedProperty "GM" 'RootProperty False 'numberPrinter)
 $(defValuedProperty "ST" 'RootProperty False 'variationModePrinter)
+propertySZ :: ValuedPropertyInfo (Int, Int)
 propertySZ = makeValuedPropertyInfo "SZ" RootProperty False
              (\x -> case x of { SZ {} -> True; _ -> False })
              (\(x, y) -> '[' : show x ++ if x == y
