@@ -317,7 +317,9 @@ drawBoard ui hoverStateRef drawingArea = do
       variationMode = rootInfoVariationMode $ gameInfoRootInfo $ boardGameInfo $ cursorBoard cursor
 
       variations :: [(Coord, Color)]
-      variations = cursorVariations (variationModeSource variationMode) cursor
+      variations = if variationModeBoardMarkup variationMode
+                   then cursorVariations (variationModeSource variationMode) cursor
+                   else []
 
       renderedCoords :: [[RenderedCoord]]
       renderedCoords =

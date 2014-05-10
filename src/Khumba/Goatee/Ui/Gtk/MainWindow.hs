@@ -92,7 +92,7 @@ keyNavActions = Map.fromList $
 
 data MainWindow ui = MainWindow { myUi :: ui
                                 , myWindow :: Window
-                                , myActions :: Actions
+                                , myActions :: Actions ui
                                 , myGamePropertiesPanel :: GamePropertiesPanel ui
                                 , myGoban :: Goban ui
                                 , myInfoLine :: InfoLine ui
@@ -173,6 +173,26 @@ create ui = do
       containerAdd menuToolMenu menuItem
       containerAdd toolbar toolItem
 
+  menuView <- menuItemNewWithMnemonic "_View"
+  menuViewMenu <- menuNew
+  menuShellAppend menuBar menuView
+  menuItemSetSubmenu menuView menuViewMenu
+
+  menuViewVariations <- menuItemNewWithMnemonic "_Variations"
+  menuViewVariationsMenu <- menuNew
+  containerAdd menuViewMenu menuViewVariations
+  menuItemSetSubmenu menuViewVariations menuViewVariationsMenu
+
+  containerAdd menuViewVariationsMenu =<<
+    actionCreateMenuItem (Actions.myViewVariationsChildAction actions)
+  containerAdd menuViewVariationsMenu =<<
+    actionCreateMenuItem (Actions.myViewVariationsCurrentAction actions)
+  containerAdd menuViewVariationsMenu =<< separatorMenuItemNew
+  containerAdd menuViewVariationsMenu =<<
+    actionCreateMenuItem (Actions.myViewVariationsBoardMarkupOnAction actions)
+  containerAdd menuViewVariationsMenu =<<
+    actionCreateMenuItem (Actions.myViewVariationsBoardMarkupOffAction actions)
+
   menuHelp <- menuItemNewWithMnemonic "_Help"
   menuHelpMenu <- menuNew
   menuShellAppend menuBar menuHelp
@@ -233,6 +253,7 @@ initialize me = do
 
 destroy :: UiCtrl ui => MainWindow ui -> IO ()
 destroy me = do
+  Actions.destroy $ myActions me
   GamePropertiesPanel.destroy $ myGamePropertiesPanel me
   Goban.destroy $ myGoban me
   InfoLine.destroy $ myInfoLine me

@@ -234,12 +234,12 @@ cnot Black = White
 cnot White = Black
 
 data VariationMode = VariationMode { variationModeSource :: VariationModeSource
-                                   , variationModeBoardOverlay :: Bool
+                                   , variationModeBoardMarkup :: Bool
                                    } deriving (Eq, Show)
 
 data VariationModeSource = ShowChildVariations
                          | ShowCurrentVariations
-                         deriving (Eq, Show)
+                         deriving (Bounded, Enum, Eq, Show)
 
 defaultVariationMode :: VariationMode
 defaultVariationMode = VariationMode ShowChildVariations True
