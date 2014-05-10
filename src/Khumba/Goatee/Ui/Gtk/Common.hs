@@ -324,7 +324,6 @@ data UiModes = UiModes { uiViewMode :: ViewMode
                          -- ^ If true, announce the player whose turn it is with
                          -- blindfolds off.  If false, announce the player whose
                          -- turn it is with blindfolds on.
-                       , uiOverrideVariationMode :: Maybe VariationMode
                        , uiShowMoveNumberMode :: Bool
                        , uiTool :: Tool
                        } deriving (Eq, Show)
@@ -338,7 +337,6 @@ defaultUiModes :: UiModes
 defaultUiModes = UiModes { uiViewMode = ViewRegularMode
                          , uiViewOneColorModeColor = Black
                          , uiViewBlindModesAnnouncePlayer = True
-                         , uiOverrideVariationMode = Nothing
                          , uiShowMoveNumberMode = False
                          , uiTool = ToolPlay
                          }

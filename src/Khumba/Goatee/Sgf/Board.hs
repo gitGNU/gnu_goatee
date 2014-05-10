@@ -28,6 +28,7 @@ module Khumba.Goatee.Sgf.Board (
   Cursor(..), rootCursor, cursorRoot, cursorChild, cursorChildren,
   cursorChildCount, cursorChildPlayingAt, cursorProperties,
   cursorModifyNode,
+  cursorVariations,
   colorToMove,
   ) where
 
@@ -275,13 +276,21 @@ rootBoardState rootNode =
 boardCoordState :: Coord -> BoardState -> CoordState
 boardCoordState (x, y) board = boardCoordStates board !! y !! x
 
-mapBoardCoords :: (Int -> Int -> CoordState -> a) -> BoardState -> [a]
+-- | Maps a function over each 'CoordState' in a 'BoardState', returning a
+-- list-of-lists with the function's values.  The function is called like @fn y
+-- x coordState@.
+mapBoardCoords :: (Int -> Int -> CoordState -> a) -> BoardState -> [[a]]
 mapBoardCoords fn board =
-  concatMap applyRow $ zip [0..] $ boardCoordStates board
-  where applyRow (y, row) = map (applyCell y) $ zip [0..] row
-        applyCell y (x, cell) = fn x y cell
+  zipWith applyRow [0..] $ boardCoordStates board
+  where applyRow y = zipWith (fn y) [0..]
 
--- | Applies a function to the 'GameInfo' of a 'BoardState'.
+-- | Applies a function to update the 'RootInfo' within the 'GameInfo' of a
+-- 'BoardState'.
+updateRootInfo :: (RootInfo -> RootInfo) -> BoardState -> BoardState
+updateRootInfo fn board = flip updateBoardInfo board $ \gameInfo ->
+  gameInfo { gameInfoRootInfo = fn $ gameInfoRootInfo gameInfo }
+
+-- | Applies a function to update the 'GameInfo' of a 'BoardState'.
 updateBoardInfo :: (GameInfo -> GameInfo) -> BoardState -> BoardState
 updateBoardInfo fn board = board { boardGameInfo = fn $ boardGameInfo board }
 
@@ -404,7 +413,8 @@ applyProperty (AP {}) board = board
 applyProperty (CA {}) board = board
 applyProperty (FF {}) board = board
 applyProperty (GM {}) board = board
-applyProperty (ST {}) board = board
+applyProperty (ST variationMode) board =
+  updateRootInfo (\info -> info { rootInfoVariationMode = variationMode }) board
 applyProperty (SZ {}) board = board
 
 applyProperty (AN str) board =
@@ -761,6 +771,27 @@ cursorModifyNode fn cursor =
                                        })
                           parentCursor
       in cursorChild parentCursor' index
+
+-- | Returns the variations to display for a cursor.  The returned list contains
+-- the location and color of 'B' and 'W' properties in variation nodes.
+-- Variation nodes are either children of the current node, or siblings of the
+-- current node, depending on the variation mode source.
+cursorVariations :: VariationModeSource -> Cursor -> [(Coord, Color)]
+cursorVariations source cursor =
+  case source of
+    ShowChildVariations -> collectPlays $ nodeChildren $ cursorNode cursor
+    ShowCurrentVariations ->
+      case cursorParent cursor of
+        Nothing -> []
+        Just parent -> collectPlays $ listDeleteIndex (cursorChildIndex cursor) $
+                       nodeChildren $ cursorNode parent
+  where collectPlays :: [Node] -> [(Coord, Color)]
+        collectPlays = concatMap collectPlays'
+        collectPlays' = concatMap collectPlays'' . nodeProperties
+        collectPlays'' prop = case prop of
+          B (Just xy) -> [(xy, Black)]
+          W (Just xy) -> [(xy, White)]
+          _ -> []
 
 colorToMove :: Color -> Coord -> Property
 colorToMove color coord =

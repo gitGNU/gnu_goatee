@@ -17,17 +17,19 @@
 
 module Khumba.Goatee.Sgf.MonadTest (tests) where
 
+import Control.Applicative ((<$>))
 import Control.Arrow ((&&&))
 import Control.Monad (forM_, liftM, replicateM_, void)
 import Control.Monad.Writer (Writer, execWriter, runWriter, tell)
 import Data.List (unfoldr)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, maybeToList)
 import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Monad
 import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.TestInstances ()
 import Khumba.Goatee.Sgf.TestUtils
 import Khumba.Goatee.Sgf.Types
+import Khumba.Goatee.Test.Common
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit ((@=?), (@?=))
@@ -55,6 +57,7 @@ tests = testGroup "Khumba.Goatee.Sgf.Monad" [
   modifyPropertyStringTests,
   modifyPropertyCoordsTests,
   modifyGameInfoTests,
+  modifyVariationModeTests,
   getMarkTests,
   modifyMarkTests,
   addChildTests,
@@ -512,6 +515,45 @@ modifyGameInfoTests = testGroup "modifyGameInfo" [
         [B $ Just (0,0)],
         [PB $ toSimpleText "Peanut butter", SZ 19 19]]
   ]
+
+modifyVariationModeTests = testGroup "modifyVariationMode" [
+  testCase "testing modes are not default" $ do
+    defaultVariationMode @/=? mode
+    defaultVariationMode @/=? mode2,
+
+  testCase "modifies when at a root node" $
+    node1 [ST mode] (node []) @=?
+    cursorNode (execGo setMode $ rootCursor $ node1 [] $ node []),
+
+  testCase "modifies when at a non-root node" $
+    node1 [ST mode] (node []) @=?
+    cursorNode (cursorRoot $ execGo setMode $ child 0 $ rootCursor $ node1 [] $ node []),
+
+  testCase "leaves an unset ST unset" $
+    assertST Nothing Nothing $ const defaultVariationMode,
+
+  testCase "leaves a default ST alone" $
+    assertST (Just defaultVariationMode) (Just defaultVariationMode) $ const defaultVariationMode,
+
+  testCase "leaves an existing ST alone" $
+    assertST (Just mode) (Just mode) $ const mode,
+
+  testCase "adds an ST property" $
+    assertST (Just mode) Nothing $ const mode,
+
+  testCase "removes an ST property when setting to default" $
+    assertST Nothing (Just mode) $ const defaultVariationMode,
+
+  testCase "modifies an existing ST property" $
+    assertST (Just mode2) (Just mode) $ const mode2
+  ]
+  where mode = VariationMode ShowCurrentVariations True
+        mode2 = VariationMode ShowChildVariations False
+        setMode = modifyVariationMode $ const mode
+        assertST maybeExpectedST maybeInitialST fn =
+          node (ST <$> maybeToList maybeExpectedST) @=?
+          cursorNode (execGo (modifyVariationMode fn) $
+                      rootCursor $ node $ ST <$> maybeToList maybeInitialST)
 
 getMarkTests = testGroup "getMark" [
   testCase "returns Nothing for no mark" $ do

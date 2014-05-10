@@ -17,6 +17,7 @@
 
 -- | Common utilities used throughout the project.
 module Khumba.Goatee.Common (
+  listDeleteIndex,
   listReplace,
   listUpdate,
   fromLeft,
@@ -29,6 +30,7 @@ module Khumba.Goatee.Common (
   cond,
   if',
   andM,
+  forIndexM_,
   whileM,
   whileM',
   doWhileM,
@@ -36,9 +38,14 @@ module Khumba.Goatee.Common (
   ) where
 
 import Control.Arrow ((***))
-import Control.Monad (join, when)
+import Control.Monad (forM_, join, when)
 import Data.Either (partitionEithers)
 import Data.Monoid (Monoid, mempty, mappend)
+
+-- | Drops the element at an index from a list.  If the index is out of bounds
+-- then the list is returned unmodified.
+listDeleteIndex :: Int -> [a] -> [a]
+listDeleteIndex index list = take index list ++ drop (index + 1) list
 
 -- | @listReplace old new list@ replaces all occurrences of @old@ with @new@ in
 -- @list@.
@@ -107,6 +114,10 @@ if' true false test = if test then true else false
 andM :: Monad m => [m Bool] -> m Bool
 andM (x:xs) = x >>= if' (andM xs) (return False)
 andM _ = return True
+
+-- | 'forM_' that also passes in the index of each element.
+forIndexM_ :: Monad m => [a] -> (Int -> a -> m ()) -> m ()
+forIndexM_ list = forM_ (zip [0..] list) . uncurry
 
 -- | @whileM test body@ repeatedly evaluates @test@ until it returns false.
 -- Every time @test@ returns true, @body@ is executed once.

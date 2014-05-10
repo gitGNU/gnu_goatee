@@ -31,6 +31,7 @@ import Test.HUnit ((@=?))
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
 tests = testGroup "Khumba.Goatee.Common" [
+  listDeleteIndexTests,
   listReplaceTests,
   onLeftTests,
   onRightTests,
@@ -40,10 +41,38 @@ tests = testGroup "Khumba.Goatee.Common" [
   condTests,
   if'Tests,
   andMTests,
+  forIndexM_Tests,
   whileMTests,
   whileM'Tests,
   doWhileMTests,
   seqTests
+  ]
+
+listDeleteIndexTests = testGroup "listDeleteIndex" [
+  testCase "deletes nothing from an empty list" $ do
+    [] @=? listDeleteIndex (-1) ([] :: [()])
+    [] @=? listDeleteIndex 0 ([] :: [()])
+    [] @=? listDeleteIndex 1 ([] :: [()]),
+
+  testCase "deletes the only item from a singleton list" $
+    [] @=? listDeleteIndex 0 [()],
+
+  testCase "deletes the head of a list" $
+    [False] @=? listDeleteIndex 0 [True, False],
+
+  testCase "deletes the tail of a list" $
+    [Just 0, Nothing] @=? listDeleteIndex 2 [Just 0, Nothing, Just 1],
+
+  testCase "deletes an inner item from a list" $
+    [Just 0, Just 1] @=? listDeleteIndex 1 [Just 0, Nothing, Just 1],
+
+  testCase "ignores a negative index" $ do
+    [1, 2, 3] @=? listDeleteIndex (-1) [1, 2, 3]
+    [1, 2, 3] @=? listDeleteIndex (-2) [1, 2, 3],
+
+  testCase "ignores an index too large" $ do
+    [1, 2, 3] @=? listDeleteIndex 3 [1, 2, 3]
+    [1, 2, 3] @=? listDeleteIndex 4 [1, 2, 3]
   ]
 
 listReplaceTests = testGroup "listReplace" [
@@ -172,6 +201,15 @@ andMTests = testGroup "andM" [
     (15 @=?) =<< readIORef ref
   ]
   where addToRef ref num = modifyIORef ref (+ num)
+
+forIndexM_Tests = testGroup "forIndexM_" [
+  testCase "does nothing with an empty list" $
+    "" @=? execWriter (forIndexM_ [] $ \_ _ -> tell "x"),
+
+  testCase "iterates over all elements in order" $
+    "(0,'a')(1,'b')(2,'c')" @=?
+    execWriter (forIndexM_ "abc" $ \index value -> tell $ show (index, value))
+  ]
 
 whileMTests = testGroup "whileM" [
   testCase "never executes the body if the first test returns false" $

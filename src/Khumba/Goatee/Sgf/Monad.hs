@@ -39,6 +39,7 @@ module Khumba.Goatee.Sgf.Monad (
   modifyPropertyString,
   modifyPropertyCoords,
   modifyGameInfo,
+  modifyVariationMode,
   getMark,
   modifyMark,
   -- * Children
@@ -50,6 +51,7 @@ module Khumba.Goatee.Sgf.Monad (
   gameInfoChangedEvent, GameInfoChangedHandler,
   navigationEvent, NavigationHandler,
   propertiesChangedEvent, PropertiesChangedHandler,
+  variationModeChangedEvent, VariationModeChangedHandler,
   ) where
 
 import Control.Applicative ((<$>), Applicative ((<*>), pure))
@@ -83,6 +85,8 @@ data GoState go = GoState { stateCursor :: Cursor
                             -- ^ Handlers for 'navigationEvent'.
                           , statePropertiesChangedHandlers :: [PropertiesChangedHandler go]
                             -- ^ Handlers for 'propertiesChangedEvent'.
+                          , stateVariationModeChangedHandlers :: [VariationModeChangedHandler go]
+                            -- ^ Handlers for 'variationModeChangedEvent'.
                           }
 
 -- | A path stack is a record of previous places visited in a game tree.  It is
@@ -102,6 +106,7 @@ initialState cursor = GoState { stateCursor = cursor
                               , stateGameInfoChangedHandlers = []
                               , stateNavigationHandlers = []
                               , statePropertiesChangedHandlers = []
+                              , stateVariationModeChangedHandlers = []
                               }
 
 -- | A single step along a game tree.  Either up or down.
@@ -265,6 +270,10 @@ class Monad go => MonadGo go where
   -- node.
   modifyGameInfo :: (GameInfo -> GameInfo) -> go GameInfo
 
+  -- | Sets the game's 'VariationMode' via the 'ST' property on the root node,
+  -- then fires a 'variationModeChangedEvent' if the variation mode has changed.
+  modifyVariationMode :: (VariationMode -> VariationMode) -> go ()
+
   -- | Returns the 'Mark' at a point on the current node.
   getMark :: Coord -> go (Maybe Mark)
   getMark = liftM coordMark . getCoordState
@@ -373,7 +382,7 @@ instance Monad m => MonadGo (GoT m) where
     [] -> pathStack
     path:paths -> (GoUp index:path):paths
 
-  goToRoot = whileM (liftM (isJust . cursorParent) getCursor) goUp
+  goToRoot = whileM (isJust . cursorParent <$> getCursor) goUp
 
   goToGameInfoNode goToRootIfNotFound = pushPosition >> findGameInfoNode
     where findGameInfoNode = do
@@ -468,6 +477,26 @@ instance Monad m => MonadGo (GoT m) where
       return $ gameInfoToProperties info' ++ filter ((GameInfoProperty /=) . propertyType) props
     popPosition
     return info'
+
+  modifyVariationMode fn = do
+    pushPosition
+    goToRoot
+    modifyPropertyValue propertyST $ \maybeOld ->
+      -- If the new variation mode is equal to the old effective variation mode
+      -- (effective applying the default if the property isn't present), then
+      -- leave the property unchanged.  Otherwise, apply the new variation mode,
+      -- deleting the property if the default variation mode is selected.  We
+      -- don't delete the property if @maybeOld == Just new == Just
+      -- defaultVariationMode@, because we don't want to trigger dirtyness
+      -- unnecessarily.
+      let old = fromMaybe defaultVariationMode maybeOld
+          new = fn old
+      in if new == old
+         then maybeOld
+         else if new == defaultVariationMode
+              then Nothing
+              else Just new
+    popPosition
 
   addChild index node = do
     cursor <- getCursor
@@ -598,7 +627,7 @@ childAddedEvent = Event {
   , eventStateSetter = \handlers state -> state { stateChildAddedHandlers = handlers }
   }
 
--- | A handler for a 'childAddedEvent'.
+-- | A handler for 'childAddedEvent's.
 type ChildAddedHandler go = Int -> Cursor -> go ()
 
 -- | An event that is fired when the current game info changes, either by
@@ -611,8 +640,8 @@ gameInfoChangedEvent = Event {
   , eventStateSetter = \handlers state -> state { stateGameInfoChangedHandlers = handlers }
   }
 
--- | A handler for a 'gameInfoChangedEvent'.  It is called with the old game
--- info then the new game info.
+-- | A handler for 'gameInfoChangedEvent's.  It is called with the old game info
+-- then the new game info.
 type GameInfoChangedHandler go = GameInfo -> GameInfo -> go ()
 
 -- | An event that is fired when a single step up or down in a game tree is
@@ -624,7 +653,7 @@ navigationEvent = Event {
   , eventStateSetter = \handlers state -> state { stateNavigationHandlers = handlers }
   }
 
--- | A handler for a 'navigationEvent'.
+-- | A handler for 'navigationEvent's.
 --
 -- A navigation handler may navigate further, but beware infinite recursion.  A
 -- navigation handler must end on the same node on which it started.
@@ -639,6 +668,23 @@ propertiesChangedEvent = Event {
   , eventStateSetter = \handlers state -> state { statePropertiesChangedHandlers = handlers }
   }
 
--- | A handler for a 'propertiesChangedEvent'.  It is called with the old
+-- | A handler for 'propertiesChangedEvent's.  It is called with the old
 -- property list then the new property list.
 type PropertiesChangedHandler go = [Property] -> [Property] -> go ()
+
+-- | An event corresponding to a change in the active 'VariationMode'.  This can
+-- happen when modifying the 'ST' property, and also when navigating between
+-- collections (as they have different root nodes).
+variationModeChangedEvent :: Event go (VariationModeChangedHandler go)
+variationModeChangedEvent = Event {
+  eventName = "variationModeChangedEvent"
+  , eventStateGetter = stateVariationModeChangedHandlers
+  , eventStateSetter = \handlers state -> state { stateVariationModeChangedHandlers = handlers }
+  }
+-- TODO Test that this is fired when moving between root nodes in a collection.
+-- For now, since we don't support multiple trees in a collection, we don't need
+-- to worry about checking for active variation mode change on navigation.
+
+-- | A handler for 'variationModeChangedEvent's.  It is called with the old
+-- variation mode then the new variation mode.
+type VariationModeChangedHandler go = VariationMode -> VariationMode -> go ()

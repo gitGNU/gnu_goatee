@@ -19,6 +19,7 @@
 module Khumba.Goatee.Ui.Gtk.Actions (
   Actions,
   create,
+  destroy,
   myFileNewAction,
   myFileOpenAction,
   myFileSaveAction,
@@ -26,14 +27,21 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   myFileCloseAction,
   myFileQuitAction,
   myToolActions,
+  myViewVariationsChildAction,
+  myViewVariationsCurrentAction,
+  myViewVariationsBoardMarkupOnAction,
+  myViewVariationsBoardMarkupOffAction,
   myHelpAboutAction,
   ) where
 
-import Control.Monad (void)
+import Control.Applicative ((<$>))
+import Control.Monad (void, when)
 import Data.Maybe (fromMaybe)
 import Graphics.UI.Gtk (
   Action,
   ActionGroup,
+  AttrOp ((:=)),
+  RadioAction,
   RadioActionEntry (
     RadioActionEntry,
     radioActionAccelerator, radioActionLabel, radioActionName, radioActionStockId,
@@ -41,22 +49,38 @@ import Graphics.UI.Gtk (
     ),
   actionActivate, actionActivated, actionGroupAddActionWithAccel, actionGroupAddRadioActions,
   actionGroupGetAction, actionGroupNew, actionNew,
+  get,
   on,
-  radioActionGetCurrentValue,
+  radioActionChanged, radioActionCurrentValue, radioActionNew, radioActionSetGroup,
+  set,
   )
 import Khumba.Goatee.Ui.Gtk.Common
+import Khumba.Goatee.Sgf.Board
+import Khumba.Goatee.Sgf.Monad hiding (on)
+import Khumba.Goatee.Sgf.Types
 
-data Actions = Actions { myFileNewAction :: Action
-                       , myFileOpenAction :: Action
-                       , myFileSaveAction :: Action
-                       , myFileSaveAsAction :: Action
-                       , myFileCloseAction :: Action
-                       , myFileQuitAction :: Action
-                       , myToolActions :: ActionGroup
-                       , myHelpAboutAction :: Action
-                       }
+data Actions ui = Actions { myUi :: ui
+                          , myRegistrations :: ViewRegistrations
+                          , myFileNewAction :: Action
+                          , myFileOpenAction :: Action
+                          , myFileSaveAction :: Action
+                          , myFileSaveAsAction :: Action
+                          , myFileCloseAction :: Action
+                          , myFileQuitAction :: Action
+                          , myToolActions :: ActionGroup
+                          , myViewVariationsChildAction :: RadioAction
+                          , myViewVariationsCurrentAction :: RadioAction
+                          , myViewVariationsBoardMarkupOnAction :: RadioAction
+                          , myViewVariationsBoardMarkupOffAction :: RadioAction
+                          , myHelpAboutAction :: Action
+                          }
 
-create :: UiCtrl ui => ui -> IO Actions
+instance UiCtrl ui => UiView (Actions ui) ui where
+  viewName = const "Actions"
+  viewCtrl = myUi
+  viewRegistrations = myRegistrations
+
+create :: UiCtrl ui => ui -> IO (Actions ui)
 create ui = do
   let tools = enumFrom minBound
 
@@ -100,7 +124,50 @@ create ui = do
                        , radioActionValue = fromEnum tool
                        })
     (fromEnum initialTool)
-    (\radioAction -> setTool ui =<< fmap toEnum (radioActionGetCurrentValue radioAction))
+    (\radioAction -> setTool ui =<< fmap toEnum (get radioAction radioActionCurrentValue))
+
+  -- Variation mode view actions.
+  viewVariationsChildAction <- radioActionNew "viewVariationsChild"
+                               "_Child variations"
+                               (Just "Show children node as variations")
+                               Nothing
+                               (fromEnum ShowChildVariations)
+  viewVariationsCurrentAction <- radioActionNew "viewVariationsCurrent"
+                                 "C_urrent variations"
+                                 (Just "Show variations of the current node")
+                                 Nothing
+                                 (fromEnum ShowCurrentVariations)
+  radioActionSetGroup viewVariationsChildAction viewVariationsCurrentAction
+
+  viewVariationsBoardMarkupOnAction <- radioActionNew "viewVariationsBoardMarkupOn"
+                                       "_Show on board"
+                                       (Just "Show move variations on the board")
+                                       Nothing
+                                       (fromEnum True)
+  viewVariationsBoardMarkupOffAction <- radioActionNew "viewVariationsBoardMarkupOn"
+                                        "_Hide on board"
+                                        (Just "Hide move variations on the board")
+                                        Nothing
+                                        (fromEnum False)
+  radioActionSetGroup viewVariationsBoardMarkupOnAction viewVariationsBoardMarkupOffAction
+
+  initialVariationMode <-
+    rootInfoVariationMode . gameInfoRootInfo . boardGameInfo . cursorBoard <$>
+    readCursor ui
+  set viewVariationsChildAction
+    [radioActionCurrentValue := fromEnum (variationModeSource initialVariationMode)]
+  set viewVariationsBoardMarkupOnAction
+    [radioActionCurrentValue := fromEnum (variationModeBoardMarkup initialVariationMode)]
+
+  -- This signal is emitted on every action in a radio group when the active
+  -- item is changed, so we only need to listen with one action.
+  on viewVariationsChildAction radioActionChanged $ \action -> do
+    value <- toEnum <$> get action radioActionCurrentValue
+    runUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeSource = value }
+
+  on viewVariationsBoardMarkupOnAction radioActionChanged $ \action -> do
+    value <- toEnum <$> get action radioActionCurrentValue
+    runUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeBoardMarkup = value }
 
   helpAboutAction <- actionNew "HelpAbout" "_About" Nothing Nothing
   on helpAboutAction actionActivated $ helpAbout ui
@@ -109,12 +176,42 @@ create ui = do
     fmap (fromMaybe $ error $ "Could not find the initial tool " ++ show initialTool ++ ".")
          (actionGroupGetAction toolActions $ show initialTool)
 
-  return Actions { myFileNewAction = fileNewAction
-                 , myFileOpenAction = fileOpenAction
-                 , myFileSaveAction = fileSaveAction
-                 , myFileSaveAsAction = fileSaveAsAction
-                 , myFileCloseAction = fileCloseAction
-                 , myFileQuitAction = fileQuitAction
-                 , myToolActions = toolActions
-                 , myHelpAboutAction = helpAboutAction
-                 }
+  registrations <- viewNewRegistrations
+
+  let me = Actions { myUi = ui
+                   , myRegistrations = registrations
+                   , myFileNewAction = fileNewAction
+                   , myFileOpenAction = fileOpenAction
+                   , myFileSaveAction = fileSaveAction
+                   , myFileSaveAsAction = fileSaveAsAction
+                   , myFileCloseAction = fileCloseAction
+                   , myFileQuitAction = fileQuitAction
+                   , myToolActions = toolActions
+                   , myViewVariationsChildAction = viewVariationsChildAction
+                   , myViewVariationsCurrentAction = viewVariationsCurrentAction
+                   , myViewVariationsBoardMarkupOnAction = viewVariationsBoardMarkupOnAction
+                   , myViewVariationsBoardMarkupOffAction = viewVariationsBoardMarkupOffAction
+                   , myHelpAboutAction = helpAboutAction
+                   }
+
+  initialize me
+  return me
+
+initialize :: UiCtrl ui => Actions ui -> IO ()
+initialize me =
+  viewRegister me variationModeChangedEvent $ \_ new -> afterGo $ do
+    let newSource = fromEnum $ variationModeSource new
+        newBoardMarkup = fromEnum $ variationModeBoardMarkup new
+        sourceAction = myViewVariationsChildAction me
+        boardMarkupAction = myViewVariationsBoardMarkupOnAction me
+
+    oldSource <- get sourceAction radioActionCurrentValue
+    when (newSource /= oldSource) $
+      set sourceAction [radioActionCurrentValue := newSource]
+
+    oldBoardMarkup <- get boardMarkupAction radioActionCurrentValue
+    when (newBoardMarkup /= oldBoardMarkup) $
+      set boardMarkupAction [radioActionCurrentValue := newBoardMarkup]
+
+destroy :: UiCtrl ui => Actions ui -> IO ()
+destroy = viewUnregisterAll

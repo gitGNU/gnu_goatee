@@ -17,12 +17,26 @@
 
 -- | Common utilities for testing code.
 module Khumba.Goatee.Test.Common (
+  (@/=?),
   assertElem,
   printableAsciiChars,
   ) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Test.HUnit (Assertion, assertFailure)
+
+-- | Asserts that two values are not equal.  Typically, the left argument is a
+-- constant value that the right, computed argument should not equal, to mirror
+-- '@=?'.
+(@/=?) :: (Eq a, Show a) => a -> a -> Assertion
+notExpected @/=? actual =
+  when (notExpected == actual) $ assertFailure $
+  let notExpected' = show notExpected
+      actual' = show actual
+  in if actual' == notExpected'
+     then "did not expect: " ++ actual'
+     else "      this value: " ++ actual' ++
+          "\nshould not equal: " ++ notExpected'
 
 assertElem :: (Eq a, Show a) => a -> [a] -> Assertion
 assertElem item list =
