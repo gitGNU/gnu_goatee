@@ -64,27 +64,27 @@ create ui = do
   fileActions <- actionGroupNew "File"
 
   -- TODO Accelerators aren't working.
-  fileNewAction <- actionNew "FileNew" "New file" Nothing Nothing
+  fileNewAction <- actionNew "FileNew" "_New file" Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileNewAction $ Just "<Control>n"
   on fileNewAction actionActivated $ void $ openNewBoard (Just ui) Nothing
 
-  fileOpenAction <- actionNew "FileOpen" "Open file..." Nothing Nothing
+  fileOpenAction <- actionNew "FileOpen" "_Open file..." Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileOpenAction $ Just "<Control>o"
   on fileOpenAction actionActivated $ fileOpen ui
 
-  fileSaveAction <- actionNew "FileSave" "Save file" Nothing Nothing
+  fileSaveAction <- actionNew "FileSave" "_Save file" Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileSaveAction $ Just "<Control>s"
   on fileSaveAction actionActivated $ void $ fileSave ui
 
-  fileSaveAsAction <- actionNew "FileSaveAs" "Save file as..." Nothing Nothing
+  fileSaveAsAction <- actionNew "FileSaveAs" "Sa_ve file as..." Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileSaveAsAction $ Just "<Control><Shift>s"
   on fileSaveAsAction actionActivated $ void $ fileSaveAs ui
 
-  fileCloseAction <- actionNew "FileClose" "Close" Nothing Nothing
+  fileCloseAction <- actionNew "FileClose" "_Close" Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileCloseAction $ Just "<Control>w"
   on fileCloseAction actionActivated $ void $ fileClose ui
 
-  fileQuitAction <- actionNew "FileQuit" "Quit" Nothing Nothing
+  fileQuitAction <- actionNew "FileQuit" "_Quit" Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileQuitAction $ Just "<Control>q"
   on fileQuitAction actionActivated $ void $ fileQuit ui
 
@@ -102,7 +102,7 @@ create ui = do
     (fromEnum initialTool)
     (\radioAction -> setTool ui =<< fmap toEnum (radioActionGetCurrentValue radioAction))
 
-  helpAboutAction <- actionNew "About" "About" Nothing Nothing
+  helpAboutAction <- actionNew "HelpAbout" "_About" Nothing Nothing
   on helpAboutAction actionActivated $ helpAbout ui
 
   actionActivate =<<
