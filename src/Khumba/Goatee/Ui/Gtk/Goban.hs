@@ -24,7 +24,7 @@ module Khumba.Goatee.Ui.Gtk.Goban (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (unless, when)
+import Control.Monad (liftM, unless, when)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Graphics.Rendering.Cairo (
@@ -66,8 +66,11 @@ import Graphics.UI.Gtk (
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board hiding (isValidMove)
 import Khumba.Goatee.Sgf.Monad hiding (on)
+import Khumba.Goatee.Sgf.Property
 import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Ui.Gtk.Common
+
+{-# ANN module "HLint: ignore Use camelCase" #-}
 
 boardBgColor :: Rgb
 boardBgColor = rgb255 229 178 58
@@ -139,6 +142,7 @@ boardAnnotationArrowWidth = 0.1
 data Goban ui = Goban { myUi :: ui
                       , myRegistrations :: ViewRegistrations
                       , myDrawingArea :: DrawingArea
+                      , myModesChangedHandler :: IORef (Maybe Registration)
                       }
 
 instance UiCtrl ui => UiView (Goban ui) ui where
@@ -159,6 +163,7 @@ data HoverState = HoverState { hoverCoord :: Maybe Coord
 -- | Augments a 'CoordState' with data that is only used for rendering purposes.
 data RenderedCoord = RenderedCoord {
   renderedCoordState :: CoordState
+  , renderedCoordCurrent :: Bool
   , renderedCoordVariation :: Maybe Color
     -- ^ If a variation move exists at this point, then this will be the color
     -- of the move.
@@ -193,10 +198,12 @@ create ui = do
     return True
 
   registrations <- viewNewRegistrations
+  modesChangedHandler <- newIORef Nothing
 
   let me = Goban { myUi = ui
                  , myRegistrations = registrations
                  , myDrawingArea = drawingArea
+                 , myModesChangedHandler = modesChangedHandler
                  }
 
   initialize me
@@ -204,16 +211,22 @@ create ui = do
 
 initialize :: UiCtrl ui => Goban ui -> IO ()
 initialize me = do
-  let onChange = afterGo $ update me
+  let ui = myUi me
+      onChange = afterGo $ update me
   viewRegister me childAddedEvent $ const $ const onChange
   viewRegister me navigationEvent $ const onChange
   viewRegister me propertiesChangedEvent $ const $ const onChange
+  writeIORef (myModesChangedHandler me) =<<
+    liftM Just (registerModesChangedHandler ui "Goban" $ \_ _ -> update me)
   -- TODO Need to update the hover state's validity on cursor and tool (mode?)
   -- changes.
   update me
 
 destroy :: UiCtrl ui => Goban ui -> IO ()
-destroy = viewUnregisterAll
+destroy me = do
+  let ui = myUi me
+  viewUnregisterAll me
+  F.mapM_ (unregisterModesChangedHandler ui) =<< readIORef (myModesChangedHandler me)
 
 update :: UiCtrl ui => Goban ui -> IO ()
 update = widgetQueueDraw . myDrawingArea
@@ -321,14 +334,34 @@ drawBoard ui hoverStateRef drawingArea = do
                    then cursorVariations (variationModeSource variationMode) cursor
                    else []
 
+      -- Positions of stones that have been played at the current node.
+      current :: [Coord]
+      current = if uiShowCurrentMovesMode modes
+                then concatMap (\prop -> case prop of
+                                   B (Just xy) -> [xy]
+                                   W (Just xy) -> [xy]
+                                   _ -> []) $
+                     cursorProperties cursor
+                else []
+
+      -- The state of the board's points, with all data for rendering.
       renderedCoords :: [[RenderedCoord]]
       renderedCoords =
+        -- Add current moves.
+        (flip .)
+        foldr (\(x, y) grid ->
+                listUpdate (flip listUpdate x $
+                            \renderedCoord -> renderedCoord { renderedCoordCurrent = True })
+                           y
+                           grid)
+              current $
+        -- Add variations.
         foldr (\((x, y), color) grid ->
                 listUpdate (flip listUpdate x $
                             \renderedCoord -> renderedCoord { renderedCoordVariation = Just color })
                            y
                            grid)
-              (map (map $ \state -> RenderedCoord state Nothing) $
+              (map (map $ \state -> RenderedCoord state False Nothing) $
                mapBoardCoords maybeAddHover board)
               variations
 
@@ -397,6 +430,7 @@ drawCoord board gridWidth gridBorderWidth x y renderedCoord = do
   let x' = fromIntegral x
       y' = fromIntegral y
       coord = renderedCoordState renderedCoord
+      current = renderedCoordCurrent renderedCoord
       variation = renderedCoordVariation renderedCoord
   -- Translate the grid so that we can draw the stone from (0,0) to (1,1).
   translate x' y'
@@ -404,7 +438,15 @@ drawCoord board gridWidth gridBorderWidth x y renderedCoord = do
   drawGrid board gridWidth gridBorderWidth x y
   F.mapM_ drawStone $ coordStone coord
   maybe (return ()) (drawMark $ coordStone coord) $ coordMark coord
-  F.mapM_ drawVariation variation
+  case (current, variation) of
+    -- With @VariationMode ShowChildVariations True@, this is the case of an
+    -- immediately recaptured ko.  With @ShowCurrentVariations@ and a valid SGF
+    -- this case shouldn't happen.
+    (True, Just variation') -> do drawCurrent True
+                                  drawVariation variation' True
+    (True, _) -> drawCurrent False
+    (_, Just variation') -> drawVariation variation' False
+    _ -> return ()
   -- Restore the coordinate system for the next stone.
   translate (-x') (-y')
 
@@ -470,7 +512,7 @@ drawGrid board gridWidth gridBorderWidth x y = do
 -- | Draws a stone from @(0, 0)@ to @(1, 1)@ in user coordinates.
 drawStone :: Color -> Render ()
 drawStone color = do
-  arc 0.5 0.5 (0.5 - stoneBorderThickness / 2) 0 (2 * pi)
+  arc 0.5 0.5 (0.5 - stoneBorderThickness / 2) 0 pi_2
   setRgb $ stoneColor color
   fillPreserve
   setLineWidth stoneBorderThickness
@@ -482,7 +524,7 @@ drawStone color = do
 drawMark :: Maybe Color -> Mark -> Render ()
 drawMark stone mark = do
   case mark of
-    MarkCircle -> arc 0.5 0.5 0.25 0 (2 * pi)
+    MarkCircle -> arc 0.5 0.5 0.25 0 pi_2
     MarkTriangle -> do moveTo trianglePoint1X trianglePoint1Y
                        lineTo trianglePoint2X trianglePoint2Y
                        lineTo trianglePoint3X trianglePoint3Y
@@ -550,16 +592,34 @@ drawArrow (fromIntegral -> x0, fromIntegral -> y0)
   rotate (-angle)
   translate (-tx) (-ty)
 
--- | Draws a small stone centered on the current coordinate being drawn, to
--- indicate that a variation is available where the given player plays a stone
--- here.  The drawn stone is of the given color.
-drawVariation :: Color -> Render ()
-drawVariation stone = do
-  arc 0.5 0.5 stoneVariationRadius 0 (2 * pi)
-  setRgb $ stoneColor stone
+-- | Draws a dot via 'drawSmallDot' to indicate that a variation is available
+-- where the given player plays a stone here.  The dot is of the given color.
+-- If the boolean is true, then a semicircle is drawn that will not overlap with
+-- a similar semicircle drawn by 'drawCurrent'.
+drawVariation :: Color -> Bool -> Render ()
+drawVariation stone half =
+  let angle0 = if half then pi_1_75 else 0
+      angle1 = if half then pi_0_75 else pi_2
+  in drawSmallDot (stoneColor stone) (stoneBorderColor stone) angle0 angle1
+
+-- | Draws a dot via 'drawSmallDot' to indicate that the current coordinate was
+-- played on in the current node.  If the boolean is true, then a semicircle is
+-- drawn that will not overlap with a similar semicircle drawn by
+-- 'drawVariation'.
+drawCurrent :: Bool -> Render ()
+drawCurrent half =
+  let angle0 = if half then pi_0_75 else 0
+      angle1 = if half then pi_1_75 else pi_2
+  in drawSmallDot (0,0,1) (0,0,0) angle0 angle1
+
+-- | Draws a small filled arc centered on the current coordinate being drawn.
+drawSmallDot :: Rgb -> Rgb -> Double -> Double -> Render ()
+drawSmallDot fill border angle0 angle1 = do
+  arc 0.5 0.5 stoneVariationRadius angle0 angle1
+  setRgb fill
   fillPreserve
   setLineWidth stoneVariationBorderThickness
-  setRgb $ stoneBorderColor stone
+  setRgb border
   stroke
 
 type Rgb = (Double, Double, Double)
@@ -572,3 +632,8 @@ rgb255 r g b = (r / 255, g / 255, b / 255)
 
 setRgb :: Rgb -> Render ()
 setRgb (r, g, b) = setSourceRGB r g b
+
+pi_0_75, pi_1_75, pi_2 :: Floating a => a
+pi_0_75 = pi * 0.75
+pi_1_75 = pi * 1.75
+pi_2 = pi * 2

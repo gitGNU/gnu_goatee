@@ -31,6 +31,7 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   myViewVariationsCurrentAction,
   myViewVariationsBoardMarkupOnAction,
   myViewVariationsBoardMarkupOffAction,
+  myViewShowCurrentMovesAction,
   myHelpAboutAction,
   ) where
 
@@ -47,12 +48,14 @@ import Graphics.UI.Gtk (
     radioActionAccelerator, radioActionLabel, radioActionName, radioActionStockId,
     radioActionTooltip, radioActionValue
     ),
+  ToggleAction,
   actionActivate, actionActivated, actionGroupAddActionWithAccel, actionGroupAddRadioActions,
-  actionGroupGetAction, actionGroupNew, actionNew,
+  actionGroupGetAction, actionGroupNew, actionNew, actionToggled,
   get,
   on,
   radioActionChanged, radioActionCurrentValue, radioActionNew, radioActionSetGroup,
   set,
+  toggleActionActive, toggleActionNew,
   )
 import Khumba.Goatee.Ui.Gtk.Common
 import Khumba.Goatee.Sgf.Board
@@ -72,6 +75,7 @@ data Actions ui = Actions { myUi :: ui
                           , myViewVariationsCurrentAction :: RadioAction
                           , myViewVariationsBoardMarkupOnAction :: RadioAction
                           , myViewVariationsBoardMarkupOffAction :: RadioAction
+                          , myViewShowCurrentMovesAction :: ToggleAction
                           , myHelpAboutAction :: Action
                           }
 
@@ -83,6 +87,7 @@ instance UiCtrl ui => UiView (Actions ui) ui where
 create :: UiCtrl ui => ui -> IO (Actions ui)
 create ui = do
   let tools = enumFrom minBound
+  modes <- readModes ui
 
   -- File actions.
   fileActions <- actionGroupNew "File"
@@ -169,6 +174,13 @@ create ui = do
     value <- toEnum <$> get action radioActionCurrentValue
     runUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeBoardMarkup = value }
 
+  viewShowCurrentMovesAction <-
+    toggleActionNew "ViewShowCurrentMoves" "Show _current moves" Nothing Nothing
+  set viewShowCurrentMovesAction [toggleActionActive := uiShowCurrentMovesMode modes]
+  on viewShowCurrentMovesAction actionToggled $ do
+    active <- get viewShowCurrentMovesAction toggleActionActive
+    modifyModes ui $ \modes -> return modes { uiShowCurrentMovesMode = active }
+
   helpAboutAction <- actionNew "HelpAbout" "_About" Nothing Nothing
   on helpAboutAction actionActivated $ helpAbout ui
 
@@ -191,6 +203,7 @@ create ui = do
                    , myViewVariationsCurrentAction = viewVariationsCurrentAction
                    , myViewVariationsBoardMarkupOnAction = viewVariationsBoardMarkupOnAction
                    , myViewVariationsBoardMarkupOffAction = viewVariationsBoardMarkupOffAction
+                   , myViewShowCurrentMovesAction = viewShowCurrentMovesAction
                    , myHelpAboutAction = helpAboutAction
                    }
 

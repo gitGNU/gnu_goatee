@@ -193,6 +193,9 @@ create ui = do
   containerAdd menuViewVariationsMenu =<<
     actionCreateMenuItem (Actions.myViewVariationsBoardMarkupOffAction actions)
 
+  containerAdd menuViewMenu =<<
+    actionCreateMenuItem (Actions.myViewShowCurrentMovesAction actions)
+
   menuHelp <- menuItemNewWithMnemonic "_Help"
   menuHelpMenu <- menuNew
   menuShellAppend menuBar menuHelp
