@@ -404,13 +404,13 @@ realPrinter :: RealValue -> String
 realPrinter = showPrinter . fromRational
 
 variationModePrinter :: VariationMode -> String
-variationModePrinter mode = '[' : show (fromVariationMode mode) ++ "]"
+variationModePrinter = printer . show . fromVariationMode
 
 gameResultPrinter :: GameResult -> String
 gameResultPrinter = printer . fromGameResult
 
 rulesetPrinter :: Ruleset -> String
-rulesetPrinter ruleset = '[' : show (fromRuleset ruleset) ++ "]"
+rulesetPrinter = printer . fromRuleset
 
 unknownPropertyPrinter :: Property -> String
 unknownPropertyPrinter (UnknownProperty _ value) = value
