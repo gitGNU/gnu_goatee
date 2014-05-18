@@ -267,9 +267,9 @@ propertiesTests = testGroup "properties" [
                       getProperties
       in evalGo action cursor @?= [FF 1],
 
-    testCase "fires a properties changed event" $
+    testCase "fires a properties modified event" $
       let cursor = rootCursor $ node [FF 1]
-          action = do on propertiesChangedEvent $ \old new -> tell [(old, new)]
+          action = do on propertiesModifiedEvent $ \old new -> tell [(old, new)]
                       modifyProperties $ const $ return [FF 2]
           log = execWriter (runGoT action cursor)
       in log @?= [([FF 1], [FF 2])]
@@ -355,9 +355,9 @@ modifyPropertyTests = testGroup "modifyProperty" [
     sortProperties (cursorProperties cursor') @?= [B $ Just (1,1), BM Double2]
     sortProperties (cursorProperties cursor'') @?= [B $ Just (1,1), BM Double1],
 
-  testCase "fires an event when changing a property" $ do
+  testCase "fires an event when modifying a property" $ do
     let cursor = rootCursor $ node [B $ Just (0,0)]
-        action = do on propertiesChangedEvent $ \[B (Just (0,0))] [] -> tell [0]
+        action = do on propertiesModifiedEvent $ \[B (Just (0,0))] [] -> tell [0]
                     modifyProperty propertyB $ \(Just (B (Just (0,0)))) -> Nothing
         (cursor', log) = runWriter (execGoT action cursor)
     [0] @=? log
@@ -365,7 +365,7 @@ modifyPropertyTests = testGroup "modifyProperty" [
 
   testCase "modifying but not actually changing a property doesn't fire an event" $ do
     let cursor = rootCursor $ node [B $ Just (0,0)]
-        action = do on propertiesChangedEvent $ \_ _ -> tell ["Event fired."]
+        action = do on propertiesModifiedEvent $ \_ _ -> tell ["Event fired."]
                     modifyProperty propertyB $ \p@(Just (B {})) -> p
         (cursor', log) = runWriter (execGoT action cursor)
     [B $ Just (0,0)] @=? cursorProperties cursor'

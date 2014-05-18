@@ -177,7 +177,7 @@ initialize me = do
   let onNodeChange = do cursor <- getCursor
                         afterGo $ updateUiNodeInfo me cursor
   viewRegister me navigationEvent $ const onNodeChange
-  viewRegister me propertiesChangedEvent $ const $ const onNodeChange
+  viewRegister me propertiesModifiedEvent $ const $ const onNodeChange
 
   updateUi me =<< readCursor ui
 

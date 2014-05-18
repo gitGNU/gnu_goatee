@@ -27,7 +27,7 @@ module Khumba.Goatee.Ui.Gtk.InfoLine (
 import Data.Maybe (fromMaybe)
 import Graphics.UI.Gtk (Label, labelNew, labelSetMarkup)
 import Khumba.Goatee.Sgf.Board
-import Khumba.Goatee.Sgf.Monad (getCursor, childAddedEvent, navigationEvent, propertiesChangedEvent)
+import Khumba.Goatee.Sgf.Monad
 import Khumba.Goatee.Ui.Gtk.Common
 
 data InfoLine ui = InfoLine { myUi :: ui
@@ -58,7 +58,7 @@ initialize me = do
   let updateAfter = afterGo . updateWithCursor me =<< getCursor
   viewRegister me childAddedEvent $ const $ const updateAfter
   viewRegister me navigationEvent $ const updateAfter
-  viewRegister me propertiesChangedEvent $ const $ const updateAfter
+  viewRegister me propertiesModifiedEvent $ const $ const updateAfter
   update me
 
 destroy :: UiCtrl ui => InfoLine ui -> IO ()

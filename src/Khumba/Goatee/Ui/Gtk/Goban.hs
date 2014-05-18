@@ -215,7 +215,7 @@ initialize me = do
       onChange = afterGo $ update me
   viewRegister me childAddedEvent $ const $ const onChange
   viewRegister me navigationEvent $ const onChange
-  viewRegister me propertiesChangedEvent $ const $ const onChange
+  viewRegister me propertiesModifiedEvent $ const $ const onChange
   writeIORef (myModesChangedHandler me) =<<
     liftM Just (registerModesChangedHandler ui "Goban" $ \_ _ -> update me)
   -- TODO Need to update the hover state's validity on cursor and tool (mode?)

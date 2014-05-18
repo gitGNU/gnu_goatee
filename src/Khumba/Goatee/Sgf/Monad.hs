@@ -50,7 +50,7 @@ module Khumba.Goatee.Sgf.Monad (
   childAddedEvent, ChildAddedHandler,
   gameInfoChangedEvent, GameInfoChangedHandler,
   navigationEvent, NavigationHandler,
-  propertiesChangedEvent, PropertiesChangedHandler,
+  propertiesModifiedEvent, PropertiesModifiedHandler,
   variationModeChangedEvent, VariationModeChangedHandler,
   ) where
 
@@ -83,8 +83,8 @@ data GoState go = GoState { stateCursor :: Cursor
                             -- ^ Handlers for 'gameInfoChangedEvent'.
                           , stateNavigationHandlers :: [NavigationHandler go]
                             -- ^ Handlers for 'navigationEvent'.
-                          , statePropertiesChangedHandlers :: [PropertiesChangedHandler go]
-                            -- ^ Handlers for 'propertiesChangedEvent'.
+                          , statePropertiesModifiedHandlers :: [PropertiesModifiedHandler go]
+                            -- ^ Handlers for 'propertiesModifiedEvent'.
                           , stateVariationModeChangedHandlers :: [VariationModeChangedHandler go]
                             -- ^ Handlers for 'variationModeChangedEvent'.
                           }
@@ -105,7 +105,7 @@ initialState cursor = GoState { stateCursor = cursor
                               , stateChildAddedHandlers = []
                               , stateGameInfoChangedHandlers = []
                               , stateNavigationHandlers = []
-                              , statePropertiesChangedHandlers = []
+                              , statePropertiesModifiedHandlers = []
                               , stateVariationModeChangedHandlers = []
                               }
 
@@ -433,7 +433,7 @@ instance Monad m => MonadGo (GoT m) where
                             (\node -> node { nodeProperties = newProperties })
                             oldCursor
             }
-    fire propertiesChangedEvent (\f -> f oldProperties newProperties)
+    fire propertiesModifiedEvent (\f -> f oldProperties newProperties)
 
     -- The current game info changes when modifying game info properties on the
     -- current node.  I think comparing game info properties should be faster
@@ -659,18 +659,18 @@ navigationEvent = Event {
 -- navigation handler must end on the same node on which it started.
 type NavigationHandler go = Step -> go ()
 
--- | An event corresponding to a change to the properties list of the current
--- node.
-propertiesChangedEvent :: Event go (PropertiesChangedHandler go)
-propertiesChangedEvent = Event {
-  eventName = "propertiesChangedEvent"
-  , eventStateGetter = statePropertiesChangedHandlers
-  , eventStateSetter = \handlers state -> state { statePropertiesChangedHandlers = handlers }
+-- | An event corresponding to a modification to the properties list of the
+-- current node.
+propertiesModifiedEvent :: Event go (PropertiesModifiedHandler go)
+propertiesModifiedEvent = Event {
+  eventName = "propertiesModifiedEvent"
+  , eventStateGetter = statePropertiesModifiedHandlers
+  , eventStateSetter = \handlers state -> state { statePropertiesModifiedHandlers = handlers }
   }
 
--- | A handler for 'propertiesChangedEvent's.  It is called with the old
+-- | A handler for 'propertiesModifiedEvent's.  It is called with the old
 -- property list then the new property list.
-type PropertiesChangedHandler go = [Property] -> [Property] -> go ()
+type PropertiesModifiedHandler go = [Property] -> [Property] -> go ()
 
 -- | An event corresponding to a change in the active 'VariationMode'.  This can
 -- happen when modifying the 'ST' property, and also when navigating between

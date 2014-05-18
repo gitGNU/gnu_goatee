@@ -55,7 +55,7 @@ import Khumba.Goatee.Sgf.Board
 import Khumba.Goatee.Sgf.Printer
 import Khumba.Goatee.Sgf.Tree
 import qualified Khumba.Goatee.Sgf.Monad as Monad
-import Khumba.Goatee.Sgf.Monad (Event, on, childAddedEvent, propertiesChangedEvent)
+import Khumba.Goatee.Sgf.Monad (Event, on, childAddedEvent, propertiesModifiedEvent)
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Khumba.Goatee.Ui.Gtk.MainWindow as MainWindow
 import Khumba.Goatee.Ui.Gtk.MainWindow (MainWindow)
@@ -467,7 +467,7 @@ rebuildBaseAction ui =
           -- that we can listen for all mutating events here, rather than
           -- making it easy to forget to add new events here.
           on childAddedEvent $ \_ _ -> setDirtyTrue
-          on propertiesChangedEvent $ \_ _ -> setDirtyTrue
+          on propertiesModifiedEvent $ \_ _ -> setDirtyTrue
         setDirtyTrue = afterGo $ setDirty ui True
 
 fireModesChangedHandlers :: UiCtrlImpl -> UiModes -> UiModes -> IO ()
