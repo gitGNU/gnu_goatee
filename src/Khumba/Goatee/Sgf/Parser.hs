@@ -77,10 +77,6 @@ defaultFormatVersion = 4
 supportedGameTypes :: [Int]
 supportedGameTypes = [1 {- Go -}]
 
--- | The maximum board size allowed by FF[4].
-maxBoardSize :: Int
-maxBoardSize = 52
-
 parseString :: String -> Either String Collection
 parseString str = case parse collection "<collection>" str of
   Left err -> Left $ show err

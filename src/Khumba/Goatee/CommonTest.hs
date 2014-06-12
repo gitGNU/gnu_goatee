@@ -26,7 +26,7 @@ import Data.Monoid (mappend, mempty)
 import Khumba.Goatee.Common
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@=?))
+import Test.HUnit ((@=?), assertFailure)
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
@@ -36,6 +36,7 @@ tests = testGroup "Khumba.Goatee.Common" [
   onLeftTests,
   onRightTests,
   andEithersTests,
+  forTests,
   mapTupleTests,
   whenMaybeTests,
   condTests,
@@ -130,6 +131,14 @@ andEithersTests = testGroup "andEithers" [
     Left [1, 3] @=? andEithers [Left 1, Right 2, Left 3]
     Left [2, 3] @=? andEithers [Right 1, Left 2, Left 3]
     Left [1, 2, 3] @=? andEithers [Left 1, Left 2, Left 3 :: Either Int ()]
+  ]
+
+forTests = testGroup "for" [
+  testCase "passes an empty list through" $
+    ([] @=?) =<< sequence (for [] $ const $ assertFailure "Nope."),
+
+  testCase "operates on each element of a list" $
+    [2, 2, 4, 6, 10] @=? for [1, 1, 2, 3, 5] (* 2)
   ]
 
 mapTupleTests = testGroup "mapTuple" [

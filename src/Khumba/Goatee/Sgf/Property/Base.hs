@@ -287,7 +287,7 @@ defProperty name propType inherited = do
 
 -- | Template Haskell function to declare a property that contains a value.
 --
--- > $(defValuedProperty "B" 'MoveProperty False)
+-- > $(defValuedProperty "B" 'MoveProperty False 'maybeCoordPrinter)
 --
 -- This example declares a @propertyB :: 'ValuedPropertyInfo' (Maybe 'Coord')@
 -- that is a 'MoveProperty' and is not inherited.  The value type is
@@ -384,9 +384,7 @@ coordPairPrinter ((x0,y0), (x1,y1)) =
 
 printLine :: Int -> Char
 printLine x = if x < 52
-              then chr $ if x < 26
-                         then ord 'a' + x
-                         else ord 'A' + x
+              then chr $ x + (if x < 26 then ord 'a' else ord 'A' - 26)
               else error $ "printLine: Index too big: " ++ show x
 
 colorPrinter :: Color -> String

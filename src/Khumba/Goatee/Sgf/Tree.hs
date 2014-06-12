@@ -17,7 +17,7 @@
 
 -- | SGF data structures modelling the hierarchical game tree.
 module Khumba.Goatee.Sgf.Tree (
-  Collection(..),
+  Collection(..), CollectionWithDeepEquality(..),
   Node(..), NodeWithDeepEquality(..),
   emptyNode, rootNode,
   findProperty, findProperty', findPropertyValue, findPropertyValue',
@@ -39,6 +39,14 @@ import Paths_goatee (version)
 -- | An SGF collection of game trees.
 data Collection = Collection { collectionTrees :: [Node]
                              } deriving (Show)
+
+-- | See 'NodeWithDeepEquality'.
+newtype CollectionWithDeepEquality = CollectionWithDeepEquality {
+  collectionWithDeepEquality :: Collection
+  } deriving (Show)
+
+instance Eq CollectionWithDeepEquality where
+  (==) = (==) `on` map NodeWithDeepEquality . collectionTrees . collectionWithDeepEquality
 
 -- | An SGF game tree node.  Unlike in the SGF spec, we represent a game tree
 -- with nodes uniformly, rather than having the separation between sequences and

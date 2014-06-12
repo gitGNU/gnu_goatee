@@ -17,6 +17,7 @@
 
 -- | Data types for property values used in SGF game trees.
 module Khumba.Goatee.Sgf.Types (
+  maxBoardSize,
   Coord, CoordList(coordListSingles, coordListRects), coord1, coords, coords',
   emptyCoordList, expandCoordList, buildCoordList,
   RealValue,
@@ -36,6 +37,10 @@ module Khumba.Goatee.Sgf.Types (
 import Data.Char (isSpace)
 import Data.Function (on)
 import Data.List (delete, groupBy, partition, sort)
+
+-- | The maximum board size allowed by FF[4].
+maxBoardSize :: Int
+maxBoardSize = 52
 
 -- | A coordinate on a Go board.  @(0, 0)@ refers to the upper-left corner of
 -- the board.  The first component is the horizontal position; the second

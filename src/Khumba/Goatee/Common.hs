@@ -25,6 +25,7 @@ module Khumba.Goatee.Common (
   onLeft,
   onRight,
   andEithers,
+  for,
   mapTuple,
   whenMaybe,
   cond,
@@ -87,6 +88,10 @@ onRight = fmap
 andEithers :: [Either a b] -> Either [a] [b]
 andEithers xs = let (as, bs) = partitionEithers xs
                 in if not $ null as then Left as else Right bs
+
+-- | @for@ is @flip map@.
+for :: [a] -> (a -> b) -> [b]
+for = flip map
 
 -- | Transforms both values in a homogeneous tuple.
 mapTuple :: (a -> b) -> (a, a) -> (b, b)
