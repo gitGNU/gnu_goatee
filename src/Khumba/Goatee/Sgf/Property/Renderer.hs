@@ -16,6 +16,8 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | Renderers of property values.
+--
+-- Import "Khumba.Goatee.Sgf.Property" rather than importing this module.
 module Khumba.Goatee.Sgf.Property.Renderer (
   renderColorBracketed,
   renderColorPretty,

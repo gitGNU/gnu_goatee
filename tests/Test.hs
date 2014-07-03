@@ -21,8 +21,8 @@ import qualified Khumba.Goatee.CommonTest
 import qualified Khumba.Goatee.Sgf.BoardTest
 import qualified Khumba.Goatee.Sgf.MonadTest
 import qualified Khumba.Goatee.Sgf.ParserTest
-import qualified Khumba.Goatee.Sgf.PropertyTest
 import qualified Khumba.Goatee.Sgf.Property.ParserTest
+import qualified Khumba.Goatee.Sgf.PropertyTest
 import qualified Khumba.Goatee.Sgf.RoundTripTest
 import qualified Khumba.Goatee.Sgf.TreeTest
 import qualified Khumba.Goatee.Sgf.TypesTest
@@ -33,8 +33,8 @@ tests = [ Khumba.Goatee.CommonTest.tests
         , Khumba.Goatee.Sgf.BoardTest.tests
         , Khumba.Goatee.Sgf.MonadTest.tests
         , Khumba.Goatee.Sgf.ParserTest.tests
-        , Khumba.Goatee.Sgf.PropertyTest.tests
         , Khumba.Goatee.Sgf.Property.ParserTest.tests
+        , Khumba.Goatee.Sgf.PropertyTest.tests
         , Khumba.Goatee.Sgf.RoundTripTest.tests
         , Khumba.Goatee.Sgf.TreeTest.tests
         , Khumba.Goatee.Sgf.TypesTest.tests

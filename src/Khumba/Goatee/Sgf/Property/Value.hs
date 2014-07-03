@@ -16,6 +16,8 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | Metadata about the types of property values.
+--
+-- Import "Khumba.Goatee.Sgf.Property" rather than importing this module.
 module Khumba.Goatee.Sgf.Property.Value (
   PropertyValueType (pvtParser, pvtRenderer, pvtRendererPretty),
   colorPvt,

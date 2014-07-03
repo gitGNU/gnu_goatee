@@ -15,24 +15,14 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
--- | Main module, controls application start-up.
 module Main (main) where
 
 import Control.Monad (void)
 import Graphics.UI.Gtk (initGUI, mainGUI)
---import Graphics.UI.WX (start)
---import Khumba.Goatee.Sgf.Board
---import Khumba.Goatee.Sgf.Parser
---import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Ui.Gtk
---import Khumba.Goatee.Ui.Wx
---import System.Environment (getArgs)
 
 main :: IO ()
-main = mainGtk
-
-mainGtk :: IO ()
-mainGtk = do
+main = do
   args <- initGUI
   if null args
     then void $ startNewBoard Nothing
@@ -41,18 +31,3 @@ mainGtk = do
               Left msg -> print msg
               _ -> return ()
   mainGUI
-
-{-
-mainWx :: IO ()
-mainWx = do
-  args <- getArgs
-  if null args
-    then start $ boardFrame $ rootCursor emptyNode
-    else do result <- parseFile $ head args
-            case result of
-              Right collection ->
-                -- TODO Don't only choose the first tree in the collection.
-                start $ boardFrame $ rootCursor $ head $ collectionTrees collection
-              Left err ->
-                putStrLn $ "Error loading file: " ++ show err
--}

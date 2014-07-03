@@ -17,9 +17,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+cd "$(dirname "$(dirname "$(realpath "$0")")")"
+
+srcDirs=src*
+
 echo "HLint:"
 echo
-hlint src
+hlint $srcDirs
 hlintResult=$?
 
 if git --no-pager grep -q '\s\+$'; then
@@ -34,14 +38,14 @@ fi
 
 tabsResult=0
 # Tabs are not allowed anywhere in Haskell files.
-if git --no-pager grep -q '	' src *.hs; then
+if git --no-pager grep -q '	' *.hs $srcDirs; then
     if test $tabsResult -eq 0; then
         echo
         echo "Tabs found:"
         echo
         tabsResult=1
     fi
-    git --no-pager grep -n --no-color '	' src *.hs
+    git --no-pager grep -n --no-color '	' *.hs $srcDirs
 fi
 # Tabs shouldn't be used for leading whitespace anywhere.
 if git --no-pager grep -q '^	'; then
@@ -80,7 +84,7 @@ while read file; do
             echo "$file"
         fi
     fi
-done < <(find hooks src -type f)
+done < <(find hooks $srcDirs -type f)
 # TODO ^ Rewrite this process substitution in a POSIX-friendly manner.
 
 # Check that all tracked files are listed in goatee.cabal.

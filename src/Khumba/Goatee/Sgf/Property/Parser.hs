@@ -16,6 +16,8 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | Parsers of property values.
+--
+-- Import "Khumba.Goatee.Sgf.Property" rather than importing this module.
 module Khumba.Goatee.Sgf.Property.Parser (
   colorParser,
   coordElistParser,
