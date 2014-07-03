@@ -569,8 +569,7 @@ getMarkTests = testGroup "getMark" [
   testCase "matches all marks" $ forM_ [minBound..maxBound] $ \mark ->
     Just mark @=?
     evalGo (getMark (0,0))
-           (rootCursor $ node [valuedPropertyInfoBuilder (markProperty mark) $
-                               coord1 (0,0)])
+           (rootCursor $ node [propertyBuilder (markProperty mark) $ coord1 (0,0)])
   ]
 
 modifyMarkTests = testGroup "modifyMark" [

@@ -20,8 +20,9 @@ module Khumba.Goatee.Sgf.RoundTripTest (tests) where
 import Data.Function (on)
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Parser
-import Khumba.Goatee.Sgf.Printer
 import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.Renderer
+import Khumba.Goatee.Sgf.Renderer.Tree
 import Khumba.Goatee.Sgf.TestUtils
 import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
@@ -31,13 +32,17 @@ import Test.HUnit ((@?=), Assertion, assertFailure)
 
 testCollection' :: Collection -> Assertion
 testCollection' collection =
-  let serialized = printCollection collection
-  in case parseString serialized of
-    Left error -> assertFailure $ "Failed to parse: " ++ error
-    Right collection' -> do
-      on (@?=) CollectionWithDeepEquality collection' collection
-      let serializedAgain = printCollection collection'
-      serializedAgain @?= serialized
+  case runRender $ renderCollection collection of
+    Left message -> assertFailure $ "Failed to render: " ++ message
+    Right serialized ->
+      case parseString serialized of
+        Left error -> assertFailure $ "Failed to parse: " ++ error ++
+                      "\n\nEntire SGF: " ++ serialized
+        Right collection' -> do
+          on (@?=) CollectionWithDeepEquality collection' collection
+          case runRender $ renderCollection collection' of
+            Left message -> assertFailure $ "Second render failed: " ++ message
+            Right serializedAgain -> serializedAgain @?= serialized
 
 -- | Returns an assertion that the given node round-trips okay.
 testNode' :: Node -> Assertion
@@ -57,12 +62,24 @@ singleNodeGameTests = testGroup "games with single nodes" [
   testNode "some default properties" $ node [FF 4, GM 1, ST defaultVariationMode]
   ]
 
-propertyValueTests = testGroup "property values" [
-  testGroup "point-valued properties" $
+propertyValueTests = testGroup "property value types" [
+  testGroup "label list values" [
+    testNode "one value" $ node [LB [((5,2), toSimpleText "Hi.")]],
+    testNode "multiple value" $ node [LB [((5, 2), toSimpleText "Hi."),
+                                          ((0, 1), toSimpleText "Bye.")]]
+    ],
+
+  testGroup "point-valued values" $
     for [0..maxBoardSize-1]
     (\row -> testNode ("row " ++ show row) $ node [B $ Just (0, row)]) ++
     for [0..maxBoardSize-1]
-    (\col -> testNode ("row " ++ show col) $ node [B $ Just (col, 0)])
+    (\col -> testNode ("row " ++ show col) $ node [B $ Just (col, 0)]),
+
+  testGroup "real values" [
+    testNode "1500" $ node [TM 1500],
+    testNode "60.5" $ node [TM 60.5],
+    testNode "10.1" $ node [TM 10.1]
+    ]
   ]
 
 -- TODO Many more round-trip tests.

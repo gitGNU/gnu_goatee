@@ -42,11 +42,13 @@ library
         Khumba.Goatee.Sgf.Board
         Khumba.Goatee.Sgf.Monad
         Khumba.Goatee.Sgf.Parser
-        Khumba.Goatee.Sgf.Printer
         Khumba.Goatee.Sgf.Property
+        Khumba.Goatee.Sgf.Renderer
+        Khumba.Goatee.Sgf.Renderer.Tree
         Khumba.Goatee.Sgf.Tree
         Khumba.Goatee.Sgf.Types
     extensions:
+        ExistentialQuantification
         FlexibleContexts
         FlexibleInstances
         FunctionalDependencies
@@ -57,6 +59,9 @@ library
     other-modules:
         Khumba.Goatee.Sgf.Property.Base
         Khumba.Goatee.Sgf.Property.Info
+        Khumba.Goatee.Sgf.Property.Parser
+        Khumba.Goatee.Sgf.Property.Renderer
+        Khumba.Goatee.Sgf.Property.Value
         Paths_goatee
 
 executable goatee
@@ -110,6 +115,7 @@ test-suite test-goatee
         test-framework,
         test-framework-hunit
     extensions:
+        ExistentialQuantification
         FlexibleContexts
         FlexibleInstances
         FunctionalDependencies
@@ -121,7 +127,9 @@ test-suite test-goatee
         Khumba.Goatee.Sgf.BoardTest
         Khumba.Goatee.Sgf.MonadTest
         Khumba.Goatee.Sgf.ParserTest
+        Khumba.Goatee.Sgf.ParserTestUtils
         Khumba.Goatee.Sgf.PropertyTest
+        Khumba.Goatee.Sgf.Property.ParserTest
         Khumba.Goatee.Sgf.RoundTripTest
         Khumba.Goatee.Sgf.TestInstances
         Khumba.Goatee.Sgf.TestUtils

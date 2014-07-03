@@ -16,40 +16,41 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | Functions for serializing SGF trees.
-module Khumba.Goatee.Sgf.Printer (
-  printCollection,
+module Khumba.Goatee.Sgf.Renderer.Tree (
+  renderCollection,
   ) where
 
 import Control.Monad (forM_)
-import Control.Monad.Writer (Writer, runWriter, tell)
+import Control.Monad.Writer (tell)
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.Renderer
 import Khumba.Goatee.Sgf.Tree
 
--- | Serializes an SGF 'Collection' to a string.
-printCollection :: Collection -> String
-printCollection collection = snd $ runWriter $ do
-  mapM_ writeGameTree $ collectionTrees collection
+-- | Renders an SGF 'Collection' to a string.
+renderCollection :: Collection -> Render ()
+renderCollection collection = do
+  mapM_ renderGameTree $ collectionTrees collection
   tell "\n"
 
--- | Recursively writes an SGF GameTree (as defined in the spec) rooted at the
+-- | Recursively renders an SGF GameTree (as defined in the spec) rooted at the
 -- given node.
-writeGameTree :: Node -> Writer String ()
-writeGameTree node = do
+renderGameTree :: Node -> Render ()
+renderGameTree node = do
   tell "("
   doWhileM node
-    (\node' -> do writeNode node'
+    (\node' -> do renderNode node'
                   case nodeChildren node' of
                     [] -> return $ Left Nothing
                     child:[] -> return $ Right child
                     children -> return $ Left $ Just children)
-    >>= maybe (return ()) (mapM_ writeGameTree)
+    >>= maybe (return ()) (mapM_ renderGameTree)
   tell ")"
 
--- | Writes a node and its properties without recurring to its children.
-writeNode :: Node -> Writer String ()
-writeNode node = do
+-- | Renders a node and its properties without recurring to its children.
+renderNode :: Node -> Render ()
+renderNode node = do
   tell "\n;"
   forM_ (nodeProperties node) $ \property -> do
     tell $ propertyName property
-    tell $ propertyValuePrinter property property
+    propertyValueRenderer property property

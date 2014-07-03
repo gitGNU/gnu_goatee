@@ -17,19 +17,20 @@
 
 -- | Data types for property values used in SGF game trees.
 module Khumba.Goatee.Sgf.Types (
-  maxBoardSize,
+  supportedFormatVersions, defaultFormatVersion, supportedGameTypes, maxBoardSize,
   Coord, CoordList(coordListSingles, coordListRects), coord1, coords, coords',
   emptyCoordList, expandCoordList, buildCoordList,
   RealValue,
   Stringlike(..),
   Text(fromText), toText,
   SimpleText(fromSimpleText), toSimpleText,
+  UnknownPropertyValue(fromUnknownPropertyValue), toUnknownPropertyValue,
   DoubleValue(Double1, Double2),
   Color(Black, White), cnot,
   VariationMode(..), VariationModeSource(..), defaultVariationMode,
   toVariationMode, fromVariationMode,
   ArrowList, LineList, LabelList, Mark(..),
-  GameResult(..), fromGameResult,
+  GameResult(..),
   WinReason(..),
   Ruleset(..), RulesetType(..), fromRuleset, toRuleset,
   ) where
@@ -37,6 +38,23 @@ module Khumba.Goatee.Sgf.Types (
 import Data.Char (isSpace)
 import Data.Function (on)
 import Data.List (delete, groupBy, partition, sort)
+
+-- TODO Support FF versions 1-4.
+supportedFormatVersions :: [Int]
+supportedFormatVersions = [4]
+
+-- | The default SGF version to use when @FF[]@ is not specified in a root node.
+--
+-- This value is actually INCORRECT: SGF defines it to be 1, but because we
+-- don't support version 1 yet, for the sake of ignoring this issue (for now!)
+-- in tests, we fix the default to be 4.
+--
+-- TODO Fix the default version to be 1 as SGF mandates.
+defaultFormatVersion :: Int
+defaultFormatVersion = 4
+
+supportedGameTypes :: [Int]
+supportedGameTypes = [1 {- Go -}]
 
 -- | The maximum board size allowed by FF[4].
 maxBoardSize :: Int
@@ -222,6 +240,16 @@ sanitizeSimpleText = map (\c -> if isSpace c then ' ' else c)
 toSimpleText :: String -> SimpleText
 toSimpleText = SimpleText . sanitizeSimpleText
 
+data UnknownPropertyValue = UnknownPropertyValue { fromUnknownPropertyValue :: String }
+                            deriving (Eq, Show)
+
+instance Stringlike UnknownPropertyValue where
+  sgfToString = fromUnknownPropertyValue
+  stringToSgf = toUnknownPropertyValue
+
+toUnknownPropertyValue :: String -> UnknownPropertyValue
+toUnknownPropertyValue = UnknownPropertyValue
+
 -- | An SGF double value: either 1 or 2, nothing else.
 data DoubleValue = Double1
                  | Double2
@@ -282,21 +310,8 @@ data GameResult = GameResultWin Color WinReason
                 | GameResultDraw
                 | GameResultVoid
                 | GameResultUnknown
-                | GameResultOther String
+                | GameResultOther SimpleText
                 deriving (Eq, Show)
-
-fromGameResult :: GameResult -> String
-fromGameResult (GameResultWin color reason) =
-  (case color of { Black -> 'B'; White -> 'W' }) : '+' :
-  (case reason of
-      WinByScore diff -> show diff
-      WinByResignation -> "R"
-      WinByTime -> "T"
-      WinByForfeit -> "F")
-fromGameResult GameResultDraw = "0"
-fromGameResult GameResultVoid = "Void"
-fromGameResult GameResultUnknown = "?"
-fromGameResult (GameResultOther string) = string
 
 data WinReason = WinByScore RealValue
                | WinByResignation

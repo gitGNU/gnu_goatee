@@ -52,7 +52,8 @@ import Graphics.UI.Gtk (
 import Khumba.Goatee.App
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board
-import Khumba.Goatee.Sgf.Printer
+import Khumba.Goatee.Sgf.Renderer
+import Khumba.Goatee.Sgf.Renderer.Tree
 import Khumba.Goatee.Sgf.Tree
 import qualified Khumba.Goatee.Sgf.Monad as Monad
 import Khumba.Goatee.Sgf.Monad (Event, on, childAddedEvent, propertiesModifiedEvent)
@@ -316,14 +317,25 @@ instance UiCtrl UiCtrlImpl where
     maybePath <- getFilePath ui
     case maybePath of
       Nothing -> fileSaveAs ui
-      Just path -> do
+      Just path ->
         -- TODO Exception handling when the write fails.
         -- TODO Don't just write a single tree.
         -- TODO Only save when dirty?  (Be careful not to break Save As on a non-dirty game.)
-        writeFile path $
-          printCollection Collection { collectionTrees = [cursorNode $ cursorRoot cursor] }
-        setDirty ui False
-        return True
+        case runRender $
+             renderCollection Collection { collectionTrees = [cursorNode $ cursorRoot cursor] } of
+          Left message -> do
+            dialog <- messageDialogNew Nothing
+                      [DialogModal, DialogDestroyWithParent]
+                      MessageError
+                      ButtonsOk
+                      ("Error serializing game tree:\n\n" ++ message)
+            dialogRun dialog
+            widgetDestroy dialog
+            return False
+          Right sgf -> do
+            writeFile path sgf
+            setDirty ui False
+            return True
 
   fileSaveAs ui = do
     dialog <- fileChooserDialogNew (Just "Save file as")

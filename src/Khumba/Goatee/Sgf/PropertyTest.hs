@@ -50,7 +50,7 @@ propertyMetadataTests = testGroup "property metadata" [
                              -- Markup properties.
                              AR [], CR cl, DD cl, LB [], LN [], MA cl, SL cl, SQ cl, TR cl,
                              -- Guess this fits here.
-                             UnknownProperty "" ""]
+                             UnknownProperty "" (toUnknownPropertyValue "")]
         rootProperties = [-- Root properties.
                           AP st st, CA st, FF 1, GM 1, ST vm, SZ 1 1]
         gameInfoProperties = [-- Game info properties.
