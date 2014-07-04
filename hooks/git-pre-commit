@@ -61,11 +61,6 @@ if test "$result" -ne 0; then
     die "$result"
 fi
 rm "$lintLog"
-# Also check for any new trailing whitespace.
-if git diff --cached | grep -q '^+.*[[:space:]]$'; then
-    echo "Precommit: Trailing whitespace detected, please remove."
-    die 1
-fi
 
 echo "Precommit: Checking that the package builds."
 buildLog="$(mktemp)"
