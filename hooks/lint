@@ -19,7 +19,7 @@
 
 cd "$(dirname "$(dirname "$(realpath "$0")")")"
 
-srcDirs=src*
+srcDirs=`echo src* tests`
 
 echo "HLint:"
 echo
