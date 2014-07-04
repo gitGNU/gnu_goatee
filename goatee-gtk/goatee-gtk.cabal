@@ -57,6 +57,7 @@ library
         Game.Goatee.Ui.Gtk.Goban
         Game.Goatee.Ui.Gtk.InfoLine
         Game.Goatee.Ui.Gtk.MainWindow
+        Game.Goatee.Ui.Gtk.NodePropertiesPanel
         Game.Goatee.Ui.Gtk.Utils
         Paths_goatee_gtk
 

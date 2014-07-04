@@ -40,6 +40,8 @@ import qualified Game.Goatee.Ui.Gtk.Goban as Goban
 import Game.Goatee.Ui.Gtk.Goban (Goban)
 import qualified Game.Goatee.Ui.Gtk.InfoLine as InfoLine
 import Game.Goatee.Ui.Gtk.InfoLine (InfoLine)
+import qualified Game.Goatee.Ui.Gtk.NodePropertiesPanel as NodePropertiesPanel
+import Game.Goatee.Ui.Gtk.NodePropertiesPanel (NodePropertiesPanel)
 import Graphics.UI.Gtk (
   Action,
   Menu,
@@ -66,6 +68,7 @@ data MainWindow ui = MainWindow { myUi :: ui
                                 , myWindow :: Window
                                 , myActions :: Actions ui
                                 , myGamePropertiesPanel :: GamePropertiesPanel ui
+                                , myNodePropertiesPanel :: NodePropertiesPanel ui
                                 , myGoban :: Goban ui
                                 , myInfoLine :: InfoLine ui
                                 , myDirtyChangedHandler :: IORef (Maybe Registration)
@@ -190,7 +193,9 @@ create ui = do
   panedAdd2 hPaned controlsBook
 
   gamePropertiesPanel <- GamePropertiesPanel.create ui
-  notebookAppendPage controlsBook (GamePropertiesPanel.myWidget gamePropertiesPanel) "Properties"
+  nodePropertiesPanel <- NodePropertiesPanel.create ui
+  notebookAppendPage controlsBook (GamePropertiesPanel.myWidget gamePropertiesPanel) "Game"
+  notebookAppendPage controlsBook (NodePropertiesPanel.myWidget nodePropertiesPanel) "Properties"
 
   dirtyChangedHandler <- newIORef Nothing
   filePathChangedHandler <- newIORef Nothing
@@ -199,6 +204,7 @@ create ui = do
                       , myWindow = window
                       , myActions = actions
                       , myGamePropertiesPanel = gamePropertiesPanel
+                      , myNodePropertiesPanel = nodePropertiesPanel
                       , myGoban = goban
                       , myInfoLine = infoLine
                       , myDirtyChangedHandler = dirtyChangedHandler
@@ -229,6 +235,7 @@ destroy :: UiCtrl ui => MainWindow ui -> IO ()
 destroy me = do
   Actions.destroy $ myActions me
   GamePropertiesPanel.destroy $ myGamePropertiesPanel me
+  NodePropertiesPanel.destroy $ myNodePropertiesPanel me
   Goban.destroy $ myGoban me
   InfoLine.destroy $ myInfoLine me
 
