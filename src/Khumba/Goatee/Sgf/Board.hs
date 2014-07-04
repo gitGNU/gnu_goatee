@@ -158,29 +158,27 @@ gameInfoToProperties info = execWriter $ do
 -- | An object that corresponds to a node in some game tree, and represents the
 -- state of the game at that node, including board position, player turn and
 -- captures, and also board annotations.
-data BoardState = BoardState { boardCoordStates :: [[CoordState]]
-                               -- ^ The state of individual points on the board.
-                               -- Stored in row-major order.  Point @(x, y)@ can
-                               -- be accessed via @!! y !! x@.
-                             , boardHasInvisible :: Bool
-                               -- ^ Whether any of the board's 'CoordState's are
-                               -- invisible.  This is an optimization to make it
-                               -- more efficient to set the board to "all
-                               -- visible."
-                             , boardHasDimmed :: Bool
-                               -- ^ Whether any of the board's 'CoordState's are
-                               -- dimmed.  This is an optimization to make it
-                               -- more efficient to clear all dimming from the
-                               -- board.
-                             , boardArrows :: ArrowList
-                             , boardLines :: LineList
-                             , boardLabels :: LabelList
-                             , boardMoveNumber :: Integer
-                             , boardPlayerTurn :: Color
-                             , boardBlackCaptures :: Int
-                             , boardWhiteCaptures :: Int
-                             , boardGameInfo :: GameInfo
-                             }
+data BoardState = BoardState {
+  boardCoordStates :: [[CoordState]]
+  -- ^ The state of individual points on the board.  Stored in row-major order.
+  -- Point @(x, y)@ can be accessed via @!! y !! x@ (but prefer
+  -- 'boardCoordState').
+  , boardHasInvisible :: Bool
+    -- ^ Whether any of the board's 'CoordState's are invisible.  This is an
+    -- optimization to make it more efficient to set the board to "all visible."
+  , boardHasDimmed :: Bool
+    -- ^ Whether any of the board's 'CoordState's are dimmed.  This is an
+    -- optimization to make it more efficient to clear all dimming from the
+    -- board.
+  , boardArrows :: ArrowList
+  , boardLines :: LineList
+  , boardLabels :: LabelList
+  , boardMoveNumber :: Integer
+  , boardPlayerTurn :: Color
+  , boardBlackCaptures :: Int
+  , boardWhiteCaptures :: Int
+  , boardGameInfo :: GameInfo
+  }
 
 instance Show BoardState where
   show board = concat $ execWriter $ do

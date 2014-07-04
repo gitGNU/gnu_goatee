@@ -15,24 +15,24 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
--- | Data types for property values used in SGF game trees.
+-- | Constants and data types for property values used in SGF game trees.
 module Khumba.Goatee.Sgf.Types (
   supportedFormatVersions, defaultFormatVersion, supportedGameTypes, maxBoardSize,
-  Coord, CoordList(coordListSingles, coordListRects), coord1, coords, coords',
+  Coord, CoordList, coordListSingles, coordListRects, coord1, coords, coords',
   emptyCoordList, expandCoordList, buildCoordList,
   RealValue,
-  Stringlike(..),
-  Text(fromText), toText,
-  SimpleText(fromSimpleText), toSimpleText,
-  UnknownPropertyValue(fromUnknownPropertyValue), toUnknownPropertyValue,
-  DoubleValue(Double1, Double2),
-  Color(Black, White), cnot,
-  VariationMode(..), VariationModeSource(..), defaultVariationMode,
+  Stringlike (..),
+  Text, fromText, toText,
+  SimpleText, fromSimpleText, toSimpleText,
+  UnknownPropertyValue, fromUnknownPropertyValue, toUnknownPropertyValue,
+  DoubleValue (..),
+  Color (..), cnot,
+  VariationMode (..), VariationModeSource (..), defaultVariationMode,
   toVariationMode, fromVariationMode,
-  ArrowList, LineList, LabelList, Mark(..),
-  GameResult(..),
-  WinReason(..),
-  Ruleset(..), RulesetType(..), fromRuleset, toRuleset,
+  ArrowList, LineList, LabelList, Mark (..),
+  GameResult (..),
+  WinReason (..),
+  Ruleset (..), RulesetType (..), fromRuleset, toRuleset,
   ) where
 
 import Data.Char (isSpace)
@@ -56,7 +56,7 @@ defaultFormatVersion = 4
 supportedGameTypes :: [Int]
 supportedGameTypes = [1 {- Go -}]
 
--- | The maximum board size allowed by FF[4].
+-- | The maximum board size allowed by FF[4], 52.
 maxBoardSize :: Int
 maxBoardSize = 52
 
@@ -80,9 +80,12 @@ type Coord = (Int, Int)
 --
 -- 2. For a rectangle @((x0,y0), (x1,y1))@, @x0 <= x1@ and @y0 <= y1@ and
 -- @(x0,y0) /= (x1,y1)@ (otherwise the point belongs in the singles list).
-data CoordList = CoordList { coordListSingles :: [Coord]
-                           , coordListRects :: [(Coord, Coord)]
-                           } deriving (Show)
+data CoordList = CoordList {
+  coordListSingles :: [Coord]
+  -- ^ Returns the single points in a 'CoordList'.
+  , coordListRects :: [(Coord, Coord)]
+    -- ^ Returns the rectangles in a 'CoordList'.
+  } deriving (Show)
 
 -- | Equality is based on unordered, set equality of the underlying points.
 instance Eq CoordList where
@@ -214,18 +217,23 @@ class Stringlike a where
   stringToSgf :: String -> a
 
 -- | An SGF text value.
-newtype Text = Text { fromText :: String }
+newtype Text = Text { fromText :: String
+                      -- ^ Converts an SGF 'Text' to a string.
+                    }
              deriving (Eq, Show)
 
 instance Stringlike Text where
   sgfToString = fromText
   stringToSgf = toText
 
+-- | Converts a string to an SGF 'Text'.
 toText :: String -> Text
 toText = Text
 
 -- | An SGF SimpleText value.
-newtype SimpleText = SimpleText { fromSimpleText :: String }
+newtype SimpleText = SimpleText { fromSimpleText :: String
+                                  -- ^ Converts an SGF 'SimpleText' to a string.
+                                }
                    deriving (Eq, Show)
 
 instance Stringlike SimpleText where
@@ -240,13 +248,19 @@ sanitizeSimpleText = map (\c -> if isSpace c then ' ' else c)
 toSimpleText :: String -> SimpleText
 toSimpleText = SimpleText . sanitizeSimpleText
 
-data UnknownPropertyValue = UnknownPropertyValue { fromUnknownPropertyValue :: String }
-                            deriving (Eq, Show)
+-- | The value type for an 'UnknownProperty'.  Currently represented as a
+-- string.
+data UnknownPropertyValue = UnknownPropertyValue {
+  fromUnknownPropertyValue :: String
+  -- ^ Returns the string contained within the 'UnknownProperty' this value is
+  -- from.
+  } deriving (Eq, Show)
 
 instance Stringlike UnknownPropertyValue where
   sgfToString = fromUnknownPropertyValue
   stringToSgf = toUnknownPropertyValue
 
+-- | Constructs a value for a 'UnknownProperty'.
 toUnknownPropertyValue :: String -> UnknownPropertyValue
 toUnknownPropertyValue = UnknownPropertyValue
 
@@ -266,17 +280,30 @@ cnot :: Color -> Color
 cnot Black = White
 cnot White = Black
 
-data VariationMode = VariationMode { variationModeSource :: VariationModeSource
-                                   , variationModeBoardMarkup :: Bool
-                                   } deriving (Eq, Show)
+-- | SGF flags that control how move variations are to be presented while
+-- displaying the game.
+data VariationMode = VariationMode {
+  variationModeSource :: VariationModeSource
+  -- ^ Which moves to display as variations.
+  , variationModeBoardMarkup :: Bool
+    -- ^ Whether to overlay variations on the board.
+  } deriving (Eq, Show)
 
-data VariationModeSource = ShowChildVariations
-                         | ShowCurrentVariations
-                         deriving (Bounded, Enum, Eq, Show)
+-- | An enumeration that describes which variations are shown.
+data VariationModeSource =
+  ShowChildVariations
+  -- ^ Show children of the current move.
+  | ShowCurrentVariations
+    -- ^ Show alternatives to the current move.
+  deriving (Bounded, Enum, Eq, Show)
 
+-- | The default variation mode as defined by the SGF spec is @VariationMode
+-- ShowChildVariations True@.
 defaultVariationMode :: VariationMode
 defaultVariationMode = VariationMode ShowChildVariations True
 
+-- | Parses a numeric variation mode, returning nothing if the number is
+-- invalid.
 toVariationMode :: Int -> Maybe VariationMode
 toVariationMode n = case n of
   0 -> Just $ VariationMode ShowChildVariations True
@@ -285,6 +312,7 @@ toVariationMode n = case n of
   3 -> Just $ VariationMode ShowCurrentVariations False
   _ -> Nothing
 
+-- | Returns the integer value for a variation mode.
 fromVariationMode :: VariationMode -> Int
 fromVariationMode mode = case mode of
   VariationMode ShowChildVariations True -> 0

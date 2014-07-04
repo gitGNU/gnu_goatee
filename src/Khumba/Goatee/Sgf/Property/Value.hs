@@ -19,7 +19,7 @@
 --
 -- Import "Khumba.Goatee.Sgf.Property" rather than importing this module.
 module Khumba.Goatee.Sgf.Property.Value (
-  PropertyValueType (pvtParser, pvtRenderer, pvtRendererPretty),
+  PropertyValueType, pvtParser, pvtRenderer, pvtRendererPretty,
   colorPvt,
   coordElistPvt,
   coordListPvt,

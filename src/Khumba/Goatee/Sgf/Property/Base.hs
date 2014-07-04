@@ -103,7 +103,7 @@ data Property =
   | CP SimpleText        -- ^ Copyright info.
   | DT SimpleText        -- ^ Dates played.
   | EV SimpleText        -- ^ Event name.
-  | GC SimpleText        -- ^ Game comment/background/summary.
+  | GC SimpleText        -- ^ Game comment, or background, or summary.
   | GN SimpleText        -- ^ Game name.
   | ON SimpleText        -- ^ Information about the opening.
   | OT SimpleText        -- ^ The method used for overtime.

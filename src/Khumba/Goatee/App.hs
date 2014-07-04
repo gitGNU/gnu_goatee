@@ -23,7 +23,7 @@ module Khumba.Goatee.App (
   applicationAuthors,
   ) where
 
--- | A string containing the name of this application, @"Goatee"@.
+-- | A string containing the name of this application, @\"Goatee\"@.
 applicationName :: String
 applicationName = "Goatee"
 

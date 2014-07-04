@@ -19,7 +19,7 @@
 module Khumba.Goatee.Sgf.Property (
   module Khumba.Goatee.Sgf.Property.Base,
   module Khumba.Goatee.Sgf.Property.Info,
-  PropertyValueType (pvtParser, pvtRenderer, pvtRendererPretty),
+  PropertyValueType, pvtParser, pvtRenderer, pvtRendererPretty,
   ) where
 
 import Khumba.Goatee.Sgf.Property.Base

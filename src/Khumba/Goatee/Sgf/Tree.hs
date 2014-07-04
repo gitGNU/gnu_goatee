@@ -112,17 +112,13 @@ findPropertyValue' descriptor properties =
 addProperty :: Property -> Node -> Node
 addProperty prop node = node { nodeProperties = nodeProperties node ++ [prop] }
 
--- | Appends a child node to a node's child list.
---
--- @addChild child parent@
+-- | @addChild child parent@ appends a child node to a node's child list.
 addChild :: Node -> Node -> Node
 addChild child node = node { nodeChildren = nodeChildren node ++ [child] }
 
--- | Inserts a child node into a node's child list at the given index, shifting
--- all nodes at or after the given index to the right.  The index must be in the
--- range @[0, numberOfChildren]@.
---
--- @addChild index child parent@
+-- | @addChildAt index child parent@ inserts a child node into a node's child
+-- list at the given index, shifting all nodes at or after the given index to
+-- the right.  The index must be in the range @[0, numberOfChildren]@.
 addChildAt :: Int -> Node -> Node -> Node
 addChildAt index child node =
   let (before, after) = splitAt index $ nodeChildren node

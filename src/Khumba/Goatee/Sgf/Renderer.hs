@@ -25,6 +25,7 @@ module Khumba.Goatee.Sgf.Renderer (
 import Control.Monad.Except (Except, catchError, runExcept, throwError)
 import Control.Monad.Writer (WriterT, execWriterT)
 
+-- | A monad for accumulatin string output with the possibility of failure.
 type Render = WriterT String (Except String)
 
 -- | Returns either the rendered result on the right, or a message describing a

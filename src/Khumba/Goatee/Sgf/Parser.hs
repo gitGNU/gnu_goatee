@@ -17,7 +17,6 @@
 
 -- | A parser for reading SGF files.
 module Khumba.Goatee.Sgf.Parser (
-  ParseError,
   parseString,
   parseFile,
   ) where
@@ -30,9 +29,10 @@ import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Common
 import Text.ParserCombinators.Parsec (
-  (<?>), ParseError, Parser, char, eof, many, many1, parse, spaces, upper,
+  (<?>), Parser, char, eof, many, many1, parse, spaces, upper,
   )
 
+-- | Parses a string in SGF format.  Returns an error string if parsing fails.
 parseString :: String -> Either String Collection
 parseString str = case parse collection "<collection>" str of
   Left err -> Left $ show err
@@ -83,6 +83,7 @@ parseString str = case parse collection "<collection>" str of
         concatErrors errs = "The following errors occurred while parsing:" ++
                             concatMap ("\n-> " ++) errs
 
+-- | Parses a file in SGF format.  Returns an error string if parsing fails.
 parseFile :: String -> IO (Either String Collection)
 parseFile = fmap parseString . readFile
 
