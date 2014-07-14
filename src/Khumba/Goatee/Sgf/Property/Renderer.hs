@@ -58,7 +58,7 @@ module Khumba.Goatee.Sgf.Property.Renderer (
   ) where
 
 import Control.Monad (forM_, when)
-import Control.Monad.Except (throwError)
+import Control.Monad.Error (throwError)
 import Control.Monad.Writer (tell)
 import Data.Char (chr, ord)
 import Data.List (intersperse)

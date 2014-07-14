@@ -22,16 +22,16 @@ module Khumba.Goatee.Sgf.Renderer (
   rendererOf,
   ) where
 
-import Control.Monad.Except (Except, catchError, runExcept, throwError)
+import Control.Monad.Error (catchError, throwError)
 import Control.Monad.Writer (WriterT, execWriterT)
 
--- | A monad for accumulatin string output with the possibility of failure.
-type Render = WriterT String (Except String)
+-- | A monad for accumulating string output with the possibility of failure.
+type Render = WriterT String (Either String)
 
 -- | Returns either the rendered result on the right, or a message describing a
 -- failure on the left.
 runRender :: Render a -> Either String String
-runRender = runExcept . execWriterT
+runRender = execWriterT
 
 -- | Wraps a renderer in an exception handler that, when the renderer or
 -- something it calls fails, will add context about this renderer's invocation
