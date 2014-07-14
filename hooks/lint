@@ -17,9 +17,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+# This script returns 0 on success, 1 on warnings (committable), and 2
+# on errors (a commit should fail).
+
+set -u
+
 cd "$(dirname "$(dirname "$(realpath "$0")")")"
 
 srcDirs=`echo src* tests`
+warningsFound=0
 
 echo "HLint:"
 echo
@@ -112,16 +118,23 @@ if cabal help sdist |& grep -qe --list-sources; then
     fi
     rm -rf "$sdistDir"
 else
+    echo
+    echo "Warning: cabal-install is too old for sdist to support --list-sources."
+    echo "         Skipping check for files missing from goatee.cabal.  If you're adding"
+    echo "         or removing files, please ensure that goatee.cabal is up to date."
+    warningsFound=1
     sdistResult=0
 fi
 
-if test $hlintResult -eq 0 \
-    -a $whitespaceResult -eq 0 \
-    -a $tabsResult -eq 0 \
-    -a $longLinesResult -eq 0 \
-    -a $legalResult -eq 0 \
-    -a $sdistResult -eq 0; then
-    exit 0
-else
+if test $hlintResult -ne 0 \
+    -o $whitespaceResult -ne 0 \
+    -o $tabsResult -ne 0 \
+    -o $longLinesResult -ne 0 \
+    -o $legalResult -ne 0 \
+    -o $sdistResult -ne 0; then
+    exit 2
+elif test $warningsFound -ne 0; then
     exit 1
+else
+    exit 0
 fi
