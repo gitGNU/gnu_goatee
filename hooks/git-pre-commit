@@ -71,6 +71,7 @@ rm "$lintLog"
 
 echo "Precommit: Checking that the package builds."
 buildLog="$(mktemp)"
+"$CABAL" clean >>"$buildLog" 2>&1
 "$CABAL" configure --enable-tests >>"$buildLog" 2>&1
 "$CABAL" build --ghc-options="$precommitBuildOpts" >>"$buildLog" 2>&1
 result="$?"
