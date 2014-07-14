@@ -18,7 +18,7 @@
 # along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 set -eu
-precommitBuildOpts="-Werror"
+precommitBuildOpts="-Werror -fno-warn-warnings-deprecations"
 scriptsDir="$(realpath "$(dirname "$0")")"
 unstagedDiff="$(mktemp)"
 
