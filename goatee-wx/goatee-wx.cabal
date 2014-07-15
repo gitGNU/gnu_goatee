@@ -1,0 +1,36 @@
+name: goatee-wx
+version: 0.0.1
+synopsis: A monadic take on a 2,500-year-old board game - wxWidgets UI.
+category: Game
+license: AGPL-3
+license-file: LICENSE
+copyright: Copyright 2014 Bryan Gardiner
+author: Bryan Gardiner <bog@khumba.net>
+maintainer: Bryan Gardiner <bog@khumba.net>
+homepage: http://khumba.net/projects/goatee
+bug-reports: https://savannah.nongnu.org/projects/goatee/
+tested-with: GHC
+cabal-version: >=1.8
+build-type: Simple
+data-files: LICENSE
+description:
+    Goatee is a game editor for Go.  It is developed in two parts: a library for
+    working with SGF files, and a GUI for filling your Go fancy.  It aims to be
+    full-featured, supporting all of the SGF spec and allowing for full
+    customization of the game records you create.
+
+source-repository head
+    type: git
+    location: git://git.sv.gnu.org/goatee.git
+
+executable goatee-wx
+    build-depends:
+        base >= 4 && < 5,
+        goatee >= 0.0.1 && < 0.1,
+        wx >= 0.13 && < 0.91,
+        wxcore >= 0.13 && < 0.91
+    ghc-options: -W -fwarn-incomplete-patterns
+    hs-source-dirs: src
+    main-is: Main.hs
+    other-modules:
+        Game.Goatee.Ui.Wx

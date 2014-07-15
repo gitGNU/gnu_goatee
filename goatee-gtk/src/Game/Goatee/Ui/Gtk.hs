@@ -60,7 +60,7 @@ import Graphics.UI.Gtk (
   widgetDestroy, widgetHide,
   set,
   )
-import qualified Paths_goatee as Paths
+import qualified Paths_goatee_gtk as Paths
 import System.Directory (doesFileExist)
 
 -- | A structure for holding global application information about all open

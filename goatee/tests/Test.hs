@@ -26,7 +26,6 @@ import qualified Game.Goatee.Sgf.PropertyTest
 import qualified Game.Goatee.Sgf.RoundTripTest
 import qualified Game.Goatee.Sgf.TreeTest
 import qualified Game.Goatee.Sgf.TypesTest
-import qualified Game.Goatee.Ui.Gtk.LatchTest
 import Test.Framework (defaultMain)
 
 tests = [ Game.Goatee.CommonTest.tests
@@ -38,7 +37,6 @@ tests = [ Game.Goatee.CommonTest.tests
         , Game.Goatee.Sgf.RoundTripTest.tests
         , Game.Goatee.Sgf.TreeTest.tests
         , Game.Goatee.Sgf.TypesTest.tests
-        , Game.Goatee.Ui.Gtk.LatchTest.tests
         ]
 
 main :: IO ()
