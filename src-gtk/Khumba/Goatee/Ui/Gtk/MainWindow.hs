@@ -30,23 +30,17 @@ import Control.Monad.Trans (liftIO)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (intersperse)
-import qualified Data.Map as Map
-import Data.Map (Map)
-import Data.Maybe (fromJust, fromMaybe, isJust)
-import Data.Tree (drawTree, unfoldTree)
+import Data.Maybe (fromMaybe)
 import Graphics.UI.Gtk (
   Action,
   Menu,
-  Modifier (Shift),
   Packing (PackGrow, PackNatural),
   Window,
   actionCreateMenuItem, actionCreateToolItem, actionGroupGetAction,
   boxPackStart,
   containerAdd,
   deleteEvent,
-  eventKeyName, eventModifier,
   hPanedNew,
-  keyPressEvent,
   menuBarNew, menuItemNewWithMnemonic, menuItemSetSubmenu, menuNew, menuShellAppend,
   notebookAppendPage, notebookNew,
   on,
@@ -54,12 +48,9 @@ import Graphics.UI.Gtk (
   separatorMenuItemNew, separatorToolItemNew,
   toolbarNew,
   vBoxNew,
-  widgetDestroy, widgetShowAll,
+  widgetDestroy, widgetGrabFocus, widgetShowAll,
   windowNew, windowSetDefaultSize, windowSetTitle,
   )
-import Khumba.Goatee.Common
-import Khumba.Goatee.Sgf.Board
-import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Ui.Gtk.Common
 import qualified Khumba.Goatee.Ui.Gtk.Actions as Actions
 import Khumba.Goatee.Ui.Gtk.Actions (Actions)
@@ -70,25 +61,6 @@ import Khumba.Goatee.Ui.Gtk.Goban (Goban)
 import qualified Khumba.Goatee.Ui.Gtk.InfoLine as InfoLine
 import Khumba.Goatee.Ui.Gtk.InfoLine (InfoLine)
 import System.IO (hPutStrLn, stderr)
-
--- | If false, then the up and down keys will move toward and away
--- from the game tree root, and left and right will move between
--- siblings.  If true, these are reversed.
-useHorizontalKeyNavigation :: Bool
-useHorizontalKeyNavigation = True
-
--- Key handler code requires that these keys don't use modifiers.
-keyNavActions :: UiCtrl a => Map String (a -> IO Bool)
-keyNavActions = Map.fromList $
-                if useHorizontalKeyNavigation
-                then [("Up", goLeft),
-                      ("Down", goRight),
-                      ("Left", goUp),
-                      ("Right", flip goDown 0)]
-                else [("Up", goUp),
-                      ("Down", flip goDown 0),
-                      ("Left", goLeft),
-                      ("Right", goRight)]
 
 data MainWindow ui = MainWindow { myUi :: ui
                                 , myWindow :: Window
@@ -104,28 +76,6 @@ create :: UiCtrl ui => ui -> IO (MainWindow ui)
 create ui = do
   window <- windowNew
   windowSetDefaultSize window 640 480
-
-  on window keyPressEvent $ do
-    key <- eventKeyName
-    mods <- eventModifier
-    let km = (key, mods)
-    let maybeAction = Map.lookup key keyNavActions
-    cond (return False)
-      [(null mods && isJust maybeAction,
-        liftIO $ fromJust maybeAction ui >> return True),
-
-        -- Write a list of the current node's properties to the console.
-       (km == ("t", []), liftIO $ do
-           cursor <- readCursor ui
-           print $ nodeProperties $ cursorNode cursor
-           return True),
-
-        -- Draw a tree rooted at the current node to the console.
-       (km == ("T", [Shift]), liftIO $ do
-           cursor <- readCursor ui
-           putStrLn $ drawTree $ flip unfoldTree (cursorNode cursor) $ \node ->
-             (show $ nodeProperties node, nodeChildren node)
-           return True)]
 
   actions <- Actions.create ui
 
@@ -215,7 +165,7 @@ create ui = do
   panedSetPosition hPaned 400 -- (truncate (fromIntegral hPanedMax * 0.8))
 
   goban <- Goban.create ui
-  panedAdd1 hPaned $ Goban.myDrawingArea goban
+  panedAdd1 hPaned $ Goban.myWidget goban
 
   controlsBook <- notebookNew
   panedAdd2 hPaned controlsBook
@@ -241,6 +191,8 @@ create ui = do
   on window deleteEvent $ liftIO $ do
     fileClose ui
     return True
+
+  widgetGrabFocus $ Goban.myWidget goban
 
   return me
 

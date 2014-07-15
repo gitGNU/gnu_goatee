@@ -20,13 +20,17 @@ module Khumba.Goatee.Ui.Gtk.Goban (
   Goban,
   create,
   destroy,
-  myDrawingArea,
+  myWidget,
   ) where
 
 import Control.Applicative ((<$>))
 import Control.Monad (liftM, unless, when)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import qualified Data.Map as Map
+import Data.Map (Map)
+import Data.Maybe (fromJust, isJust)
+import Data.Tree (drawTree, unfoldTree)
 import Graphics.Rendering.Cairo (
   Antialias (AntialiasDefault, AntialiasNone),
   Render,
@@ -53,24 +57,52 @@ import Graphics.Rendering.Cairo (
 import Graphics.UI.Gtk (
   DrawingArea,
   EventMask (ButtonPressMask, LeaveNotifyMask, PointerMotionMask),
+  Modifier (Shift),
+  Widget,
   buttonPressEvent,
   drawingAreaNew,
-  eventCoordinates,
+  eventCoordinates, eventKeyName, eventModifier,
   exposeEvent,
+  keyPressEvent,
   leaveNotifyEvent,
   motionNotifyEvent,
   on,
   renderWithDrawable,
-  widgetAddEvents, widgetGetDrawWindow, widgetGetSize, widgetQueueDraw,
+  toWidget,
+  widgetAddEvents, widgetGetDrawWindow, widgetGetSize, widgetGrabFocus, widgetQueueDraw,
+  widgetSetCanFocus,
   )
 import Khumba.Goatee.Common
 import Khumba.Goatee.Sgf.Board hiding (isValidMove)
-import Khumba.Goatee.Sgf.Monad hiding (on)
+import Khumba.Goatee.Sgf.Monad (
+  childAddedEvent, modifyMark, navigationEvent, propertiesModifiedEvent,
+  )
 import Khumba.Goatee.Sgf.Property
+import Khumba.Goatee.Sgf.Tree
 import Khumba.Goatee.Sgf.Types
 import Khumba.Goatee.Ui.Gtk.Common
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
+
+-- | If false, then the up and down keys will move toward and away
+-- from the game tree root, and left and right will move between
+-- siblings.  If true, these are reversed.
+useHorizontalKeyNavigation :: Bool
+useHorizontalKeyNavigation = True
+
+-- Key handler code below requires that these keys don't use modifiers.
+keyNavActions :: UiCtrl a => Map String (a -> IO Bool)
+keyNavActions =
+  Map.fromList $
+  if useHorizontalKeyNavigation
+  then [("Up", goLeft),
+        ("Down", goRight),
+        ("Left", goUp),
+        ("Right", flip goDown 0)]
+  else [("Up", goUp),
+        ("Down", flip goDown 0),
+        ("Left", goLeft),
+        ("Right", goRight)]
 
 boardBgColor :: Rgb
 boardBgColor = rgb255 229 178 58
@@ -141,6 +173,7 @@ boardAnnotationArrowWidth = 0.1
 -- @ui@ should be an instance of 'UiCtrl'.
 data Goban ui = Goban { myUi :: ui
                       , myRegistrations :: ViewRegistrations
+                      , myWidget :: Widget
                       , myDrawingArea :: DrawingArea
                       , myModesChangedHandler :: IORef (Maybe Registration)
                       }
@@ -177,9 +210,11 @@ create ui = do
                                        }
 
   drawingArea <- drawingAreaNew
+  widgetSetCanFocus drawingArea True
   widgetAddEvents drawingArea [LeaveNotifyMask,
                                ButtonPressMask,
                                PointerMotionMask]
+
   on drawingArea exposeEvent $ liftIO $ do
     drawBoard ui hoverStateRef drawingArea
     return True
@@ -188,20 +223,45 @@ create ui = do
     mouseCoord <- fmap Just eventCoordinates
     liftIO $ handleMouseMove ui hoverStateRef drawingArea mouseCoord
     return True
+
   on drawingArea leaveNotifyEvent $ do
     liftIO $ handleMouseMove ui hoverStateRef drawingArea Nothing
     return True
 
   on drawingArea buttonPressEvent $ do
+    liftIO $ widgetGrabFocus drawingArea
     mouseXy <- eventCoordinates
     liftIO $ doToolAtPoint ui drawingArea mouseXy
     return True
+
+  on drawingArea keyPressEvent $ do
+    key <- eventKeyName
+    mods <- eventModifier
+    let km = (key, mods)
+    let maybeAction = Map.lookup key keyNavActions
+    cond (return False)
+      [(null mods && isJust maybeAction,
+        liftIO $ fromJust maybeAction ui >> return True),
+
+        -- Write a list of the current node's properties to the console.
+       (km == ("t", []), liftIO $ do
+           cursor <- readCursor ui
+           print $ nodeProperties $ cursorNode cursor
+           return True),
+
+        -- Draw a tree rooted at the current node to the console.
+       (km == ("T", [Shift]), liftIO $ do
+           cursor <- readCursor ui
+           putStrLn $ drawTree $ flip unfoldTree (cursorNode cursor) $ \node ->
+             (show $ nodeProperties node, nodeChildren node)
+           return True)]
 
   registrations <- viewNewRegistrations
   modesChangedHandler <- newIORef Nothing
 
   let me = Goban { myUi = ui
                  , myRegistrations = registrations
+                 , myWidget = toWidget drawingArea
                  , myDrawingArea = drawingArea
                  , myModesChangedHandler = modesChangedHandler
                  }
