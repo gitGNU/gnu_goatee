@@ -31,7 +31,7 @@ module Khumba.Goatee.Ui.Gtk.Actions (
   myViewVariationsCurrentAction,
   myViewVariationsBoardMarkupOnAction,
   myViewVariationsBoardMarkupOffAction,
-  myViewShowCurrentMovesAction,
+  myViewHighlightCurrentMovesAction,
   myHelpAboutAction,
   ) where
 
@@ -75,7 +75,7 @@ data Actions ui = Actions { myUi :: ui
                           , myViewVariationsCurrentAction :: RadioAction
                           , myViewVariationsBoardMarkupOnAction :: RadioAction
                           , myViewVariationsBoardMarkupOffAction :: RadioAction
-                          , myViewShowCurrentMovesAction :: ToggleAction
+                          , myViewHighlightCurrentMovesAction :: ToggleAction
                           , myHelpAboutAction :: Action
                           }
 
@@ -174,12 +174,12 @@ create ui = do
     value <- toEnum <$> get action radioActionCurrentValue
     runUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeBoardMarkup = value }
 
-  viewShowCurrentMovesAction <-
-    toggleActionNew "ViewShowCurrentMoves" "Show _current moves" Nothing Nothing
-  set viewShowCurrentMovesAction [toggleActionActive := uiShowCurrentMovesMode modes]
-  on viewShowCurrentMovesAction actionToggled $ do
-    active <- get viewShowCurrentMovesAction toggleActionActive
-    modifyModes ui $ \modes -> return modes { uiShowCurrentMovesMode = active }
+  viewHighlightCurrentMovesAction <-
+    toggleActionNew "ViewHighlightCurrentMoves" "Highlight _current moves" Nothing Nothing
+  set viewHighlightCurrentMovesAction [toggleActionActive := uiHighlightCurrentMovesMode modes]
+  on viewHighlightCurrentMovesAction actionToggled $ do
+    active <- get viewHighlightCurrentMovesAction toggleActionActive
+    modifyModes ui $ \modes -> return modes { uiHighlightCurrentMovesMode = active }
 
   helpAboutAction <- actionNew "HelpAbout" "_About" Nothing Nothing
   on helpAboutAction actionActivated $ helpAbout ui
@@ -203,7 +203,7 @@ create ui = do
                    , myViewVariationsCurrentAction = viewVariationsCurrentAction
                    , myViewVariationsBoardMarkupOnAction = viewVariationsBoardMarkupOnAction
                    , myViewVariationsBoardMarkupOffAction = viewVariationsBoardMarkupOffAction
-                   , myViewShowCurrentMovesAction = viewShowCurrentMovesAction
+                   , myViewHighlightCurrentMovesAction = viewHighlightCurrentMovesAction
                    , myHelpAboutAction = helpAboutAction
                    }
 

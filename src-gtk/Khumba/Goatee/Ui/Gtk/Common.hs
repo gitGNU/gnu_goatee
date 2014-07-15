@@ -324,7 +324,7 @@ data UiModes = UiModes { uiViewMode :: ViewMode
                          -- ^ If true, announce the player whose turn it is with
                          -- blindfolds off.  If false, announce the player whose
                          -- turn it is with blindfolds on.
-                       , uiShowCurrentMovesMode :: Bool
+                       , uiHighlightCurrentMovesMode :: Bool
                          -- ^ Whether to draw an indicator on the game board for
                          -- moves on the current node.
                        , uiTool :: Tool
@@ -339,7 +339,7 @@ defaultUiModes :: UiModes
 defaultUiModes = UiModes { uiViewMode = ViewRegularMode
                          , uiViewOneColorModeColor = Black
                          , uiViewBlindModesAnnouncePlayer = True
-                         , uiShowCurrentMovesMode = False
+                         , uiHighlightCurrentMovesMode = False
                          , uiTool = ToolPlay
                          }
 

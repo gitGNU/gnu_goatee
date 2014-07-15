@@ -336,7 +336,7 @@ drawBoard ui hoverStateRef drawingArea = do
 
       -- Positions of stones that have been played at the current node.
       current :: [Coord]
-      current = if uiShowCurrentMovesMode modes
+      current = if uiHighlightCurrentMovesMode modes
                 then concatMap (\prop -> case prop of
                                    B (Just xy) -> [xy]
                                    W (Just xy) -> [xy]
