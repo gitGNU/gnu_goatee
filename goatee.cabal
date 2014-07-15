@@ -1,7 +1,7 @@
 name: goatee
 version: 0.0.1
 synopsis: A monadic take on a 2,500-year-old board game.
-category: Games
+category: Game
 license: AGPL-3
 license-file: LICENSE
 copyright: Copyright 2014 Bryan Gardiner
@@ -20,10 +20,10 @@ extra-source-files:
     README
     test.sh
 description:
-    Goatee is a game editor for Go, written in Haskell.  It is developed in two
-    parts: a library for working with SGF files, and a GUI for filling your Go
-    fancy.  It aims to be full-featured, supporting all of the SGF spec and
-    allowing for full customization of the game records you create.
+    Goatee is a game editor for Go.  It is developed in two parts: a library for
+    working with SGF files, and a GUI for filling your Go fancy.  It aims to be
+    full-featured, supporting all of the SGF spec and allowing for full
+    customization of the game records you create.
 
 source-repository head
     type: git
