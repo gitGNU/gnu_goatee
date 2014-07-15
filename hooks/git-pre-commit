@@ -49,26 +49,6 @@ git diff --full-index --binary >"$unstagedDiff"
 git stash save --keep-index --quiet "Goatee presubmit stash ($(date))."
 set +e
 
-echo "Precommit: Linting."
-lintLog="$(mktemp)"
-hooks/lint >>"$lintLog" 2>&1
-result="$?"
-if test "$result" -ge 2; then
-    echo
-    echo "Precommit: Lint detected, please clean:"
-    echo
-    sed 's/^/| /' "$lintLog"
-    rm "$lintLog"
-    die "$result"
-elif test "$result" -eq 1; then
-    echo
-    echo "Precommit: Non-fatal lint warnings found:"
-    echo
-    sed 's/^/| /' "$lintLog"
-    echo
-fi
-rm "$lintLog"
-
 echo "Precommit: Checking that the package builds."
 buildLog="$(mktemp)"
 "$CABAL" clean >>"$buildLog" 2>&1
@@ -98,6 +78,26 @@ if test "$result" -ne 0; then
     die "$result"
 fi
 rm "$testLog"
+
+echo "Precommit: Linting."
+lintLog="$(mktemp)"
+hooks/lint >>"$lintLog" 2>&1
+result="$?"
+if test "$result" -ge 2; then
+    echo
+    echo "Precommit: Lint detected, please clean:"
+    echo
+    sed 's/^/| /' "$lintLog"
+    rm "$lintLog"
+    die "$result"
+elif test "$result" -eq 1; then
+    echo
+    echo "Precommit: Non-fatal lint warnings found:"
+    echo
+    sed 's/^/| /' "$lintLog"
+    echo
+fi
+rm "$lintLog"
 
 echo "Precommit: Success."
 die 0

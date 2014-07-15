@@ -29,7 +29,7 @@ warningsFound=0
 
 echo "HLint:"
 echo
-hlint $srcDirs
+hlint --cpp-file=dist/build/autogen/cabal_macros.h $srcDirs
 hlintResult=$?
 
 if git --no-pager grep -q '\s\+$'; then
