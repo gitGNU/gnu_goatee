@@ -15,19 +15,26 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Main (main) where
+-- | Properties of Goatee the application.
+module Game.Goatee.App (
+  applicationName,
+  applicationCopyright,
+  applicationWebsite,
+  applicationAuthors,
+  ) where
 
-import Control.Monad (void)
-import Game.Goatee.Ui.Gtk
-import Graphics.UI.Gtk (initGUI, mainGUI)
+-- | A string containing the name of this application, @\"Goatee\"@.
+applicationName :: String
+applicationName = "Goatee"
 
-main :: IO ()
-main = do
-  args <- initGUI
-  if null args
-    then void $ startNewBoard Nothing
-    else do result <- startFile $ head args
-            case result of
-              Left msg -> print msg
-              _ -> return ()
-  mainGUI
+-- | A user-presentable copyright message.
+applicationCopyright :: String
+applicationCopyright = "Copyright 2014 Bryan Gardiner"
+
+-- | The home page for Goatee on the web.
+applicationWebsite :: String
+applicationWebsite = "http://khumba.net/projects/goatee"
+
+-- | A list of contributors to Goatee.
+applicationAuthors :: [String]
+applicationAuthors = ["Bryan Gardiner <bog@khumba.net>"]

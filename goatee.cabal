@@ -37,17 +37,17 @@ library
         parsec >= 3.1 && < 3.2,
         template-haskell >= 2.7 && < 2.9
     exposed-modules:
-        Khumba.Goatee.App
-        Khumba.Goatee.Common
-        Khumba.Goatee.Sgf.Board
-        Khumba.Goatee.Sgf.Monad
-        Khumba.Goatee.Sgf.Parser
-        Khumba.Goatee.Sgf.Property
-        Khumba.Goatee.Sgf.Property.Parser
-        Khumba.Goatee.Sgf.Renderer
-        Khumba.Goatee.Sgf.Renderer.Tree
-        Khumba.Goatee.Sgf.Tree
-        Khumba.Goatee.Sgf.Types
+        Game.Goatee.App
+        Game.Goatee.Common
+        Game.Goatee.Sgf.Board
+        Game.Goatee.Sgf.Monad
+        Game.Goatee.Sgf.Parser
+        Game.Goatee.Sgf.Property
+        Game.Goatee.Sgf.Property.Parser
+        Game.Goatee.Sgf.Renderer
+        Game.Goatee.Sgf.Renderer.Tree
+        Game.Goatee.Sgf.Tree
+        Game.Goatee.Sgf.Types
     extensions:
         ExistentialQuantification
         FlexibleContexts
@@ -58,10 +58,10 @@ library
     ghc-options: -W -fwarn-incomplete-patterns
     hs-source-dirs: src
     other-modules:
-        Khumba.Goatee.Sgf.Property.Base
-        Khumba.Goatee.Sgf.Property.Info
-        Khumba.Goatee.Sgf.Property.Renderer
-        Khumba.Goatee.Sgf.Property.Value
+        Game.Goatee.Sgf.Property.Base
+        Game.Goatee.Sgf.Property.Info
+        Game.Goatee.Sgf.Property.Renderer
+        Game.Goatee.Sgf.Property.Value
         Paths_goatee
 
 executable goatee-gtk
@@ -85,15 +85,15 @@ executable goatee-gtk
     ghc-options: -W -fwarn-incomplete-patterns
     hs-source-dirs: src-gtk
     other-modules:
-        Khumba.Goatee.Ui.Gtk
-        Khumba.Goatee.Ui.Gtk.Actions
-        Khumba.Goatee.Ui.Gtk.Common
-        Khumba.Goatee.Ui.Gtk.GamePropertiesPanel
-        Khumba.Goatee.Ui.Gtk.Goban
-        Khumba.Goatee.Ui.Gtk.InfoLine
-        Khumba.Goatee.Ui.Gtk.Latch
-        Khumba.Goatee.Ui.Gtk.MainWindow
-        Khumba.Goatee.Ui.Gtk.Utils
+        Game.Goatee.Ui.Gtk
+        Game.Goatee.Ui.Gtk.Actions
+        Game.Goatee.Ui.Gtk.Common
+        Game.Goatee.Ui.Gtk.GamePropertiesPanel
+        Game.Goatee.Ui.Gtk.Goban
+        Game.Goatee.Ui.Gtk.InfoLine
+        Game.Goatee.Ui.Gtk.Latch
+        Game.Goatee.Ui.Gtk.MainWindow
+        Game.Goatee.Ui.Gtk.Utils
 
 executable goatee-wx
     main-is: Main.hs
@@ -105,7 +105,7 @@ executable goatee-wx
     ghc-options: -W -fwarn-incomplete-patterns
     hs-source-dirs: src-wx
     other-modules:
-        Khumba.Goatee.Ui.Wx
+        Game.Goatee.Ui.Wx
 
 test-suite test-goatee
     type: exitcode-stdio-1.0
@@ -122,18 +122,18 @@ test-suite test-goatee
         test-framework-hunit >= 0.2 && < 0.4
     ghc-options: -W -fwarn-incomplete-patterns
     other-modules:
-        Khumba.Goatee.CommonTest
-        Khumba.Goatee.Sgf.BoardTest
-        Khumba.Goatee.Sgf.MonadTest
-        Khumba.Goatee.Sgf.ParserTest
-        Khumba.Goatee.Sgf.ParserTestUtils
-        Khumba.Goatee.Sgf.Property.ParserTest
-        Khumba.Goatee.Sgf.PropertyTest
-        Khumba.Goatee.Sgf.RoundTripTest
-        Khumba.Goatee.Sgf.TestInstances
-        Khumba.Goatee.Sgf.TestUtils
-        Khumba.Goatee.Sgf.TreeTest
-        Khumba.Goatee.Sgf.TypesTest
-        Khumba.Goatee.Test.Common
-        Khumba.Goatee.Ui.Gtk.LatchTest
+        Game.Goatee.CommonTest
+        Game.Goatee.Sgf.BoardTest
+        Game.Goatee.Sgf.MonadTest
+        Game.Goatee.Sgf.ParserTest
+        Game.Goatee.Sgf.ParserTestUtils
+        Game.Goatee.Sgf.Property.ParserTest
+        Game.Goatee.Sgf.PropertyTest
+        Game.Goatee.Sgf.RoundTripTest
+        Game.Goatee.Sgf.TestInstances
+        Game.Goatee.Sgf.TestUtils
+        Game.Goatee.Sgf.TreeTest
+        Game.Goatee.Sgf.TypesTest
+        Game.Goatee.Test.Common
+        Game.Goatee.Ui.Gtk.LatchTest
         Test

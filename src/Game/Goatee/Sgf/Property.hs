@@ -15,19 +15,13 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Main (main) where
+-- | Structures and functions for working with SGF node properties.
+module Game.Goatee.Sgf.Property (
+  module Game.Goatee.Sgf.Property.Base,
+  module Game.Goatee.Sgf.Property.Info,
+  PropertyValueType, pvtParser, pvtRenderer, pvtRendererPretty,
+  ) where
 
-import Control.Monad (void)
-import Game.Goatee.Ui.Gtk
-import Graphics.UI.Gtk (initGUI, mainGUI)
-
-main :: IO ()
-main = do
-  args <- initGUI
-  if null args
-    then void $ startNewBoard Nothing
-    else do result <- startFile $ head args
-            case result of
-              Left msg -> print msg
-              _ -> return ()
-  mainGUI
+import Game.Goatee.Sgf.Property.Base
+import Game.Goatee.Sgf.Property.Info
+import Game.Goatee.Sgf.Property.Value

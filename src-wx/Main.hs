@@ -17,11 +17,11 @@
 
 module Main (main) where
 
+import Game.Goatee.Sgf.Board
+import Game.Goatee.Sgf.Parser
+import Game.Goatee.Sgf.Tree
+import Game.Goatee.Ui.Wx
 import Graphics.UI.WX (start)
-import Khumba.Goatee.Sgf.Board
-import Khumba.Goatee.Sgf.Parser
-import Khumba.Goatee.Sgf.Tree
-import Khumba.Goatee.Ui.Wx
 import System.Environment (getArgs)
 
 main :: IO ()

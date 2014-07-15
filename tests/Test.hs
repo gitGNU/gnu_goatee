@@ -17,28 +17,28 @@
 
 module Main (main) where
 
-import qualified Khumba.Goatee.CommonTest
-import qualified Khumba.Goatee.Sgf.BoardTest
-import qualified Khumba.Goatee.Sgf.MonadTest
-import qualified Khumba.Goatee.Sgf.ParserTest
-import qualified Khumba.Goatee.Sgf.Property.ParserTest
-import qualified Khumba.Goatee.Sgf.PropertyTest
-import qualified Khumba.Goatee.Sgf.RoundTripTest
-import qualified Khumba.Goatee.Sgf.TreeTest
-import qualified Khumba.Goatee.Sgf.TypesTest
-import qualified Khumba.Goatee.Ui.Gtk.LatchTest
+import qualified Game.Goatee.CommonTest
+import qualified Game.Goatee.Sgf.BoardTest
+import qualified Game.Goatee.Sgf.MonadTest
+import qualified Game.Goatee.Sgf.ParserTest
+import qualified Game.Goatee.Sgf.Property.ParserTest
+import qualified Game.Goatee.Sgf.PropertyTest
+import qualified Game.Goatee.Sgf.RoundTripTest
+import qualified Game.Goatee.Sgf.TreeTest
+import qualified Game.Goatee.Sgf.TypesTest
+import qualified Game.Goatee.Ui.Gtk.LatchTest
 import Test.Framework (defaultMain)
 
-tests = [ Khumba.Goatee.CommonTest.tests
-        , Khumba.Goatee.Sgf.BoardTest.tests
-        , Khumba.Goatee.Sgf.MonadTest.tests
-        , Khumba.Goatee.Sgf.ParserTest.tests
-        , Khumba.Goatee.Sgf.Property.ParserTest.tests
-        , Khumba.Goatee.Sgf.PropertyTest.tests
-        , Khumba.Goatee.Sgf.RoundTripTest.tests
-        , Khumba.Goatee.Sgf.TreeTest.tests
-        , Khumba.Goatee.Sgf.TypesTest.tests
-        , Khumba.Goatee.Ui.Gtk.LatchTest.tests
+tests = [ Game.Goatee.CommonTest.tests
+        , Game.Goatee.Sgf.BoardTest.tests
+        , Game.Goatee.Sgf.MonadTest.tests
+        , Game.Goatee.Sgf.ParserTest.tests
+        , Game.Goatee.Sgf.Property.ParserTest.tests
+        , Game.Goatee.Sgf.PropertyTest.tests
+        , Game.Goatee.Sgf.RoundTripTest.tests
+        , Game.Goatee.Sgf.TreeTest.tests
+        , Game.Goatee.Sgf.TypesTest.tests
+        , Game.Goatee.Ui.Gtk.LatchTest.tests
         ]
 
 main :: IO ()

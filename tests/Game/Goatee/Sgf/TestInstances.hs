@@ -15,19 +15,11 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Main (main) where
+-- | Test utilities for working with the SGF modules.
+module Game.Goatee.Sgf.TestInstances () where
 
-import Control.Monad (void)
-import Game.Goatee.Ui.Gtk
-import Graphics.UI.Gtk (initGUI, mainGUI)
+import Data.Function (on)
+import Game.Goatee.Sgf.Tree (Node, NodeWithDeepEquality(NodeWithDeepEquality))
 
-main :: IO ()
-main = do
-  args <- initGUI
-  if null args
-    then void $ startNewBoard Nothing
-    else do result <- startFile $ head args
-            case result of
-              Left msg -> print msg
-              _ -> return ()
-  mainGUI
+instance Eq Node where
+  (==) = (==) `on` NodeWithDeepEquality

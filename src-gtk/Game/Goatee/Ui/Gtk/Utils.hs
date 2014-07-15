@@ -15,19 +15,20 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Main (main) where
+-- | General GTK utilities that don't exist in the Gtk2Hs.
+module Game.Goatee.Ui.Gtk.Utils (
+  onEntryChange,
+  ) where
 
 import Control.Monad (void)
-import Game.Goatee.Ui.Gtk
-import Graphics.UI.Gtk (initGUI, mainGUI)
+import Graphics.UI.Gtk (EditableClass, EntryClass, editableChanged, entryGetText, on)
 
-main :: IO ()
-main = do
-  args <- initGUI
-  if null args
-    then void $ startNewBoard Nothing
-    else do result <- startFile $ head args
-            case result of
-              Left msg -> print msg
-              _ -> return ()
-  mainGUI
+-- | Registers a handler to be called when the value contained in the entry's
+-- buffer changes.  The handler is called with the new value.
+onEntryChange :: (EditableClass self, EntryClass self)
+              => self
+              -> (String -> IO ())
+              -> IO ()
+onEntryChange entry handler =
+  void $ on entry editableChanged runHandler
+  where runHandler = entryGetText entry >>= handler
