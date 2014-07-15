@@ -555,7 +555,7 @@ closeBoard ui = do
 readLicense :: IO (Maybe String)
 readLicense = do
   path <- Paths.getDataFileName "LICENSE"
-  fmap Just (readFile path) `catch` \(_ :: IOException) -> return Nothing
+  fmap Just (readFile path) `Control.Exception.catch` \(_ :: IOException) -> return Nothing
 
 fallbackLicense :: String
 fallbackLicense =

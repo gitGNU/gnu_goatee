@@ -17,13 +17,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+# This script returns 0 on success, 1 on warnings (committable), and 2
+# on errors (a commit should fail).
+
+set -u
+
 cd "$(dirname "$(dirname "$(realpath "$0")")")"
 
 srcDirs=`echo src* tests`
+warningsFound=0
 
 echo "HLint:"
 echo
-hlint $srcDirs
+hlint --cpp-file=dist/build/autogen/cabal_macros.h $srcDirs
 hlintResult=$?
 
 if git --no-pager grep -q '\s\+$'; then
@@ -88,36 +94,47 @@ done < <(find hooks $srcDirs -type f)
 # TODO ^ Rewrite this process substitution in a POSIX-friendly manner.
 
 # Check that all tracked files are listed in goatee.cabal.
-sdistResult=1
-set -e
-sdistDir="$(mktemp -d)"
-set +e
-cabal sdist --list-sources="$sdistDir/sdist-files-raw" >/dev/null
-if ! test -r "$sdistDir/sdist-files-raw"; then
-    echo "Failed to list source distribution files."
-else
-    sed 's!^\./!!' <"$sdistDir/sdist-files-raw" | sort | uniq >"$sdistDir/sdist-files"
-    git ls-files | sort >"$sdistDir/tracked-files"
-    if ! cmp "$sdistDir/tracked-files" "$sdistDir/sdist-files" >/dev/null; then
-        echo
-        echo "Some files are missing from the source distribution."
-        echo "Please add them to the Cabal file."
-        echo "Diff between expected (tracked) files and actual files:"
-        echo
-        diff -u "$sdistDir/tracked-files" "$sdistDir/sdist-files"
+if cabal help sdist |& grep -qe --list-sources; then
+    sdistResult=1
+    set -e
+    sdistDir="$(mktemp -d)"
+    set +e
+    cabal sdist --list-sources="$sdistDir/sdist-files-raw" >/dev/null
+    if ! test -r "$sdistDir/sdist-files-raw"; then
+        echo "Failed to list source distribution files."
     else
-        sdistResult=0
+        sed 's!^\./!!' <"$sdistDir/sdist-files-raw" | sort | uniq >"$sdistDir/sdist-files"
+        git ls-files | sort >"$sdistDir/tracked-files"
+        if ! cmp "$sdistDir/tracked-files" "$sdistDir/sdist-files" >/dev/null; then
+            echo
+            echo "Some files are missing from the source distribution."
+            echo "Please add them to the Cabal file."
+            echo "Diff between expected (tracked) files and actual files:"
+            echo
+            diff -u "$sdistDir/tracked-files" "$sdistDir/sdist-files"
+        else
+            sdistResult=0
+        fi
     fi
-fi
-rm -rf "$sdistDir"
-
-if test $hlintResult -eq 0 \
-    -a $whitespaceResult -eq 0 \
-    -a $tabsResult -eq 0 \
-    -a $longLinesResult -eq 0 \
-    -a $legalResult -eq 0 \
-    -a $sdistResult -eq 0; then
-    exit 0
+    rm -rf "$sdistDir"
 else
+    echo
+    echo "Warning: cabal-install is too old for sdist to support --list-sources."
+    echo "         Skipping check for files missing from goatee.cabal.  If you're adding"
+    echo "         or removing files, please ensure that goatee.cabal is up to date."
+    warningsFound=1
+    sdistResult=0
+fi
+
+if test $hlintResult -ne 0 \
+    -o $whitespaceResult -ne 0 \
+    -o $tabsResult -ne 0 \
+    -o $longLinesResult -ne 0 \
+    -o $legalResult -ne 0 \
+    -o $sdistResult -ne 0; then
+    exit 2
+elif test $warningsFound -ne 0; then
     exit 1
+else
+    exit 0
 fi

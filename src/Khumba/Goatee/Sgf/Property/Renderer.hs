@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 -- | Renderers of property values.
 --
 -- Import "Khumba.Goatee.Sgf.Property" rather than importing this module.
@@ -58,7 +60,11 @@ module Khumba.Goatee.Sgf.Property.Renderer (
   ) where
 
 import Control.Monad (forM_, when)
+#if MIN_VERSION_base(4,6,0)
 import Control.Monad.Except (throwError)
+#else
+import Control.Monad.Error (throwError)
+#endif
 import Control.Monad.Writer (tell)
 import Data.Char (chr, ord)
 import Data.List (intersperse)
