@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 # This file is part of Goatee.
 #
@@ -17,87 +17,222 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+# This is the Git pre-commit hook for Goatee development.  It ensures that all
+# of the Cabal projects in this repository compile, and pass unit tests and lint
+# checks.
+
 set -eu
+
+# We want to make use of aliases.  Unset any aliases that are brought in from
+# the environment.
+unalias -a
+shopt -s expand_aliases
+
+# Git has GIT_DIR set during the execution of hooks, presumably to cache the
+# value.  Since we'll be moving around, unset it so that git looks to find the
+# correct path.
+unset GIT_DIR
+
 precommitBuildOpts="-Werror -fno-warn-warnings-deprecations"
-scriptsDir="$(realpath "$(dirname "$0")")"
+projectDir="$(dirname "$(realpath "$(git rev-parse --git-dir)")")"
+scriptsDir="$(dirname "$(realpath "$0")")"
 unstagedDiff="$(mktemp)"
 
-die() {
-    if test ${1:-1} -ne 0; then
-        echo
-        echo "Precommit: Encountered errors, exiting ($1)."
-    fi
-    set -e
-    # git apply doesn't like when its input is empty, so don't call it
-    # if that's the case.
-    (if test -s "$unstagedDiff"
-        then git apply --whitespace=nowarn <"$unstagedDiff"
-        else :
-        fi) && \
-            git stash drop --quiet && \
-            rm "$unstagedDiff"
-    exit "${1:-1}"
+#### Messaging functions
+
+msgPrefix='*'
+
+# Increments the nesting level of messages shown with 'msg' and 'err'.  Call on
+# entry to a function.
+msgIncDepth() {
+    msgPrefix="*$msgPrefix"
 }
 
-cd "$(dirname "$(git rev-parse --git-dir)")"
-set +e
-source ./cabal.sh
+# Decrements the nesting level of messages shown with 'msg' and 'err'.  Call
+# before return from a function.
+msgDecDepth() {
+    msgPrefix="${msgPrefix#?}"
+}
 
-echo "Precommit: Stashing unstaged changes in $unstagedDiff."
+# This is like 'echo', but it prefixes the output with a number of stars
+# depending on the nesting level from msgIncDepth/msgDecDepth.
+alias msg='echo "$msgPrefix${FUNCNAME:+ $FUNCNAME:}"'
+
+# Like 'msg', but labels the output as an error message.
+alias err='echo "$msgPrefix${FUNCNAME:+ $FUNCNAME:} Error:"'
+
+#### Cabal sandbox functions
+
+# Usage: sandboxInit
+#
+# Initializes a precommit sandbox for the current package.  Puts aside an
+# existing sandbox, if one exists.  Returns 0 on success, 1 on error.
+sandboxInit() {
+    msgIncDepth
+    if [[ -e .precommit-sandbox ]]; then
+        msg "Old precommit sandbox exists; removing:"
+        msg "    $(realpath .precommit-sandbox)"
+        rm -r .precommit-sandbox
+        if [[ -e cabal.sandbox.config ]] \
+            && grep -q '\.precommit-sandbox' cabal.sandbox.config; then
+            msg "Also removing cabal.sandbox.config pointing to precommit sandbox."
+            rm cabal.sandbox.config
+        fi
+    fi
+    if [[ -e cabal.sandbox.config ]]; then
+        mv cabal.sandbox.config{,.non-precommit} || { msgDecDepth; return 1; }
+    fi
+    cabal sandbox --sandbox=.precommit-sandbox init || { msgDecDepth; return 1; }
+    msgDecDepth
+}
+
+# Usage: sandboxClean
+#
+# Cleans the precommit sandbox for the current package (if one exists), and
+# restores a set-aside sandbox (if one exists).
+sandboxClean() {
+    if ! [[ -e cabal.sandbox.config ]]; then
+        return 0
+    fi
+    msgIncDepth
+    if ! grep -q '\.precommit-sandbox' cabal.sandbox.config; then
+        err "Precommit: Error: Asked to clean non-precommit sandbox, refusing:"
+        msg "    $(realpath cabal.sandbox.config):"
+        msg "$(grep -n '\bprefix:' cabal.sandbox.config | sed 's/^/        /')"
+    fi
+    cabal sandbox delete
+    rm -rf .precommit-sandbox
+    if [[ -e cabal.sandbox.config.non-precommit ]]; then
+        mv cabal.sandbox.config{.non-precommit,}
+    fi
+    msgDecDepth
+}
+
+# verifyPackage packageName (install-lib | no-install-lib) (test | no-test)
+#
+# Verifies the Cabal package in the named directory by:
+# - cleaning;
+# - creating a sandbox and installing the 'goatee' library package, if
+#   'install-lib' is given as an argument;
+# - configuring;
+# - building;
+# - testing, if 'test' is given as an argument;
+# - (cleaning up the sandbox, if one was created).
+#
+# Returns 0 on success, 1 on error.
+verifyPackage() {
+    msgIncDepth
+    local packageName=$1
+    local doInstallLib
+    local doTest
+    local result
+    case "$2" in
+        install-lib) doInstallLib=1;;
+        no-install-lib) doInstallLib=;;
+        *) err "Don't know this doInstallLib: \"$2\""; msgDecDepth; return 1;;
+    esac
+    case "$3" in
+        test) doTest=1;;
+        no-test) doTest=;;
+        *) err "Don't know this doTest: \"$3\""; msgDecDepth; return 1;;
+    esac
+
+    echo
+    msg "Verifying $packageName."
+    cd "$projectDir/$packageName" || { msgDecDepth; return 1; }
+
+    if [[ -n $doInstallLib ]]; then
+        msg "Installing goatee library."
+        sandboxInit \
+            && "$CABAL" install ../goatee; fi \
+            && { msg "Cleaning."; "$CABAL" clean; } \
+            && { msg "Configuring."; "$CABAL" configure ${doTest:+--enable-tests}; } \
+            && { msg "Building."; "$CABAL" build --ghc-options="$precommitBuildOpts"; } \
+            && if [[ -n $doTest ]]; then msg "Testing."; "$CABAL" test; fi \
+            && { msg "Linting."; "$scriptsDir"/lint .; }
+
+    result=$?
+    sandboxClean
+    if [[ $result = 0 ]]; then
+        msg "Package $packageName looks good."
+    else
+        msg "Package $packageName failed verification."
+    fi
+    msgDecDepth
+    return $result
+}
+
+cd "$projectDir"
+source ./cabal.sh
+set +e
+
+if git diff --full-index --binary | grep -q 'hooks/git-pre-commit'; then
+    err "Bash doesn't like scripts moving underneath it, so a partial commit to"
+    err "hooks/git-pre-commit is incompatible with running the pre-commit"
+    err "currently.  Please stash the changes yourself before attempting to"
+    err "commit."
+    # This could be fixed by doing the initial stash from a separate script
+    # before calling this script.  Then /that/ script couldn't have a partial
+    # commit, but it would be much smaller.
+    exit 1
+fi
 set -e
 git diff --full-index --binary >"$unstagedDiff"
-git stash save --keep-index --quiet "Goatee presubmit stash ($(date))."
+if [[ -s "$unstagedDiff" ]]; then
+    msg "Stashing unstaged changes in $unstagedDiff."
+    git stash save --keep-index --quiet "Goatee precommit stash ($(date))."
+else
+    msg "No unstaged changes to stash."
+fi
 set +e
 
-echo "Precommit: Checking that the package builds."
-buildLog="$(mktemp)"
-"$CABAL" clean >>"$buildLog" 2>&1
-"$CABAL" configure --enable-tests >>"$buildLog" 2>&1
-"$CABAL" build --ghc-options="$precommitBuildOpts" >>"$buildLog" 2>&1
-result="$?"
-if test "$result" -ne 0; then
-    echo
-    sed 's/^/| /' "$buildLog"
-    rm "$buildLog"
-    echo
-    echo "Precommit: Failed to build, please fix."
-    die "$result"
+verifyPackage goatee no-install-lib test; resultGoatee=$?
+if [[ $resultGoatee = 0 ]]; then
+    verifyPackage goatee-gtk install-lib test; resultGtk=$?
+    verifyPackage goatee-wx install-lib no-test; resultWx=$?
+else
+    msg "Skipping verification of goatee-gtk and goatee-wx, since goatee failed."
+    resultGtk=1
+    resultWx=1
 fi
-rm "$buildLog"
 
-echo "Precommit: Running tests."
-testLog="$(mktemp)"
-./test.sh >>"$testLog" 2>&1
-result="$?"
-if test "$result" -ne 0; then
-    echo
-    sed 's/^/| /' "$testLog"
-    rm "$testLog"
-    echo
-    echo "Precommit: Tests failed, please fix."
-    die "$result"
+echo
+msg "Linting miscellaneous files."
+cd "$projectDir"
+"$scriptsDir"/lint hooks
+resultLintOther=$?
+
+if [[ -s "$unstagedDiff" ]]; then
+    msg "Restoring stashed changes."
+
+    cd "$projectDir"
+    git apply --whitespace=nowarn <"$unstagedDiff" &&
+    git stash drop &&
+    rm "$unstagedDiff"
+
+    resultUnstash=$?
+else
+    resultUnstash=0
 fi
-rm "$testLog"
 
-echo "Precommit: Linting."
-lintLog="$(mktemp)"
-hooks/lint >>"$lintLog" 2>&1
-result="$?"
-if test "$result" -ge 2; then
-    echo
-    echo "Precommit: Lint detected, please clean:"
-    echo
-    sed 's/^/| /' "$lintLog"
-    rm "$lintLog"
-    die "$result"
-elif test "$result" -eq 1; then
-    echo
-    echo "Precommit: Non-fatal lint warnings found:"
-    echo
-    sed 's/^/| /' "$lintLog"
-    echo
+showResult() {
+    msg "  $1: $(if [[ $2 = 0 ]]; then echo pass; else echo FAIL; fi) ($2)"
+}
+
+echo
+msg "Results:"
+showResult "goatee    " $resultGoatee
+showResult "goatee-gtk" $resultGtk
+showResult "goatee-wx " $resultWx
+showResult "lint-other" $resultLintOther
+showResult "unstash   " $resultUnstash
+
+if [[ $resultGoatee = 0 \
+    && $resultGtk = 0 \
+    && $resultWx = 0 \
+    && $resultLintOther = 0 \
+    && $resultUnstash = 0 ]]; then
+    exit 0
+else
+    exit 1
 fi
-rm "$lintLog"
-
-echo "Precommit: Success."
-die 0
