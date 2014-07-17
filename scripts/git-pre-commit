@@ -144,11 +144,11 @@ verifyPackage() {
     if [[ -n $doInstallLib ]]; then
         msg "Installing goatee library."
         sandboxInit \
-            && "$CABAL" install ../goatee; fi \
-            && { msg "Cleaning."; "$CABAL" clean; } \
-            && { msg "Configuring."; "$CABAL" configure ${doTest:+--enable-tests}; } \
-            && { msg "Building."; "$CABAL" build --ghc-options="$precommitBuildOpts"; } \
-            && if [[ -n $doTest ]]; then msg "Testing."; "$CABAL" test; fi \
+            && cabal install ../goatee; fi \
+            && { msg "Cleaning."; cabal clean; } \
+            && { msg "Configuring."; cabal configure ${doTest:+--enable-tests}; } \
+            && { msg "Building."; cabal build --ghc-options="$precommitBuildOpts"; } \
+            && if [[ -n $doTest ]]; then msg "Testing."; cabal test; fi \
             && { msg "Linting."; "$scriptsDir"/lint .; }
 
     result=$?
@@ -163,12 +163,11 @@ verifyPackage() {
 }
 
 cd "$projectDir"
-source ./cabal.sh
 set +e
 
-if git diff --full-index --binary | grep -q 'hooks/git-pre-commit'; then
+if git diff --full-index --binary | grep -q 'scripts/git-pre-commit'; then
     err "Bash doesn't like scripts moving underneath it, so a partial commit to"
-    err "hooks/git-pre-commit is incompatible with running the pre-commit"
+    err "scripts/git-pre-commit is incompatible with running the pre-commit"
     err "currently.  Please stash the changes yourself before attempting to"
     err "commit."
     # This could be fixed by doing the initial stash from a separate script
@@ -199,7 +198,7 @@ fi
 echo
 msg "Linting miscellaneous files."
 cd "$projectDir"
-"$scriptsDir"/lint hooks
+"$scriptsDir"/lint "$scriptsDir"
 resultLintOther=$?
 
 if [[ -s "$unstagedDiff" ]]; then

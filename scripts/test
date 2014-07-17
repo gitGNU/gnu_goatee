@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 # This file is part of Goatee.
 #
@@ -17,8 +17,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-CABAL="$(which cabal 2>/dev/null)"
-if test $? -ne 0; then
-    ghc Setup || { echo "Couldn't build Setup.hs, aborting."; exit 1; }
-    CABAL=./Setup
-fi
+# Run from the root of one of the Cabal projects, this runs builds and runs
+# tests in an alternate fashion to "cabal test".  This script is more verbose,
+# but produces coloured output.
+
+projectName="$(basename "$PWD")"
+cabal build && dist/build/test-"$projectName"/test-"$projectName" --hide-successes "$@"
