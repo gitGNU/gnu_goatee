@@ -24,7 +24,6 @@ module Game.Goatee.Sgf.Parser (
 import Control.Applicative ((<*), (*>))
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Property
 import Game.Goatee.Sgf.Tree
 import Game.Goatee.Sgf.Types
@@ -62,7 +61,7 @@ parseString str = case parse collection "<collection>" str of
         -- its descendents.
         ttToPass :: Node -> Node
         ttToPass root =
-          let SZ width height = fromMaybe (SZ defaultSize defaultSize) $
+          let SZ width height = fromMaybe (SZ boardSizeDefault boardSizeDefault) $
                                 findProperty propertySZ root
           in if width <= 19 && height <= 19
              then ttToPass' width height root

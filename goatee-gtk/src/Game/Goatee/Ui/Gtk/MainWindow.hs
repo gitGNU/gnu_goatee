@@ -89,9 +89,20 @@ create ui = do
   menuFileMenu <- menuNew
   menuShellAppend menuBar menuFile
   menuItemSetSubmenu menuFile menuFileMenu
+
+  menuFileNew <- menuItemNewWithMnemonic "_New file"
+  menuFileNewMenu <- menuNew
+  menuItemSetSubmenu menuFileNew menuFileNewMenu
+  addActionsToMenu menuFileNewMenu actions
+    [ Actions.myFileNew9Action
+    , Actions.myFileNew13Action
+    , Actions.myFileNew19Action
+    , Actions.myFileNewCustomAction
+    ]
+
+  containerAdd menuFileMenu menuFileNew
   addActionsToMenu menuFileMenu actions
-    [ Actions.myFileNewAction
-    , Actions.myFileOpenAction
+    [ Actions.myFileOpenAction
     , Actions.myFileSaveAction
     , Actions.myFileSaveAsAction
     ]

@@ -234,8 +234,8 @@ sizeParser =
                              fail $ show width ++ "x" ++ show height ++ " square board " ++
                              " dimensions should be specified with a single number."
                            return height]
-      when (width < 1 || width > maxBoardSize ||
-            height < 1 || height > maxBoardSize) $
+      when (width < 1 || width > boardSizeMax ||
+            height < 1 || height > boardSizeMax) $
         fail $ show width ++ "x" ++ show height ++ " board dimensions are invalid.  " ++
         "Each dimension must be between 1 and 52 inclusive."
       return (width, height)) <?>

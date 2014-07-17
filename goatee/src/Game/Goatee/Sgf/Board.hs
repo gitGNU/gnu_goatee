@@ -19,7 +19,6 @@
 -- game tree, including a zipper that navigates the tree and provides the
 -- current board state.
 module Game.Goatee.Sgf.Board (
-  defaultSize,
   RootInfo(..), GameInfo(..), emptyGameInfo, internalIsGameInfoNode,
   gameInfoToProperties,
   BoardState(..), boardWidth, boardHeight,
@@ -43,11 +42,6 @@ import Game.Goatee.Sgf.Tree
 import Game.Goatee.Sgf.Types
 
 -- TODO Stop using errors everywhere, they're not testable.
-
--- | The default size of the board.  The FF[4] SGF spec says that the default Go
--- board is 19x19 square.
-defaultSize :: Int
-defaultSize = 19
 
 -- | Properties that are specified in the root nodes of game trees.
 data RootInfo = RootInfo { rootInfoWidth :: Int
@@ -267,7 +261,7 @@ rootBoardState rootNode =
   foldr applyProperty
         (emptyBoardState width height)
         (nodeProperties rootNode)
-  where SZ width height = fromMaybe (SZ defaultSize defaultSize) $
+  where SZ width height = fromMaybe (SZ boardSizeDefault boardSizeDefault) $
                           findProperty propertySZ rootNode
 
 -- | Returns the 'CoordState' for a coordinate on a board.

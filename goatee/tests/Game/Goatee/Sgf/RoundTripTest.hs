@@ -70,9 +70,9 @@ propertyValueTests = testGroup "property value types" [
     ],
 
   testGroup "point-valued values" $
-    for [0..maxBoardSize-1]
+    for [0..boardSizeMax-1]
     (\row -> testNode ("row " ++ show row) $ node [B $ Just (0, row)]) ++
-    for [0..maxBoardSize-1]
+    for [0..boardSizeMax-1]
     (\col -> testNode ("row " ++ show col) $ node [B $ Just (col, 0)]),
 
   testGroup "real values" [

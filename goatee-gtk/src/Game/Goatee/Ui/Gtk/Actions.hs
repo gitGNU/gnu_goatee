@@ -20,7 +20,10 @@ module Game.Goatee.Ui.Gtk.Actions (
   Actions,
   create,
   destroy,
-  myFileNewAction,
+  myFileNew9Action,
+  myFileNew13Action,
+  myFileNew19Action,
+  myFileNewCustomAction,
   myFileOpenAction,
   myFileSaveAction,
   myFileSaveAsAction,
@@ -46,25 +49,39 @@ import Graphics.UI.Gtk (
   Action,
   ActionGroup,
   AttrOp ((:=)),
+  Packing (PackGrow),
   RadioAction,
   RadioActionEntry (
     RadioActionEntry,
     radioActionAccelerator, radioActionLabel, radioActionName, radioActionStockId,
     radioActionTooltip, radioActionValue
     ),
+  ResponseId (ResponseCancel, ResponseOk),
+  SpinButtonUpdatePolicy (UpdateIfValid),
   ToggleAction,
   actionActivate, actionActivated, actionGroupAddActionWithAccel, actionGroupAddRadioActions,
   actionGroupGetAction, actionGroupNew, actionNew, actionToggled,
+  boxPackStart,
+  dialogAddButton, dialogGetUpper, dialogNew, dialogRun, dialogSetDefaultResponse,
   get,
+  labelNewWithMnemonic, labelSetMnemonicWidget,
   on,
   radioActionChanged, radioActionCurrentValue, radioActionNew, radioActionSetGroup,
   set,
+  spinButtonGetValueAsInt, spinButtonNewWithRange, spinButtonSetNumeric, spinButtonSetUpdatePolicy,
+  spinButtonSetValue, spinButtonSetWrap,
+  stockCancel,
+  tableAttachDefaults, tableNew,
   toggleActionActive, toggleActionNew,
+  widgetDestroy, widgetShowAll,
   )
 
 data Actions ui = Actions { myUi :: ui
                           , myRegistrations :: ViewRegistrations
-                          , myFileNewAction :: Action
+                          , myFileNew9Action :: Action
+                          , myFileNew13Action :: Action
+                          , myFileNew19Action :: Action
+                          , myFileNewCustomAction :: Action
                           , myFileOpenAction :: Action
                           , myFileSaveAction :: Action
                           , myFileSaveAsAction :: Action
@@ -92,10 +109,66 @@ create ui = do
   -- File actions.
   fileActions <- actionGroupNew "File"
 
-  -- TODO Accelerators aren't working.
-  fileNewAction <- actionNew "FileNew" "_New file" Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileNewAction $ Just "<Control>n"
-  on fileNewAction actionActivated $ void $ openNewBoard (Just ui) Nothing
+  fileNew9Action <- actionNew "FileNew9" "New _9x9 board" Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileNew9Action Nothing
+  on fileNew9Action actionActivated $ void $ openNewBoard (Just ui) (Just (9, 9))
+
+  fileNew13Action <- actionNew "FileNew13" "New 1_3x13 board" Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileNew13Action Nothing
+  on fileNew13Action actionActivated $ void $ openNewBoard (Just ui) (Just (13, 13))
+
+  fileNew19Action <- actionNew "FileNew19" "New _19x19 board" Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileNew19Action $ Just "<Control>n"
+  on fileNew19Action actionActivated $ void $ openNewBoard (Just ui) (Just (19, 19))
+
+  fileNewCustomAction <- actionNew "FileNewCustom" "New _custom board..." Nothing Nothing
+  actionGroupAddActionWithAccel fileActions fileNewCustomAction Nothing
+  on fileNewCustomAction actionActivated $ do
+    dialog <- dialogNew
+    upper <- dialogGetUpper dialog
+    table <- tableNew 2 2 False
+    boxPackStart upper table PackGrow 0
+
+    -- SGF only supports boards up to 'boardSizeMax', but Goatee works fine with
+    -- larger boards.  The spinner wants an upper bound, so let's at least set
+    -- something that isn't too outrageous along a single dimension.
+    let arbitraryUpperLimit = 1000
+        makeSpinButton = do
+          spin <- spinButtonNewWithRange
+                  (fromIntegral boardSizeMin)
+                  (fromIntegral arbitraryUpperLimit)
+                  1
+          spinButtonSetUpdatePolicy spin UpdateIfValid
+          spinButtonSetNumeric spin True
+          spinButtonSetWrap spin False
+          return spin
+
+    widthLabel <- labelNewWithMnemonic "_Width"
+    widthSpin <- makeSpinButton
+    labelSetMnemonicWidget widthLabel widthSpin
+    tableAttachDefaults table widthLabel 0 1 0 1
+    tableAttachDefaults table widthSpin 1 2 0 1
+
+    heightLabel <- labelNewWithMnemonic "_Height"
+    heightSpin <- makeSpinButton
+    labelSetMnemonicWidget heightLabel heightSpin
+    tableAttachDefaults table heightLabel 0 1 1 2
+    tableAttachDefaults table heightSpin 1 2 1 2
+
+    dialogAddButton dialog stockCancel ResponseCancel
+    dialogAddButton dialog "C_reate" ResponseOk
+    dialogSetDefaultResponse dialog ResponseOk
+
+    spinButtonSetValue widthSpin $ fromIntegral boardSizeDefault
+    spinButtonSetValue heightSpin $ fromIntegral boardSizeDefault
+
+    widgetShowAll dialog
+    response <- dialogRun dialog
+    width <- spinButtonGetValueAsInt widthSpin
+    height <- spinButtonGetValueAsInt heightSpin
+    widgetDestroy dialog
+    when (response == ResponseOk) $
+      void $ openNewBoard (Just ui) (Just (width, height))
 
   fileOpenAction <- actionNew "FileOpen" "_Open file..." Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileOpenAction $ Just "<Control>o"
@@ -192,7 +265,10 @@ create ui = do
 
   let me = Actions { myUi = ui
                    , myRegistrations = registrations
-                   , myFileNewAction = fileNewAction
+                   , myFileNew9Action = fileNew9Action
+                   , myFileNew13Action = fileNew13Action
+                   , myFileNew19Action = fileNew19Action
+                   , myFileNewCustomAction = fileNewCustomAction
                    , myFileOpenAction = fileOpenAction
                    , myFileSaveAction = fileSaveAction
                    , myFileSaveAsAction = fileSaveAsAction

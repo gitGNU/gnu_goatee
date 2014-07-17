@@ -17,7 +17,8 @@
 
 -- | Constants and data types for property values used in SGF game trees.
 module Game.Goatee.Sgf.Types (
-  supportedFormatVersions, defaultFormatVersion, supportedGameTypes, maxBoardSize,
+  supportedFormatVersions, defaultFormatVersion, supportedGameTypes,
+  boardSizeDefault, boardSizeMin, boardSizeMax,
   Coord, CoordList, coordListSingles, coordListRects, coord1, coords, coords',
   emptyCoordList, expandCoordList, buildCoordList,
   RealValue,
@@ -56,9 +57,18 @@ defaultFormatVersion = 4
 supportedGameTypes :: [Int]
 supportedGameTypes = [1 {- Go -}]
 
+-- | The default size of the board.  The FF[4] SGF spec says that the default Go
+-- board is 19x19 square.
+boardSizeDefault :: Int
+boardSizeDefault = 19
+
+-- | The minimum board size allowed by FF[4], 1.
+boardSizeMin :: Int
+boardSizeMin = 1
+
 -- | The maximum board size allowed by FF[4], 52.
-maxBoardSize :: Int
-maxBoardSize = 52
+boardSizeMax :: Int
+boardSizeMax = 52
 
 -- | A coordinate on a Go board.  @(0, 0)@ refers to the upper-left corner of
 -- the board.  The first component is the horizontal position; the second

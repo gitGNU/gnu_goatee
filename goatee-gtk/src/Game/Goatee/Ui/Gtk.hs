@@ -288,8 +288,8 @@ instance UiCtrl UiCtrlImpl where
     dialog <- fileChooserDialogNew (Just "Open a file")
                                    Nothing
                                    FileChooserActionOpen
-                                   [(stockOpen, ResponseOk),
-                                    (stockCancel, ResponseCancel)]
+                                   [(stockCancel, ResponseCancel),
+                                    (stockOpen, ResponseOk)]
     mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
     response <- dialogRun dialog
     widgetHide dialog
@@ -341,8 +341,8 @@ instance UiCtrl UiCtrlImpl where
     dialog <- fileChooserDialogNew (Just "Save file as")
                                    Nothing
                                    FileChooserActionSave
-                                   [(stockSave, ResponseOk),
-                                    (stockCancel, ResponseCancel)]
+                                   [(stockCancel, ResponseCancel),
+                                    (stockSave, ResponseOk)]
     mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
     response <- dialogRun dialog
     finally
@@ -531,9 +531,9 @@ confirmFileClose ui = do
                       MessageQuestion
                       ButtonsNone
                       (fileName ++ " has unsaved changes.  Save before closing?")
-            dialogAddButton dialog (maybe stockSaveAs (const stockSave) filePath) ResponseYes
             dialogAddButton dialog "Close without saving" ResponseNo
             dialogAddButton dialog stockCancel ResponseCancel
+            dialogAddButton dialog (maybe stockSaveAs (const stockSave) filePath) ResponseYes
             result <- dialogRun dialog
             widgetDestroy dialog
             case result of
