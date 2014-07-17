@@ -1,0 +1,237 @@
+#!/usr/bin/env bash
+
+# This file is part of Goatee.
+#
+# Copyright 2014 Bryan Gardiner
+#
+# Goatee is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Goatee is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
+
+# This is the Git pre-commit hook for Goatee development.  It ensures that all
+# of the Cabal projects in this repository compile, and pass unit tests and lint
+# checks.
+
+set -eu
+
+# We want to make use of aliases.  Unset any aliases that are brought in from
+# the environment.
+unalias -a
+shopt -s expand_aliases
+
+# Git has GIT_DIR set during the execution of hooks, presumably to cache the
+# value.  Since we'll be moving around, unset it so that git looks to find the
+# correct path.
+unset GIT_DIR
+
+precommitBuildOpts="-Werror -fno-warn-warnings-deprecations"
+projectDir="$(dirname "$(realpath "$(git rev-parse --git-dir)")")"
+scriptsDir="$(dirname "$(realpath "$0")")"
+unstagedDiff="$(mktemp)"
+
+#### Messaging functions
+
+msgPrefix='*'
+
+# Increments the nesting level of messages shown with 'msg' and 'err'.  Call on
+# entry to a function.
+msgIncDepth() {
+    msgPrefix="*$msgPrefix"
+}
+
+# Decrements the nesting level of messages shown with 'msg' and 'err'.  Call
+# before return from a function.
+msgDecDepth() {
+    msgPrefix="${msgPrefix#?}"
+}
+
+# This is like 'echo', but it prefixes the output with a number of stars
+# depending on the nesting level from msgIncDepth/msgDecDepth.
+alias msg='echo "$msgPrefix${FUNCNAME:+ $FUNCNAME:}"'
+
+# Like 'msg', but labels the output as an error message.
+alias err='echo "$msgPrefix${FUNCNAME:+ $FUNCNAME:} Error:"'
+
+#### Cabal sandbox functions
+
+# Usage: sandboxInit
+#
+# Initializes a precommit sandbox for the current package.  Puts aside an
+# existing sandbox, if one exists.  Returns 0 on success, 1 on error.
+sandboxInit() {
+    msgIncDepth
+    if [[ -e .precommit-sandbox ]]; then
+        msg "Old precommit sandbox exists; removing:"
+        msg "    $(realpath .precommit-sandbox)"
+        rm -r .precommit-sandbox
+        if [[ -e cabal.sandbox.config ]] \
+            && grep -q '\.precommit-sandbox' cabal.sandbox.config; then
+            msg "Also removing cabal.sandbox.config pointing to precommit sandbox."
+            rm cabal.sandbox.config
+        fi
+    fi
+    if [[ -e cabal.sandbox.config ]]; then
+        mv cabal.sandbox.config{,.non-precommit} || { msgDecDepth; return 1; }
+    fi
+    cabal sandbox --sandbox=.precommit-sandbox init || { msgDecDepth; return 1; }
+    msgDecDepth
+}
+
+# Usage: sandboxClean
+#
+# Cleans the precommit sandbox for the current package (if one exists), and
+# restores a set-aside sandbox (if one exists).
+sandboxClean() {
+    if ! [[ -e cabal.sandbox.config ]]; then
+        return 0
+    fi
+    msgIncDepth
+    if ! grep -q '\.precommit-sandbox' cabal.sandbox.config; then
+        err "Precommit: Error: Asked to clean non-precommit sandbox, refusing:"
+        msg "    $(realpath cabal.sandbox.config):"
+        msg "$(grep -n '\bprefix:' cabal.sandbox.config | sed 's/^/        /')"
+    fi
+    cabal sandbox delete
+    rm -rf .precommit-sandbox
+    if [[ -e cabal.sandbox.config.non-precommit ]]; then
+        mv cabal.sandbox.config{.non-precommit,}
+    fi
+    msgDecDepth
+}
+
+# verifyPackage packageName (install-lib | no-install-lib) (test | no-test)
+#
+# Verifies the Cabal package in the named directory by:
+# - cleaning;
+# - creating a sandbox and installing the 'goatee' library package, if
+#   'install-lib' is given as an argument;
+# - configuring;
+# - building;
+# - testing, if 'test' is given as an argument;
+# - (cleaning up the sandbox, if one was created).
+#
+# Returns 0 on success, 1 on error.
+verifyPackage() {
+    msgIncDepth
+    local packageName=$1
+    local doInstallLib
+    local doTest
+    local result
+    case "$2" in
+        install-lib) doInstallLib=1;;
+        no-install-lib) doInstallLib=;;
+        *) err "Don't know this doInstallLib: \"$2\""; msgDecDepth; return 1;;
+    esac
+    case "$3" in
+        test) doTest=1;;
+        no-test) doTest=;;
+        *) err "Don't know this doTest: \"$3\""; msgDecDepth; return 1;;
+    esac
+
+    echo
+    msg "Verifying $packageName."
+    cd "$projectDir/$packageName" || { msgDecDepth; return 1; }
+
+    if [[ -n $doInstallLib ]]; then
+        msg "Installing goatee library."
+        sandboxInit \
+            && cabal install ../goatee; fi \
+            && { msg "Cleaning."; cabal clean; } \
+            && { msg "Configuring."; cabal configure ${doTest:+--enable-tests}; } \
+            && { msg "Building."; cabal build --ghc-options="$precommitBuildOpts"; } \
+            && if [[ -n $doTest ]]; then msg "Testing."; cabal test; fi \
+            && { msg "Linting."; "$scriptsDir"/lint .; }
+
+    result=$?
+    sandboxClean
+    if [[ $result = 0 ]]; then
+        msg "Package $packageName looks good."
+    else
+        msg "Package $packageName failed verification."
+    fi
+    msgDecDepth
+    return $result
+}
+
+cd "$projectDir"
+set +e
+
+if git diff --full-index --binary | grep -q 'scripts/git-pre-commit'; then
+    err "Bash doesn't like scripts moving underneath it, so a partial commit to"
+    err "scripts/git-pre-commit is incompatible with running the pre-commit"
+    err "currently.  Please stash the changes yourself before attempting to"
+    err "commit."
+    # This could be fixed by doing the initial stash from a separate script
+    # before calling this script.  Then /that/ script couldn't have a partial
+    # commit, but it would be much smaller.
+    exit 1
+fi
+set -e
+git diff --full-index --binary >"$unstagedDiff"
+if [[ -s "$unstagedDiff" ]]; then
+    msg "Stashing unstaged changes in $unstagedDiff."
+    git stash save --keep-index --quiet "Goatee precommit stash ($(date))."
+else
+    msg "No unstaged changes to stash."
+fi
+set +e
+
+verifyPackage goatee no-install-lib test; resultGoatee=$?
+if [[ $resultGoatee = 0 ]]; then
+    verifyPackage goatee-gtk install-lib test; resultGtk=$?
+    verifyPackage goatee-wx install-lib no-test; resultWx=$?
+else
+    msg "Skipping verification of goatee-gtk and goatee-wx, since goatee failed."
+    resultGtk=1
+    resultWx=1
+fi
+
+echo
+msg "Linting miscellaneous files."
+cd "$projectDir"
+"$scriptsDir"/lint "$scriptsDir"
+resultLintOther=$?
+
+if [[ -s "$unstagedDiff" ]]; then
+    msg "Restoring stashed changes."
+
+    cd "$projectDir"
+    git apply --whitespace=nowarn <"$unstagedDiff" &&
+    git stash drop &&
+    rm "$unstagedDiff"
+
+    resultUnstash=$?
+else
+    resultUnstash=0
+fi
+
+showResult() {
+    msg "  $1: $(if [[ $2 = 0 ]]; then echo pass; else echo FAIL; fi) ($2)"
+}
+
+echo
+msg "Results:"
+showResult "goatee    " $resultGoatee
+showResult "goatee-gtk" $resultGtk
+showResult "goatee-wx " $resultWx
+showResult "lint-other" $resultLintOther
+showResult "unstash   " $resultUnstash
+
+if [[ $resultGoatee = 0 \
+    && $resultGtk = 0 \
+    && $resultWx = 0 \
+    && $resultLintOther = 0 \
+    && $resultUnstash = 0 ]]; then
+    exit 0
+else
+    exit 1
+fi

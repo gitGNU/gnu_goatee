@@ -1,10 +1,47 @@
 Goatee - a monadic take on a 2,500-year-old board game
 
+Copyright 2014 Bryan Gardiner
+
 Website: http://khumba.net/projects/goatee
 
-Goatee is a game editor for Go, written in Haskell.  It is developed in two
-parts: a library for working with SGF files, and a GUI for filling your Go
-fancy.  It aims to be full-featured, supporting all of the SGF spec and allowing
-for full customization of the game records you create.
+Goatee is a Go library and game editor, written in Haskell.  It provides a GUI
+for recording, studying, and editing game records.  Underneath this is a
+portable library for manipulating SGF files, to build UIs and tools.
 
-Copyright 2014 Bryan Gardiner
+Goatee, the library and GUI, aims to be full-featured, supporting all of the SGF
+spec and allowing for full customization of the game records you create.
+Currently it is in an alpha stage, supporting basic game viewing and editing.
+
+This repository contains three Cabal projects:
+
+- goatee: The shared library for working with game records.
+
+- goatee-gtk: A GTK+ UI.  Depends on goatee.
+
+- goatee-wx: An initial prototype of a wxWidgets UI.  Depends on goatee.  Not
+  currently under development.
+
+* Development
+
+Goatee is generously hosted on Savannah.
+
+Project: https://savannah.nongnu.org/projects/goatee/
+Source:  http://git.savannah.nongnu.org/cgit/goatee.git
+Bugs:    https://savannah.nongnu.org/bugs/?group=goatee
+
+To check out a fresh copy of the source code, run:
+
+  $ git clone git://git.savannah.nongnu.org/goatee.git goatee.git
+
+If you will be doing development, enable the pre-commit script:
+
+  $ cd goatee.git
+  $ ln -s ../../scripts/git-pre-commit .git/hooks/pre-commit
+
+The 'goatee' project builds on its own and has no intra-repository dependencies.
+To build one of the UIs, the recommended method is to use Cabal sandboxes:
+
+  $ cd goatee.git/goatee-gtk
+  $ cabal sandbox init
+  $ cabal install ../goatee
+  $ cabal configure --enable-tests && cabal build
