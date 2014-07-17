@@ -14,14 +14,19 @@ cabal-version: >=1.8
 build-type: Simple
 data-files: LICENSE
 description:
-    Goatee is a game editor for Go.  It is developed in two parts: a library for
-    working with SGF files, and a GUI for filling your Go fancy.  It aims to be
-    full-featured, supporting all of the SGF spec and allowing for full
-    customization of the game records you create.
+    Goatee is a Go library and game editor, written in Haskell.  It provides a GUI
+    for recording, studying, and editing game records.  Underneath this is a
+    portable library for manipulating SGF files, to build UIs and tools.
+    .
+    Goatee, the library and GUI, aims to be full-featured, supporting all of the SGF
+    spec and allowing for full customization of the game records you create.
+    Currently it is in an alpha stage, supporting basic game viewing and editing.
+    .
+    This package is the GTK+ UI.
 
 source-repository head
     type: git
-    location: git://git.sv.gnu.org/goatee.git
+    location: git://git.savannah.gnu.org/goatee.git
 
 library
     build-depends:
