@@ -47,6 +47,7 @@ import Graphics.Rendering.Cairo (
   closePath,
   deviceToUser,
   deviceToUserDistance,
+  fill,
   fillPreserve,
   liftIO,
   lineTo,
@@ -142,6 +143,10 @@ stoneVariationRadius = 0.15
 -- size, in @[0, 1]@.
 stoneVariationBorderThickness :: Double
 stoneVariationBorderThickness = 0.02
+
+-- | The radius of star points.  Percentage of coordinate size, in @[0, 1].
+starPointRadius :: Double
+starPointRadius = 0.1
 
 -- | The opacity, in @[0, 1]@, of a stone that should be drawn dimmed because of
 -- 'DD'.
@@ -494,9 +499,9 @@ drawCoord board gridWidth gridBorderWidth x y renderedCoord = do
       variation = renderedCoordVariation renderedCoord
   -- Translate the grid so that we can draw the stone from (0,0) to (1,1).
   translate x' y'
-  -- Draw the grid, stone (if present), and mark (if present).
+  -- Draw the grid, stone or star (if present), and mark (if present).
   drawGrid board gridWidth gridBorderWidth x y
-  F.mapM_ drawStone $ coordStone coord
+  maybe (when (coordStar coord) drawStar) drawStone $ coordStone coord
   maybe (return ()) (drawMark $ coordStone coord) $ coordMark coord
   case (current, variation) of
     -- With @VariationMode ShowChildVariations True@, this is the case of an
@@ -578,6 +583,13 @@ drawStone color = do
   setLineWidth stoneBorderThickness
   setRgb $ stoneBorderColor color
   stroke
+
+-- | Draws a dot to indicate that the current point is a star point.
+drawStar :: Render ()
+drawStar = do
+  setSourceRGB 0 0 0
+  arc 0.5 0.5 starPointRadius 0 pi_2
+  fill
 
 -- | Draws the given mark on the current point.  The color should be that of the
 -- stone on the point, if there is one; it determines the color of the mark.
