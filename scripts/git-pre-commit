@@ -19,7 +19,7 @@
 
 # This is the Git pre-commit hook for Goatee development.  It ensures that all
 # of the Cabal projects in this repository compile, and pass unit tests and lint
-# checks.
+# checks.  It exits with 0 on success and 1 on failure.
 
 set -eu
 

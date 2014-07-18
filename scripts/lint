@@ -17,14 +17,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-# This script returns 0 on success, 1 on warnings (committable), and 2
-# on errors (a commit should fail).
+# This script checks the repository for style issues.  It exits with 0 on
+# success and 1 on failure.
 
 set -u
 
 projectDir="$(dirname "$(realpath "$(git rev-parse --git-dir)")")"
 srcDirs="$*"
-warningsFound=0
 
 echo "HLint:"
 echo
@@ -144,7 +143,6 @@ else
     echo "Warning: cabal-install is too old for sdist to support --list-sources."
     echo "         Skipping check for files missing from goatee.cabal.  If you're adding"
     echo "         or removing files, please ensure that goatee.cabal is up to date."
-    warningsFound=1
     sdistResult=0
 fi
 
@@ -154,8 +152,6 @@ if test $hlintResult -ne 0 \
     -o $longLinesResult -ne 0 \
     -o $legalResult -ne 0 \
     -o $sdistResult -ne 0; then
-    exit 2
-elif test $warningsFound -ne 0; then
     exit 1
 else
     exit 0
