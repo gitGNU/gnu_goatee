@@ -60,7 +60,7 @@ module Game.Goatee.Sgf.Property.Renderer (
   ) where
 
 import Control.Monad (forM_, when)
-#if MIN_VERSION_base(4,6,0)
+#if MIN_VERSION_mtl(2,2,1)
 import Control.Monad.Except (throwError)
 #else
 import Control.Monad.Error (throwError)

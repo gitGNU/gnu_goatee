@@ -24,7 +24,7 @@ module Game.Goatee.Sgf.Renderer (
   rendererOf,
   ) where
 
-#if MIN_VERSION_base(4,6,0)
+#if MIN_VERSION_mtl(2,2,1)
 import Control.Monad.Except (Except, catchError, runExcept, throwError)
 #else
 import Control.Monad.Error (catchError, throwError)
@@ -32,7 +32,7 @@ import Control.Monad.Error (catchError, throwError)
 import Control.Monad.Writer (WriterT, execWriterT)
 
 -- | A monad for accumulating string output with the possibility of failure.
-#if MIN_VERSION_base(4,6,0)
+#if MIN_VERSION_mtl(2,2,1)
 type Render = WriterT String (Except String)
 #else
 type Render = WriterT String (Either String)
@@ -41,7 +41,7 @@ type Render = WriterT String (Either String)
 -- | Returns either the rendered result on the right, or a message describing a
 -- failure on the left.
 runRender :: Render a -> Either String String
-#if MIN_VERSION_base(4,6,0)
+#if MIN_VERSION_mtl(2,2,1)
 runRender = runExcept . execWriterT
 #else
 runRender = execWriterT
