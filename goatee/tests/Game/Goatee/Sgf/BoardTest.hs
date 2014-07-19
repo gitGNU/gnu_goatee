@@ -33,7 +33,7 @@ tests = testGroup "Game.Goatee.Sgf.Board" [
   markupPropertiesTests,
   visibilityPropertyTests,
   cursorModifyNodeTests,
-  colorToMoveTests
+  moveToPropertyTests
   ]
 
 boardCoordStateTests = testGroup "boardCoordState" [
@@ -184,12 +184,14 @@ cursorModifyNodeTests = testGroup "cursorModifyNode" [
        [[Just Black, Nothing, Just White]]
   ]
 
-colorToMoveTests = testGroup "colorToMove" [
+moveToPropertyTests = testGroup "moveToProperty" [
   testCase "creates Black moves" $ do
-    B (Just (3,2)) @=? colorToMove Black (3,2)
-    B (Just (0,0)) @=? colorToMove Black (0,0),
+    B Nothing @=? moveToProperty Black Nothing
+    B (Just (3,2)) @=? moveToProperty Black (Just (3,2))
+    B (Just (0,0)) @=? moveToProperty Black (Just (0,0)),
 
   testCase "creates White moves" $ do
-    W (Just (18,18)) @=? colorToMove White (18,18)
-    W (Just (15,16)) @=? colorToMove White (15,16)
+    W Nothing @=? moveToProperty White Nothing
+    W (Just (18,18)) @=? moveToProperty White (Just (18,18))
+    W (Just (15,16)) @=? moveToProperty White (Just (15,16))
   ]

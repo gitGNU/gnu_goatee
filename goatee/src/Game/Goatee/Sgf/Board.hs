@@ -28,7 +28,7 @@ module Game.Goatee.Sgf.Board (
   cursorChildCount, cursorChildPlayingAt, cursorProperties,
   cursorModifyNode,
   cursorVariations,
-  colorToMove,
+  moveToProperty,
   ) where
 
 import Control.Monad (unless, when)
@@ -737,11 +737,11 @@ cursorChildren cursor =
 cursorChildCount :: Cursor -> Int
 cursorChildCount = length . nodeChildren . cursorNode
 
-cursorChildPlayingAt :: Coord -> Cursor -> Maybe Cursor
-cursorChildPlayingAt coord cursor =
+cursorChildPlayingAt :: Maybe Coord -> Cursor -> Maybe Cursor
+cursorChildPlayingAt move cursor =
   let children = cursorChildren cursor
       color = boardPlayerTurn $ cursorBoard cursor
-      hasMove = elem $ colorToMove color coord
+      hasMove = elem $ moveToProperty color move
   in find (hasMove . nodeProperties . cursorNode) children
 
 -- | This is simply @'nodeProperties' . 'cursorNode'@.
@@ -785,8 +785,8 @@ cursorVariations source cursor =
           W (Just xy) -> [(xy, White)]
           _ -> []
 
-colorToMove :: Color -> Coord -> Property
-colorToMove color coord =
+moveToProperty :: Color -> Maybe Coord -> Property
+moveToProperty color =
   case color of
-    Black -> B $ Just coord
-    White -> W $ Just coord
+    Black -> B
+    White -> W

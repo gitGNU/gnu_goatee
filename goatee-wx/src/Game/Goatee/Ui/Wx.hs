@@ -363,11 +363,11 @@ handleClick canvasInfoVar cursorVar mouseVar onChanged mousePoint = do
       return $ fromMaybe
         (let board = cursorBoard cursor
              player = boardPlayerTurn board
-             child = emptyNode { nodeProperties = [colorToMove player xy] }
+             child = emptyNode { nodeProperties = [moveToProperty player $ Just xy] }
              cursor' = cursorModifyNode (addChild child) cursor
              childCursor = cursorChild cursor' $ cursorChildCount cursor' - 1
          in childCursor)
-        (cursorChildPlayingAt xy cursor)
+        (cursorChildPlayingAt (Just xy) cursor)
     updateMouse True
     onChanged
   where updateMouse force = updateMouseLocation canvasInfoVar cursorVar mouseVar force (return ())

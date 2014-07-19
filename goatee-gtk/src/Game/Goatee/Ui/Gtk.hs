@@ -155,9 +155,12 @@ instance UiCtrl UiCtrlImpl where
     cursor <- readMVar $ uiCursor ui
     return $ isCurrentValidMove (cursorBoard cursor) coord
 
-  playAt ui coord = do
+  playAt ui move = do
     cursor <- takeMVar $ uiCursor ui
-    if not $ isCurrentValidMove (cursorBoard cursor) coord
+    let valid = case move of
+          Nothing -> True
+          Just coord -> isCurrentValidMove (cursorBoard cursor) coord
+    if not valid
       then do
         dialog <- messageDialogNew Nothing
                                    [DialogModal, DialogDestroyWithParent]
@@ -167,13 +170,13 @@ instance UiCtrl UiCtrlImpl where
         dialogRun dialog
         widgetDestroy dialog
         putMVar (uiCursor ui) cursor
-      else case cursorChildPlayingAt coord cursor of
+      else case cursorChildPlayingAt move cursor of
         Just child -> runUiGo' ui (Monad.goDown $ cursorChildIndex child) cursor
         Nothing ->
           let board = cursorBoard cursor
               player = boardPlayerTurn board
               index = length $ cursorChildren cursor
-              child = emptyNode { nodeProperties = [colorToMove player coord] }
+              child = emptyNode { nodeProperties = [moveToProperty player move] }
           in runUiGo' ui (Monad.addChild index child >> Monad.goDown index) cursor
 
   goUp ui = runUiGo ui $ do

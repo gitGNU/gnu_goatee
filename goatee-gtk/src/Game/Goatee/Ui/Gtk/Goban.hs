@@ -326,7 +326,7 @@ doToolAtPoint ui drawingArea (mouseX, mouseY) = do
       ToolMarkX -> toggleMark ui xy MarkX
       ToolPlay -> do
         valid <- isValidMove ui xy
-        when valid $ playAt ui xy
+        when valid $ playAt ui $ Just xy
       _ -> return ()  -- TODO Support other tools.
   where toggleMark ui xy mark = runUiGo ui $ modifyMark (toggleMark' mark) xy
         toggleMark' mark maybeExistingMark = case maybeExistingMark of

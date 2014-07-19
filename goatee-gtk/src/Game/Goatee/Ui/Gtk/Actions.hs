@@ -29,6 +29,7 @@ module Game.Goatee.Ui.Gtk.Actions (
   myFileSaveAsAction,
   myFileCloseAction,
   myFileQuitAction,
+  myGamePassAction,
   myToolActions,
   myViewVariationsChildAction,
   myViewVariationsCurrentAction,
@@ -76,25 +77,27 @@ import Graphics.UI.Gtk (
   widgetDestroy, widgetShowAll,
   )
 
-data Actions ui = Actions { myUi :: ui
-                          , myRegistrations :: ViewRegistrations
-                          , myFileNew9Action :: Action
-                          , myFileNew13Action :: Action
-                          , myFileNew19Action :: Action
-                          , myFileNewCustomAction :: Action
-                          , myFileOpenAction :: Action
-                          , myFileSaveAction :: Action
-                          , myFileSaveAsAction :: Action
-                          , myFileCloseAction :: Action
-                          , myFileQuitAction :: Action
-                          , myToolActions :: ActionGroup
-                          , myViewVariationsChildAction :: RadioAction
-                          , myViewVariationsCurrentAction :: RadioAction
-                          , myViewVariationsBoardMarkupOnAction :: RadioAction
-                          , myViewVariationsBoardMarkupOffAction :: RadioAction
-                          , myViewHighlightCurrentMovesAction :: ToggleAction
-                          , myHelpAboutAction :: Action
-                          }
+data Actions ui = Actions {
+  myUi :: ui
+  , myRegistrations :: ViewRegistrations
+  , myFileNew9Action :: Action
+  , myFileNew13Action :: Action
+  , myFileNew19Action :: Action
+  , myFileNewCustomAction :: Action
+  , myFileOpenAction :: Action
+  , myFileSaveAction :: Action
+  , myFileSaveAsAction :: Action
+  , myFileCloseAction :: Action
+  , myFileQuitAction :: Action
+  , myGamePassAction :: Action
+  , myToolActions :: ActionGroup
+  , myViewVariationsChildAction :: RadioAction
+  , myViewVariationsCurrentAction :: RadioAction
+  , myViewVariationsBoardMarkupOnAction :: RadioAction
+  , myViewVariationsBoardMarkupOffAction :: RadioAction
+  , myViewHighlightCurrentMovesAction :: ToggleAction
+  , myHelpAboutAction :: Action
+  }
 
 instance UiCtrl ui => UiView (Actions ui) ui where
   viewName = const "Actions"
@@ -190,6 +193,10 @@ create ui = do
   actionGroupAddActionWithAccel fileActions fileQuitAction $ Just "<Control>q"
   on fileQuitAction actionActivated $ void $ fileQuit ui
 
+  -- Game actions.
+  gamePassAction <- actionNew "GamePass" "_Pass" Nothing Nothing
+  on gamePassAction actionActivated $ playAt ui Nothing
+
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
   actionGroupAddRadioActions toolActions
@@ -263,25 +270,27 @@ create ui = do
 
   registrations <- viewNewRegistrations
 
-  let me = Actions { myUi = ui
-                   , myRegistrations = registrations
-                   , myFileNew9Action = fileNew9Action
-                   , myFileNew13Action = fileNew13Action
-                   , myFileNew19Action = fileNew19Action
-                   , myFileNewCustomAction = fileNewCustomAction
-                   , myFileOpenAction = fileOpenAction
-                   , myFileSaveAction = fileSaveAction
-                   , myFileSaveAsAction = fileSaveAsAction
-                   , myFileCloseAction = fileCloseAction
-                   , myFileQuitAction = fileQuitAction
-                   , myToolActions = toolActions
-                   , myViewVariationsChildAction = viewVariationsChildAction
-                   , myViewVariationsCurrentAction = viewVariationsCurrentAction
-                   , myViewVariationsBoardMarkupOnAction = viewVariationsBoardMarkupOnAction
-                   , myViewVariationsBoardMarkupOffAction = viewVariationsBoardMarkupOffAction
-                   , myViewHighlightCurrentMovesAction = viewHighlightCurrentMovesAction
-                   , myHelpAboutAction = helpAboutAction
-                   }
+  let me = Actions {
+        myUi = ui
+        , myRegistrations = registrations
+        , myFileNew9Action = fileNew9Action
+        , myFileNew13Action = fileNew13Action
+        , myFileNew19Action = fileNew19Action
+        , myFileNewCustomAction = fileNewCustomAction
+        , myFileOpenAction = fileOpenAction
+        , myFileSaveAction = fileSaveAction
+        , myFileSaveAsAction = fileSaveAsAction
+        , myFileCloseAction = fileCloseAction
+        , myFileQuitAction = fileQuitAction
+        , myGamePassAction = gamePassAction
+        , myToolActions = toolActions
+        , myViewVariationsChildAction = viewVariationsChildAction
+        , myViewVariationsCurrentAction = viewVariationsCurrentAction
+        , myViewVariationsBoardMarkupOnAction = viewVariationsBoardMarkupOnAction
+        , myViewVariationsBoardMarkupOffAction = viewVariationsBoardMarkupOffAction
+        , myViewHighlightCurrentMovesAction = viewHighlightCurrentMovesAction
+        , myHelpAboutAction = helpAboutAction
+        }
 
   initialize me
   return me

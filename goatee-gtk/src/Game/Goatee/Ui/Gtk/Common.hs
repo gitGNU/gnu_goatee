@@ -98,8 +98,9 @@ class UiCtrl a where
   -- | Determines whether it is currently valid to play at the given point.
   isValidMove :: a -> Coord -> IO Bool
 
-  -- | Makes the current player place a stone at the given point.
-  playAt :: a -> Coord -> IO ()
+  -- | Makes the current player place a stone at the given point, or pass in the
+  -- case of 'Nothing'.
+  playAt :: a -> Maybe Coord -> IO ()
 
   -- | If possible, takes a step up to the parent of the current node in the
   -- game tree.  Returns whether a move was made (i.e. whether the current node

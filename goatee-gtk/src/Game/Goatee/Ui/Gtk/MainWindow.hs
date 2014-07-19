@@ -112,6 +112,14 @@ create ui = do
     , Actions.myFileQuitAction
     ]
 
+  menuGame <- menuItemNewWithMnemonic "_Game"
+  menuGameMenu <- menuNew
+  menuShellAppend menuBar menuGame
+  menuItemSetSubmenu menuGame menuGameMenu
+  addActionsToMenu menuGameMenu actions
+    [ Actions.myGamePassAction
+    ]
+
   menuTool <- menuItemNewWithMnemonic "_Tool"
   menuToolMenu <- menuNew
   menuShellAppend menuBar menuTool
