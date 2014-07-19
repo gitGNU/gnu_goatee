@@ -33,8 +33,6 @@ import Test.HUnit ((@=?), assertFailure)
 tests = testGroup "Game.Goatee.Common" [
   listDeleteIndexTests,
   listReplaceTests,
-  onLeftTests,
-  onRightTests,
   andEithersTests,
   forTests,
   mapTupleTests,
@@ -92,22 +90,6 @@ listReplaceTests = testGroup "listReplace" [
   testCase "replaces multiple elements" $ do
     [1, 0, 3, 4, 0, 0, 3] @=? listReplace 2 0 [1, 2, 3, 4, 2, 2, 3]
     replicate 10 True @=? listReplace False True (replicate 10 False)
-  ]
-
-onLeftTests = testGroup "onLeft" [
-  testCase "changes a Left" $
-    Left 10 @=? onLeft (* 2) (Left 5 :: Either Int ()),
-
-  testCase "doesn't change a Right" $
-    Right False @=? onLeft (* 2) (Right False)
-  ]
-
-onRightTests = testGroup "onRight" [
-  testCase "doesn't change a Left" $
-    Left False @=? onRight (* 2) (Left False),
-
-  testCase "changes a Right" $
-    Right 10 @=? onRight (* 2) (Right 5 :: Either () Int)
   ]
 
 andEithersTests = testGroup "andEithers" [

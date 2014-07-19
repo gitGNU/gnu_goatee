@@ -21,6 +21,7 @@ module Game.Goatee.Sgf.Parser (
   parseFile,
   ) where
 
+import Control.Arrow ((+++))
 import Control.Applicative ((<*), (*>))
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Common
@@ -35,8 +36,7 @@ import Text.ParserCombinators.Parsec (
 parseString :: String -> Either String Collection
 parseString str = case parse collection "<collection>" str of
   Left err -> Left $ show err
-  Right (Collection roots) -> onLeft concatErrors $
-                              onRight Collection $
+  Right (Collection roots) -> (concatErrors +++ Collection) $
                               andEithers $
                               map processRoot roots
   where processRoot :: Node -> Either String Node

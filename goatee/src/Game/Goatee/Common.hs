@@ -20,10 +20,6 @@ module Game.Goatee.Common (
   listDeleteIndex,
   listReplace,
   listUpdate,
-  fromLeft,
-  fromRight,
-  onLeft,
-  onRight,
   andEithers,
   for,
   mapTuple,
@@ -61,27 +57,6 @@ listUpdate fn ix xs = listSet' ix xs
         listSet' ix' (x':xs') = x':listSet' (ix' - 1) xs'
         listSet' _ _ = error ("Cannot update index " ++ show ix ++
                               " of list " ++ show xs ++ ".")
-
--- | Extracts a left value from an 'Either'.
-fromLeft :: Either a b -> a
-fromLeft (Left a) = a
-fromLeft _ = error "fromLeft given a Right."
-
--- | Extracts a right value from an 'Either'.
-fromRight :: Either a b -> b
-fromRight (Right b) = b
-fromRight _ = error "fromRight given a Left."
-
--- | Transforms the left value of an 'Either', leaving a right value alone.
-onLeft :: (a -> c) -> Either a b -> Either c b
-f `onLeft` e = case e of
-  Left x -> Left $ f x
-  Right y -> Right y
-
--- | Transforms the right value of an 'Either', leaving a left value alone.
--- This is just 'fmap', but looks nicer when used beside 'onLeft'.
-onRight :: (b -> c) -> Either a b -> Either a c
-onRight = fmap
 
 -- | If any item is a 'Left', then the list of 'Left's is returned, otherwise
 -- the list of 'Right's is returned.
