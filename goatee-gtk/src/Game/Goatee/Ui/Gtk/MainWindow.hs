@@ -120,6 +120,21 @@ create ui = do
     [ Actions.myGamePassAction
     ]
 
+  menuGameVariations <- menuItemNewWithMnemonic "_Variations"
+  menuGameVariationsMenu <- menuNew
+  containerAdd menuGameMenu menuGameVariations
+  menuItemSetSubmenu menuGameVariations menuGameVariationsMenu
+
+  containerAdd menuGameVariationsMenu =<<
+    actionCreateMenuItem (Actions.myGameVariationsChildAction actions)
+  containerAdd menuGameVariationsMenu =<<
+    actionCreateMenuItem (Actions.myGameVariationsCurrentAction actions)
+  containerAdd menuGameVariationsMenu =<< separatorMenuItemNew
+  containerAdd menuGameVariationsMenu =<<
+    actionCreateMenuItem (Actions.myGameVariationsBoardMarkupOnAction actions)
+  containerAdd menuGameVariationsMenu =<<
+    actionCreateMenuItem (Actions.myGameVariationsBoardMarkupOffAction actions)
+
   menuTool <- menuItemNewWithMnemonic "_Tool"
   menuToolMenu <- menuNew
   menuShellAppend menuBar menuTool
@@ -146,21 +161,6 @@ create ui = do
   menuViewMenu <- menuNew
   menuShellAppend menuBar menuView
   menuItemSetSubmenu menuView menuViewMenu
-
-  menuViewVariations <- menuItemNewWithMnemonic "_Variations"
-  menuViewVariationsMenu <- menuNew
-  containerAdd menuViewMenu menuViewVariations
-  menuItemSetSubmenu menuViewVariations menuViewVariationsMenu
-
-  containerAdd menuViewVariationsMenu =<<
-    actionCreateMenuItem (Actions.myViewVariationsChildAction actions)
-  containerAdd menuViewVariationsMenu =<<
-    actionCreateMenuItem (Actions.myViewVariationsCurrentAction actions)
-  containerAdd menuViewVariationsMenu =<< separatorMenuItemNew
-  containerAdd menuViewVariationsMenu =<<
-    actionCreateMenuItem (Actions.myViewVariationsBoardMarkupOnAction actions)
-  containerAdd menuViewVariationsMenu =<<
-    actionCreateMenuItem (Actions.myViewVariationsBoardMarkupOffAction actions)
 
   containerAdd menuViewMenu =<<
     actionCreateMenuItem (Actions.myViewHighlightCurrentMovesAction actions)

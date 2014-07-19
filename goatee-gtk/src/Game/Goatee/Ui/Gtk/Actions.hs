@@ -30,11 +30,11 @@ module Game.Goatee.Ui.Gtk.Actions (
   myFileCloseAction,
   myFileQuitAction,
   myGamePassAction,
+  myGameVariationsChildAction,
+  myGameVariationsCurrentAction,
+  myGameVariationsBoardMarkupOnAction,
+  myGameVariationsBoardMarkupOffAction,
   myToolActions,
-  myViewVariationsChildAction,
-  myViewVariationsCurrentAction,
-  myViewVariationsBoardMarkupOnAction,
-  myViewVariationsBoardMarkupOffAction,
   myViewHighlightCurrentMovesAction,
   myHelpAboutAction,
   ) where
@@ -90,11 +90,11 @@ data Actions ui = Actions {
   , myFileCloseAction :: Action
   , myFileQuitAction :: Action
   , myGamePassAction :: Action
+  , myGameVariationsChildAction :: RadioAction
+  , myGameVariationsCurrentAction :: RadioAction
+  , myGameVariationsBoardMarkupOnAction :: RadioAction
+  , myGameVariationsBoardMarkupOffAction :: RadioAction
   , myToolActions :: ActionGroup
-  , myViewVariationsChildAction :: RadioAction
-  , myViewVariationsCurrentAction :: RadioAction
-  , myViewVariationsBoardMarkupOnAction :: RadioAction
-  , myViewVariationsBoardMarkupOffAction :: RadioAction
   , myViewHighlightCurrentMovesAction :: ToggleAction
   , myHelpAboutAction :: Action
   }
@@ -197,6 +197,48 @@ create ui = do
   gamePassAction <- actionNew "GamePass" "_Pass" Nothing Nothing
   on gamePassAction actionActivated $ playAt ui Nothing
 
+  gameVariationsChildAction <- radioActionNew "gameVariationsChild"
+                               "_Child variations"
+                               (Just "Show children node as variations")
+                               Nothing
+                               (fromEnum ShowChildVariations)
+  gameVariationsCurrentAction <- radioActionNew "gameVariationsCurrent"
+                                 "C_urrent variations"
+                                 (Just "Show variations of the current node")
+                                 Nothing
+                                 (fromEnum ShowCurrentVariations)
+  radioActionSetGroup gameVariationsChildAction gameVariationsCurrentAction
+
+  gameVariationsBoardMarkupOnAction <- radioActionNew "gameVariationsBoardMarkupOn"
+                                       "_Show on board"
+                                       (Just "Show move variations on the board")
+                                       Nothing
+                                       (fromEnum True)
+  gameVariationsBoardMarkupOffAction <- radioActionNew "gameVariationsBoardMarkupOn"
+                                        "_Hide on board"
+                                        (Just "Hide move variations on the board")
+                                        Nothing
+                                        (fromEnum False)
+  radioActionSetGroup gameVariationsBoardMarkupOnAction gameVariationsBoardMarkupOffAction
+
+  initialVariationMode <-
+    rootInfoVariationMode . gameInfoRootInfo . boardGameInfo . cursorBoard <$>
+    readCursor ui
+  set gameVariationsChildAction
+    [radioActionCurrentValue := fromEnum (variationModeSource initialVariationMode)]
+  set gameVariationsBoardMarkupOnAction
+    [radioActionCurrentValue := fromEnum (variationModeBoardMarkup initialVariationMode)]
+
+  -- This signal is emitted on every action in a radio group when the active
+  -- item is changed, so we only need to listen with one action.
+  on gameVariationsChildAction radioActionChanged $ \action -> do
+    value <- toEnum <$> get action radioActionCurrentValue
+    runUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeSource = value }
+
+  on gameVariationsBoardMarkupOnAction radioActionChanged $ \action -> do
+    value <- toEnum <$> get action radioActionCurrentValue
+    runUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeBoardMarkup = value }
+
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
   actionGroupAddRadioActions toolActions
@@ -211,49 +253,7 @@ create ui = do
     (fromEnum initialTool)
     (\radioAction -> setTool ui =<< fmap toEnum (get radioAction radioActionCurrentValue))
 
-  -- Variation mode view actions.
-  viewVariationsChildAction <- radioActionNew "viewVariationsChild"
-                               "_Child variations"
-                               (Just "Show children node as variations")
-                               Nothing
-                               (fromEnum ShowChildVariations)
-  viewVariationsCurrentAction <- radioActionNew "viewVariationsCurrent"
-                                 "C_urrent variations"
-                                 (Just "Show variations of the current node")
-                                 Nothing
-                                 (fromEnum ShowCurrentVariations)
-  radioActionSetGroup viewVariationsChildAction viewVariationsCurrentAction
-
-  viewVariationsBoardMarkupOnAction <- radioActionNew "viewVariationsBoardMarkupOn"
-                                       "_Show on board"
-                                       (Just "Show move variations on the board")
-                                       Nothing
-                                       (fromEnum True)
-  viewVariationsBoardMarkupOffAction <- radioActionNew "viewVariationsBoardMarkupOn"
-                                        "_Hide on board"
-                                        (Just "Hide move variations on the board")
-                                        Nothing
-                                        (fromEnum False)
-  radioActionSetGroup viewVariationsBoardMarkupOnAction viewVariationsBoardMarkupOffAction
-
-  initialVariationMode <-
-    rootInfoVariationMode . gameInfoRootInfo . boardGameInfo . cursorBoard <$>
-    readCursor ui
-  set viewVariationsChildAction
-    [radioActionCurrentValue := fromEnum (variationModeSource initialVariationMode)]
-  set viewVariationsBoardMarkupOnAction
-    [radioActionCurrentValue := fromEnum (variationModeBoardMarkup initialVariationMode)]
-
-  -- This signal is emitted on every action in a radio group when the active
-  -- item is changed, so we only need to listen with one action.
-  on viewVariationsChildAction radioActionChanged $ \action -> do
-    value <- toEnum <$> get action radioActionCurrentValue
-    runUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeSource = value }
-
-  on viewVariationsBoardMarkupOnAction radioActionChanged $ \action -> do
-    value <- toEnum <$> get action radioActionCurrentValue
-    runUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeBoardMarkup = value }
-
+  -- View actions.
   viewHighlightCurrentMovesAction <-
     toggleActionNew "ViewHighlightCurrentMoves" "Highlight _current moves" Nothing Nothing
   set viewHighlightCurrentMovesAction [toggleActionActive := uiHighlightCurrentMovesMode modes]
@@ -261,6 +261,7 @@ create ui = do
     active <- get viewHighlightCurrentMovesAction toggleActionActive
     modifyModes ui $ \modes -> return modes { uiHighlightCurrentMovesMode = active }
 
+  -- Help actions.
   helpAboutAction <- actionNew "HelpAbout" "_About" Nothing Nothing
   on helpAboutAction actionActivated $ helpAbout ui
 
@@ -283,11 +284,11 @@ create ui = do
         , myFileCloseAction = fileCloseAction
         , myFileQuitAction = fileQuitAction
         , myGamePassAction = gamePassAction
+        , myGameVariationsChildAction = gameVariationsChildAction
+        , myGameVariationsCurrentAction = gameVariationsCurrentAction
+        , myGameVariationsBoardMarkupOnAction = gameVariationsBoardMarkupOnAction
+        , myGameVariationsBoardMarkupOffAction = gameVariationsBoardMarkupOffAction
         , myToolActions = toolActions
-        , myViewVariationsChildAction = viewVariationsChildAction
-        , myViewVariationsCurrentAction = viewVariationsCurrentAction
-        , myViewVariationsBoardMarkupOnAction = viewVariationsBoardMarkupOnAction
-        , myViewVariationsBoardMarkupOffAction = viewVariationsBoardMarkupOffAction
         , myViewHighlightCurrentMovesAction = viewHighlightCurrentMovesAction
         , myHelpAboutAction = helpAboutAction
         }
@@ -300,8 +301,8 @@ initialize me =
   viewRegister me variationModeChangedEvent $ \_ new -> afterGo $ do
     let newSource = fromEnum $ variationModeSource new
         newBoardMarkup = fromEnum $ variationModeBoardMarkup new
-        sourceAction = myViewVariationsChildAction me
-        boardMarkupAction = myViewVariationsBoardMarkupOnAction me
+        sourceAction = myGameVariationsChildAction me
+        boardMarkupAction = myGameVariationsBoardMarkupOnAction me
 
     oldSource <- get sourceAction radioActionCurrentValue
     when (newSource /= oldSource) $
