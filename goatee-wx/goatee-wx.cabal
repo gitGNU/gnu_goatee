@@ -1,5 +1,5 @@
 name: goatee-wx
-version: 0.1.0
+version: 0.2.0
 synopsis: A monadic take on a 2,500-year-old board game - wxWidgets UI.
 category: Game
 license: AGPL-3
@@ -31,7 +31,7 @@ source-repository head
 executable goatee-wx
     build-depends:
         base >= 4 && < 5,
-        goatee >= 0.1 && < 0.2,
+        goatee >= 0.2 && < 0.3,
         wx >= 0.13 && < 0.91,
         wxcore >= 0.13 && < 0.91
     ghc-options: -W -fwarn-incomplete-patterns
