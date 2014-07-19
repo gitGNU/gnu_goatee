@@ -24,7 +24,7 @@ module Game.Goatee.Ui.Gtk.Goban (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (liftM, unless, when)
+import Control.Monad ((<=<), liftM, unless, when)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
@@ -63,6 +63,8 @@ import Graphics.Rendering.Cairo (
   setSourceRGB,
   stroke,
   translate,
+  userToDevice,
+  userToDeviceDistance,
   )
 import Graphics.UI.Gtk (
   DrawingArea,
@@ -561,16 +563,17 @@ drawGrid board gridWidth gridBorderWidth x y = do
       gridY0 = if atTop then 0.5 else 0
       gridX1 = if atRight then 0.5 else 1
       gridY1 = if atBottom then 0.5 else 1
+  (cx, cy) <- roundToPixels 0.5 0.5
   -- Temporarily disable antialiasing.  We want grid lines to be sharp.
   setAntialias AntialiasNone
   setSourceRGB 0 0 0
   setLineWidth $ if atTop || atBottom then gridBorderWidth else gridWidth
-  moveTo gridX0 0.5
-  lineTo gridX1 0.5
+  moveTo gridX0 cy
+  lineTo gridX1 cy
   stroke
   setLineWidth $ if atLeft || atRight then gridBorderWidth else gridWidth
-  moveTo 0.5 gridY0
-  lineTo 0.5 gridY1
+  moveTo cx gridY0
+  lineTo cx gridY1
   stroke
   setAntialias AntialiasDefault
 
@@ -588,8 +591,26 @@ drawStone color = do
 drawStar :: Render ()
 drawStar = do
   setSourceRGB 0 0 0
-  arc 0.5 0.5 starPointRadius 0 pi_2
-  fill
+
+  --(minRadius, _) <- deviceToUserDistance 1.5 0
+  --arc 0.5 0.5 (max minRadius starPointRadius) 0 pi_2
+  --fill
+
+  let minRadiusOnScreen = 2
+  (radiusOnScreen, _) <- userToDeviceDistance starPointRadius 0
+  (cx, cy) <- roundToPixels 0.5 0.5
+  if radiusOnScreen >= minRadiusOnScreen
+    then do arc cx cy starPointRadius 0 pi_2
+            fill
+    else do (minDeviceRadius, _) <- deviceToUserDistance minRadiusOnScreen 0
+            setAntialias AntialiasNone
+            arc cx cy minDeviceRadius 0 pi_2
+            fill
+            setAntialias AntialiasDefault
+
+  --(cx, cy) <- roundToPixels 0.5 0.5
+  --arc cx cy starPointRadius 0 pi_2
+  --fill
 
 -- | Draws the given mark on the current point.  The color should be that of the
 -- stone on the point, if there is one; it determines the color of the mark.
@@ -693,6 +714,11 @@ drawSmallDot fill border angle0 angle1 = do
   setLineWidth stoneVariationBorderThickness
   setRgb border
   stroke
+
+roundToPixels :: Double -> Double -> Render (Double, Double)
+roundToPixels =
+  (uncurry deviceToUser . mapTuple (fromIntegral . (round :: Double -> Int)) <=<) .
+  userToDevice
 
 type Rgb = (Double, Double, Double)
 
