@@ -24,7 +24,7 @@ module Game.Goatee.Ui.Gtk.Goban (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (liftM, unless, when)
+import Control.Monad ((<=<), liftM, unless, when)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
@@ -47,6 +47,7 @@ import Graphics.Rendering.Cairo (
   closePath,
   deviceToUser,
   deviceToUserDistance,
+  fill,
   fillPreserve,
   liftIO,
   lineTo,
@@ -55,6 +56,7 @@ import Graphics.Rendering.Cairo (
   paintWithAlpha,
   popGroupToSource,
   pushGroup,
+  rectangle,
   rotate,
   scale,
   setAntialias,
@@ -62,6 +64,8 @@ import Graphics.Rendering.Cairo (
   setSourceRGB,
   stroke,
   translate,
+  userToDevice,
+  userToDeviceDistance,
   )
 import Graphics.UI.Gtk (
   DrawingArea,
@@ -142,6 +146,10 @@ stoneVariationRadius = 0.15
 -- size, in @[0, 1]@.
 stoneVariationBorderThickness :: Double
 stoneVariationBorderThickness = 0.02
+
+-- | The radius of star points.  Percentage of coordinate size, in @[0, 1].
+starPointRadius :: Double
+starPointRadius = 0.1
 
 -- | The opacity, in @[0, 1]@, of a stone that should be drawn dimmed because of
 -- 'DD'.
@@ -494,9 +502,9 @@ drawCoord board gridWidth gridBorderWidth x y renderedCoord = do
       variation = renderedCoordVariation renderedCoord
   -- Translate the grid so that we can draw the stone from (0,0) to (1,1).
   translate x' y'
-  -- Draw the grid, stone (if present), and mark (if present).
+  -- Draw the grid, stone or star (if present), and mark (if present).
   drawGrid board gridWidth gridBorderWidth x y
-  F.mapM_ drawStone $ coordStone coord
+  maybe (when (coordStar coord) drawStar) drawStone $ coordStone coord
   maybe (return ()) (drawMark $ coordStone coord) $ coordMark coord
   case (current, variation) of
     -- With @VariationMode ShowChildVariations True@, this is the case of an
@@ -556,16 +564,17 @@ drawGrid board gridWidth gridBorderWidth x y = do
       gridY0 = if atTop then 0.5 else 0
       gridX1 = if atRight then 0.5 else 1
       gridY1 = if atBottom then 0.5 else 1
+  (cx, cy) <- roundToPixels 0.5 0.5
   -- Temporarily disable antialiasing.  We want grid lines to be sharp.
   setAntialias AntialiasNone
   setSourceRGB 0 0 0
   setLineWidth $ if atTop || atBottom then gridBorderWidth else gridWidth
-  moveTo gridX0 0.5
-  lineTo gridX1 0.5
+  moveTo gridX0 cy
+  lineTo gridX1 cy
   stroke
   setLineWidth $ if atLeft || atRight then gridBorderWidth else gridWidth
-  moveTo 0.5 gridY0
-  lineTo 0.5 gridY1
+  moveTo cx gridY0
+  lineTo cx gridY1
   stroke
   setAntialias AntialiasDefault
 
@@ -578,6 +587,26 @@ drawStone color = do
   setLineWidth stoneBorderThickness
   setRgb $ stoneBorderColor color
   stroke
+
+-- | Draws a dot to indicate that the current point is a star point.
+drawStar :: Render ()
+drawStar = do
+  setSourceRGB 0 0 0
+  -- This seems to be a decent point to transition from an antialiased star to
+  -- an aliased star (well, box), balancing transitioning too early (having a
+  -- jump in size) with too late (and having ugly antialiased bouncing star
+  -- points for a range).
+  let minRadiusOnScreen = 1.8
+  (radiusOnScreen, _) <- userToDeviceDistance starPointRadius 0
+  (cx, cy) <- roundToPixels 0.5 0.5
+  if radiusOnScreen >= minRadiusOnScreen
+    then do arc cx cy starPointRadius 0 pi_2
+            fill
+    else do setAntialias AntialiasNone
+            (pixel, _) <- deviceToUserDistance 1 0
+            rectangle (cx - 2 * pixel) (cy - 2 * pixel) (3 * pixel) (3 * pixel)
+            fill
+            setAntialias AntialiasDefault
 
 -- | Draws the given mark on the current point.  The color should be that of the
 -- stone on the point, if there is one; it determines the color of the mark.
@@ -681,6 +710,11 @@ drawSmallDot fill border angle0 angle1 = do
   setLineWidth stoneVariationBorderThickness
   setRgb border
   stroke
+
+roundToPixels :: Double -> Double -> Render (Double, Double)
+roundToPixels =
+  (uncurry deviceToUser . mapTuple (fromIntegral . (round :: Double -> Int)) <=<) .
+  userToDevice
 
 type Rgb = (Double, Double, Double)
 
