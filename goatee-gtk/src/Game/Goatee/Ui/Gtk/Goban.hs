@@ -56,6 +56,7 @@ import Graphics.Rendering.Cairo (
   paintWithAlpha,
   popGroupToSource,
   pushGroup,
+  rectangle,
   rotate,
   scale,
   setAntialias,
@@ -591,26 +592,21 @@ drawStone color = do
 drawStar :: Render ()
 drawStar = do
   setSourceRGB 0 0 0
-
-  --(minRadius, _) <- deviceToUserDistance 1.5 0
-  --arc 0.5 0.5 (max minRadius starPointRadius) 0 pi_2
-  --fill
-
-  let minRadiusOnScreen = 2
+  -- This seems to be a decent point to transition from an antialiased star to
+  -- an aliased star (well, box), balancing transitioning too early (having a
+  -- jump in size) with too late (and having ugly antialiased bouncing star
+  -- points for a range).
+  let minRadiusOnScreen = 1.8
   (radiusOnScreen, _) <- userToDeviceDistance starPointRadius 0
   (cx, cy) <- roundToPixels 0.5 0.5
   if radiusOnScreen >= minRadiusOnScreen
     then do arc cx cy starPointRadius 0 pi_2
             fill
-    else do (minDeviceRadius, _) <- deviceToUserDistance minRadiusOnScreen 0
-            setAntialias AntialiasNone
-            arc cx cy minDeviceRadius 0 pi_2
+    else do setAntialias AntialiasNone
+            (pixel, _) <- deviceToUserDistance 1 0
+            rectangle (cx - 2 * pixel) (cy - 2 * pixel) (3 * pixel) (3 * pixel)
             fill
             setAntialias AntialiasDefault
-
-  --(cx, cy) <- roundToPixels 0.5 0.5
-  --arc cx cy starPointRadius 0 pi_2
-  --fill
 
 -- | Draws the given mark on the current point.  The color should be that of the
 -- stone on the point, if there is one; it determines the color of the mark.
