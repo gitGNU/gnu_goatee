@@ -340,7 +340,7 @@ defaultUiModes :: UiModes
 defaultUiModes = UiModes { uiViewMode = ViewRegularMode
                          , uiViewOneColorModeColor = Black
                          , uiViewBlindModesAnnouncePlayer = True
-                         , uiHighlightCurrentMovesMode = False
+                         , uiHighlightCurrentMovesMode = True
                          , uiTool = ToolPlay
                          }
 
