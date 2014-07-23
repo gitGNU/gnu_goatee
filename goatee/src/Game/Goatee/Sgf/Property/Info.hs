@@ -111,8 +111,20 @@ $(defValuedProperty "US" 'GameInfoProperty False 'simpleTextPvt)
 $(defValuedProperty "WR" 'GameInfoProperty False 'simpleTextPvt)
 $(defValuedProperty "WT" 'GameInfoProperty False 'simpleTextPvt)
 
+-- Timing properties.
+$(defValuedProperty "BL" 'MoveProperty False 'realPvt)
+$(defValuedProperty "OB" 'MoveProperty False 'integralPvt)
+$(defValuedProperty "OW" 'MoveProperty False 'integralPvt)
+$(defValuedProperty "WL" 'MoveProperty False 'realPvt)
+
 -- Miscellaneous properties.
 $(defValuedProperty "VW" 'GeneralProperty True 'coordElistPvt)
+
+-- Go-specific properties.
+$(defValuedProperty "HA" 'GameInfoProperty False 'integralPvt)
+$(defValuedProperty "KM" 'GameInfoProperty False 'realPvt)
+$(defValuedProperty "TB" 'GeneralProperty False 'coordElistPvt)
+$(defValuedProperty "TW" 'GeneralProperty False 'coordElistPvt)
 
 propertyUnknown :: String -> ValuedPropertyInfo UnknownPropertyValue
 propertyUnknown name =
@@ -189,7 +201,17 @@ allDescriptors = [
   , SomeDescriptor propertyWR
   , SomeDescriptor propertyWT
 
+  , SomeDescriptor propertyBL
+  , SomeDescriptor propertyOB
+  , SomeDescriptor propertyOW
+  , SomeDescriptor propertyWL
+
   , SomeDescriptor propertyVW
+
+  , SomeDescriptor propertyHA
+  , SomeDescriptor propertyKM
+  , SomeDescriptor propertyTB
+  , SomeDescriptor propertyTW
   ]
 
 propertyInfo :: Property -> SomeDescriptor
@@ -257,7 +279,17 @@ propertyInfo property = case property of
   WR {} -> SomeDescriptor propertyWR
   WT {} -> SomeDescriptor propertyWT
 
+  BL {} -> SomeDescriptor propertyBL
+  OB {} -> SomeDescriptor propertyOB
+  OW {} -> SomeDescriptor propertyOW
+  WL {} -> SomeDescriptor propertyWL
+
   VW {} -> SomeDescriptor propertyVW
+
+  HA {} -> SomeDescriptor propertyHA
+  KM {} -> SomeDescriptor propertyKM
+  TB {} -> SomeDescriptor propertyTB
+  TW {} -> SomeDescriptor propertyTW
 
   UnknownProperty name _ -> SomeDescriptor $ propertyUnknown name
 

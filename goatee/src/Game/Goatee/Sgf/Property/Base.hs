@@ -119,8 +119,22 @@ data Property =
   | WR SimpleText        -- ^ Rank of white player.
   | WT SimpleText        -- ^ Name of white team.
 
+  -- Timing properties.
+  | BL RealValue         -- ^ Black time left.
+  | OB Int               -- ^ Black moves left in byo-yomi period.
+  | OW Int               -- ^ White moves left in byo-yomi period.
+  | WL RealValue         -- ^ White time left.
+
   -- Miscellaneous properties.
+  -- TODO FG property.
+  -- TODO PM property.
   | VW CoordList         -- ^ Set viewing region.
+
+  -- Go-specific properties.
+  | HA Int               -- ^ Handicap stones (>=2).
+  | KM RealValue         -- ^ Komi.
+  | TB CoordList         -- ^ Black territory.
+  | TW CoordList         -- ^ White territory.
 
   | UnknownProperty String UnknownPropertyValue
 

@@ -454,12 +454,22 @@ applyProperty (WT str) board =
   updateBoardInfo (\info -> info { gameInfoWhiteTeamName = Just $ fromSimpleText str })
                   board
 
+applyProperty (BL {}) board = board
+applyProperty (OB {}) board = board
+applyProperty (OW {}) board = board
+applyProperty (WL {}) board = board
+
 applyProperty (VW coords) board =
   let coords' = expandCoordList coords
   in if null coords'
      then setBoardVisible True board
      else updateCoordStates (\state -> state { coordVisible = True }) coords' $
           setBoardVisible False board
+
+applyProperty (HA {}) board = board
+applyProperty (KM {}) board = board
+applyProperty (TB {}) board = board
+applyProperty (TW {}) board = board
 
 applyProperty (UnknownProperty {}) board = board
 
