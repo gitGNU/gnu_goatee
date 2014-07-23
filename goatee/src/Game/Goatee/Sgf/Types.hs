@@ -17,10 +17,17 @@
 
 -- | Constants and data types for property values used in SGF game trees.
 module Game.Goatee.Sgf.Types (
+  -- * Constants
   supportedFormatVersions, defaultFormatVersion, supportedGameTypes,
   boardSizeDefault, boardSizeMin, boardSizeMax,
+  -- * Board coordinates
   Coord, CoordList, coordListSingles, coordListRects, coord1, coords, coords',
   emptyCoordList, expandCoordList, buildCoordList,
+  -- ** Star points and handicap stones
+  starLines,
+  isStarPoint,
+  handicapStones,
+  -- * Property values
   RealValue,
   Stringlike (..),
   Text, fromText, toText,
@@ -36,24 +43,29 @@ module Game.Goatee.Sgf.Types (
   Ruleset (..), RulesetType (..), fromRuleset, toRuleset,
   ) where
 
+import Control.Applicative ((<$>), (<*>))
 import Data.Char (isSpace)
 import Data.Function (on)
 import Data.List (delete, groupBy, partition, sort)
+import Data.Maybe (fromMaybe)
+import Game.Goatee.Common
 
--- TODO Support FF versions 1-4.
+-- | The FF versions supported by Goatee.  Currently only 4.
 supportedFormatVersions :: [Int]
 supportedFormatVersions = [4]
+-- TODO Support FF versions 1-4.
 
 -- | The default SGF version to use when @FF[]@ is not specified in a root node.
 --
 -- This value is actually INCORRECT: SGF defines it to be 1, but because we
 -- don't support version 1 yet, for the sake of ignoring this issue (for now!)
 -- in tests, we fix the default to be 4.
---
--- TODO Fix the default version to be 1 as SGF mandates.
 defaultFormatVersion :: Int
 defaultFormatVersion = 4
+-- TODO Fix the default version to be 1 as SGF mandates.
 
+-- | SGF supports multiple game types.  This list contains the game types that
+-- Goatee supports, which is only Go (1).
 supportedGameTypes :: [Int]
 supportedGameTypes = [1 {- Go -}]
 
@@ -204,6 +216,50 @@ buildCoordList = toCoordList . generateRects 0 [] . buildTruePairs . toGrid
         toCoordList rects =
           let (singles, properRects) = partition (uncurry (==)) rects
           in coords' (map fst singles) properRects
+
+-- | @starLines width height@ returns 'Just' a list of row/column indices that
+-- have star points on a board of the given size, or 'Nothing' if the board size
+-- does not have star points defined.
+starLines :: Int -> Int -> Maybe [Int]
+starLines 19 19 = Just [3, 9, 15]
+starLines 13 13 = Just [3, 6, 9]
+starLines 9 9 = Just [2, 4, 6]
+starLines _ _ = Nothing
+
+-- | @isStarPoint width height x y@ determines whether @(x, y)@ is a known star
+-- point on a board of the given width and height.
+isStarPoint :: Int -> Int -> Int -> Int -> Bool
+isStarPoint width height x y =
+  fromMaybe False $
+  ((&&) <$> elem x <*> elem y) <$> starLines width height
+
+-- | @handicapStoneIndices !! k@ the positions of the handicap stones for @k@
+-- handicap stones, betweeen 0 and 9.  In the pairs, 0 indicates the first star
+-- point along an axis, 1 indicates the second, and 2 indicates the third, in
+-- the normal 'Coord' ordering.
+handicapStoneIndices :: [[(Int, Int)]]
+handicapStoneIndices = [
+  []
+  , []  -- No single handicap stone for Black; black goes first instead.
+  , [(2,0), (0,2)]
+  , (2,2) : handicapStoneIndices !! 2
+  , (0,0) : handicapStoneIndices !! 3
+  , (1,1) : handicapStoneIndices !! 4
+  , (0,1) : (2,1) : handicapStoneIndices !! 4
+  , (1,1) : handicapStoneIndices !! 6
+  , (1,0) : (1,2) : handicapStoneIndices !! 6
+  , (1,1) : handicapStoneIndices !! 8
+  ]
+
+-- | @handicapStones width height handicap@ returns a list of points where
+-- handicap stones should be placed for the given handicap, if handicap points
+-- are defined for the given board size, otherwise 'Nothing'.
+handicapStones :: Int -> Int -> Int -> Maybe [Coord]
+handicapStones width height handicap =
+  if handicap < 0 || handicap >= length handicapStoneIndices
+  then Nothing
+  else do positions <- starLines width height
+          return $ map (mapTuple (positions !!)) (handicapStoneIndices !! handicap)
 
 -- | An SGF real value.
 type RealValue = Rational

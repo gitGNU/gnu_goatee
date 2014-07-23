@@ -324,25 +324,6 @@ clearBoardDimmed board =
   else board
   where clearDim coord = coord { coordDimmed = False }
 
--- |> isStarPoint width height x y
---
--- Returns whether @(x, y)@ is a known star point on a board of the given width
--- and height.
-isStarPoint :: Int -> Int -> Int -> Int -> Bool
-isStarPoint width height
-  | width == 9 && height == 9 = isStarPoint9
-  | width == 13 && height == 13 = isStarPoint13
-  | width == 19 && height == 19 = isStarPoint19
-  | otherwise = const $ const False
-
-isStarPoint' :: [Int] -> Int -> Int -> Bool
-isStarPoint' ixs x y = x `elem` ixs && y `elem` ixs
-
-isStarPoint9, isStarPoint13, isStarPoint19 :: Int -> Int -> Bool
-isStarPoint9 = isStarPoint' [2, 4, 6]
-isStarPoint13 = isStarPoint' [3, 6, 9]
-isStarPoint19 = isStarPoint' [3, 9, 15]
-
 -- | Applies a property to a 'BoardState'.  This function covers all properties
 -- that modify 'BoardState's, including making moves, adding markup, and so on.
 applyProperty :: Property -> BoardState -> BoardState

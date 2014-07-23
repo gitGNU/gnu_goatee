@@ -18,12 +18,17 @@
 -- | Common utilities for testing code.
 module Game.Goatee.Test.Common (
   (@/=?),
+  (@=?*),
+  (@?=*),
   assertElem,
   printableAsciiChars,
   ) where
 
 import Control.Monad (unless, when)
-import Test.HUnit (Assertion, assertFailure)
+import Data.List (sort)
+import Test.HUnit ((@=?), (@?=), Assertion, assertFailure)
+
+infix 1 @/=?, @=?*, @?=*
 
 -- | Asserts that two values are not equal.  Typically, the left argument is a
 -- constant value that the right, computed argument should not equal, to mirror
@@ -37,6 +42,14 @@ notExpected @/=? actual =
      then "did not expect: " ++ actual'
      else "      this value: " ++ actual' ++
           "\nshould not equal: " ++ notExpected'
+
+-- | Order-insensitive version of '@=?'.
+(@=?*) :: (Eq a, Ord a, Show a) => [a] -> [a] -> Assertion
+xs @=?* ys = sort xs @=? sort ys
+
+-- | Order-insensitive version of '@?='.
+(@?=*) :: (Eq a, Ord a, Show a) => [a] -> [a] -> Assertion
+xs @?=* ys = sort xs @?= sort ys
 
 assertElem :: (Eq a, Show a) => a -> [a] -> Assertion
 assertElem item list =

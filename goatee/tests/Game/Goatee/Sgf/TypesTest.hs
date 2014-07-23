@@ -22,11 +22,14 @@ import Game.Goatee.Sgf.Types
 import Game.Goatee.Test.Common
 import Test.Framework (testGroup)
 import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@=?), Assertion)
+import Test.HUnit ((@=?), (@?=), Assertion)
 
 tests = testGroup "Game.Goatee.Sgf.Types" [
   expandCoordListTests,
   buildCoordListTests,
+  starLinesTests,
+  isStarPointTests,
+  handicapStonesTests,
   simpleTextTests,
   cnotTests
   ]
@@ -122,6 +125,100 @@ buildCoordListTests = testGroup "buildCoordList" [
         -- the given set of points.
         assertCoords :: [Coord] -> Assertion
         assertCoords input = sort input @=? sort (expandCoordList $ buildCoordList input)
+
+starLinesTests = testGroup "starLines" [
+  testCase "knows 9x9 boards" $ Just [2, 4, 6] @=? starLines 9 9,
+  testCase "knows 13x13 boards" $ Just [3, 6, 9] @=? starLines 13 13,
+  testCase "knows 19x19 boards" $ Just [3, 9, 15] @=? starLines 19 19,
+  testCase "doesn't know 13x19" $ Nothing @=? starLines 13 19,
+  testCase "doesn't know 10x10" $ Nothing @=? starLines 10 10
+  ]
+
+isStarPointTests = testGroup "isStarPoint" [
+  testCase "only knows correct star points on a 9x9 board" $
+    let expected = [(x, y) | x <- [2, 4, 6], y <- [2, 4, 6]]
+        actual = actualStarPoints 9 9
+    in expected @=?* actual,
+
+  testCase "only knows correct star points on a 13x13 board" $
+    let expected = [(x, y) | x <- [3, 6, 9], y <- [3, 6, 9]]
+        actual = actualStarPoints 13 13
+    in expected @=?* actual,
+
+  testCase "only knows correct star points on a 19x19 board" $
+    let expected = [(x, y) | x <- [3, 9, 15], y <- [3, 9, 15]]
+        actual = actualStarPoints 19 19
+    in expected @=?* actual,
+
+  testCase "knows no star poinst on a 5x1 board" $
+    [] @=? actualStarPoints 5 1,
+
+  testCase "knows no star points on a 15x15 board" $
+    [] @=? actualStarPoints 15 15,
+
+  testCase "knows no star points on a 20x20 board" $
+    [] @=? actualStarPoints 20 20
+  ]
+  where actualStarPoints width height =
+          map fst $ filter snd
+          [((x, y), isStarPoint width height x y) | x <- [0..width-1], y <- [0..height-1]]
+
+handicapStonesTests = testGroup "handicapStones" [
+  testCase "returns nothing for invalid handicaps" $ do
+     Nothing @=? handicapStones 9 9 (-1)
+     Nothing @=? handicapStones 9 9 10
+     Nothing @=? handicapStones 4 4 25,
+
+  testCase "9x9 0 handicap" $ assertHandicap 9 9 0 $ Just [],
+  testCase "9x9 1 handicap" $ assertHandicap 9 9 1 $ Just [],
+  testCase "9x9 2 handicap" $ assertHandicap 9 9 2 $ Just [(2,6), (6,2)],
+  testCase "9x9 3 handicap" $ assertHandicap 9 9 3 $ Just [(2,6), (6,2), (6,6)],
+  testCase "9x9 4 handicap" $ assertHandicap 9 9 4 $ Just [(2,2), (2,6), (6,2), (6,6)],
+  testCase "9x9 5 handicap" $ assertHandicap 9 9 5 $ Just [(2,2), (2,6), (4,4), (6,2), (6,6)],
+  testCase "9x9 6 handicap" $ assertHandicap 9 9 6 $
+    Just [(2,2), (2,4), (2,6), (6,2), (6,4), (6,6)],
+  testCase "9x9 7 handicap" $ assertHandicap 9 9 7 $
+    Just [(2,2), (2,4), (2,6), (4,4), (6,2), (6,4), (6,6)],
+  testCase "9x9 8 handicap" $ assertHandicap 9 9 8 $
+    Just [(2,2), (2,4), (2,6), (4,2), (4,6), (6,2), (6,4), (6,6)],
+  testCase "9x9 9 handicap" $ assertHandicap 9 9 9 $
+    Just [(2,2), (2,4), (2,6), (4,2), (4,4), (4,6), (6,2), (6,4), (6,6)],
+
+  testCase "13x13 0 handicap" $ assertHandicap 13 13 0 $ Just [],
+  testCase "13x13 1 handicap" $ assertHandicap 13 13 1 $ Just [],
+  testCase "13x13 2 handicap" $ assertHandicap 13 13 2 $ Just [(3,9), (9,3)],
+  testCase "13x13 3 handicap" $ assertHandicap 13 13 3 $ Just [(3,9), (9,3), (9,9)],
+  testCase "13x13 4 handicap" $ assertHandicap 13 13 4 $ Just [(3,3), (3,9), (9,3), (9,9)],
+  testCase "13x13 5 handicap" $ assertHandicap 13 13 5 $ Just [(3,3), (3,9), (6,6), (9,3), (9,9)],
+  testCase "13x13 6 handicap" $ assertHandicap 13 13 6 $
+    Just [(3,3), (3,6), (3,9), (9,3), (9,6), (9,9)],
+  testCase "13x13 7 handicap" $ assertHandicap 13 13 7 $
+    Just [(3,3), (3,6), (3,9), (6,6), (9,3), (9,6), (9,9)],
+  testCase "13x13 8 handicap" $ assertHandicap 13 13 8 $
+    Just [(3,3), (3,6), (3,9), (6,3), (6,9), (9,3), (9,6), (9,9)],
+  testCase "13x13 9 handicap" $ assertHandicap 13 13 9 $
+    Just [(3,3), (3,6), (3,9), (6,3), (6,6), (6,9), (9,3), (9,6), (9,9)],
+
+  testCase "19x19 0 handicap" $ assertHandicap 19 19 0 $ Just [],
+  testCase "19x19 1 handicap" $ assertHandicap 19 19 1 $ Just [],
+  testCase "19x19 2 handicap" $ assertHandicap 19 19 2 $ Just [(3,15), (15,3)],
+  testCase "19x19 3 handicap" $ assertHandicap 19 19 3 $ Just [(3,15), (15,3), (15,15)],
+  testCase "19x19 4 handicap" $ assertHandicap 19 19 4 $ Just [(3,3), (3,15), (15,3), (15,15)],
+  testCase "19x19 5 handicap" $ assertHandicap 19 19 5 $
+  Just [(3,3), (3,15), (9,9), (15,3), (15,15)],
+  testCase "19x19 6 handicap" $ assertHandicap 19 19 6 $
+    Just [(3,3), (3,9), (3,15), (15,3), (15,9), (15,15)],
+  testCase "19x19 7 handicap" $ assertHandicap 19 19 7 $
+    Just [(3,3), (3,9), (3,15), (9,9), (15,3), (15,9), (15,15)],
+  testCase "19x19 8 handicap" $ assertHandicap 19 19 8 $
+    Just [(3,3), (3,9), (3,15), (9,3), (9,15), (15,3), (15,9), (15,15)],
+  testCase "19x19 9 handicap" $ assertHandicap 19 19 9 $
+    Just [(3,3), (3,9), (3,15), (9,3), (9,9), (9,15), (15,3), (15,9), (15,15)]
+  ]
+  where assertHandicap width height handicap maybeExpectedStones =
+          case (handicapStones width height handicap, maybeExpectedStones) of
+            (Just actualStones, Just expectedStones) -> actualStones @?=* expectedStones
+            (actual, _) -> actual @?= maybeExpectedStones
 
 simpleTextTests = testGroup "SimpleText" [
   testCase "accepts the empty string" $
