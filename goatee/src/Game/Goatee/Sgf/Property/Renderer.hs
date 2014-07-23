@@ -129,8 +129,8 @@ renderStringlikePretty = rendererOf "stringlike pretty" $ tell . sgfToString
 
 renderColorBracketed :: Color -> Render ()
 renderColorBracketed color = bracketed $ tell $ case color of
-  Black -> "[B]"
-  White -> "[W]"
+  Black -> "B"
+  White -> "W"
 
 renderColorPretty :: Color -> Render ()
 renderColorPretty Black = tell "Black"

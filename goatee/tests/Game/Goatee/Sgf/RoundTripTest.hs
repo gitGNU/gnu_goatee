@@ -63,11 +63,23 @@ singleNodeGameTests = testGroup "games with single nodes" [
   ]
 
 propertyValueTests = testGroup "property value types" [
+  testGroup "color values" [
+    testNode "black" $ node [PL Black],
+    testNode "white" $ node [PL White]
+    ],
+
+  testGroup "double values" [
+    testNode "1" $ node [DM Double1],
+    testNode "2" $ node [DM Double2]
+    ],
+
   testGroup "label list values" [
     testNode "one value" $ node [LB [((5,2), toSimpleText "Hi.")]],
     testNode "multiple value" $ node [LB [((5, 2), toSimpleText "Hi."),
                                           ((0, 1), toSimpleText "Bye.")]]
     ],
+
+  testNode "none value" $ node [KO],
 
   testGroup "point-valued values" $
     for [0..boardSizeMax-1]
