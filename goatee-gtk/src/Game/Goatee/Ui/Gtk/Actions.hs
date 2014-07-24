@@ -40,11 +40,12 @@ module Game.Goatee.Ui.Gtk.Actions (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (void, when)
+import Control.Monad (unless, void, when)
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Ui.Gtk.Common
 import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Monad hiding (on)
+import Game.Goatee.Sgf.Property
 import Game.Goatee.Sgf.Types
 import Graphics.UI.Gtk (
   Action,
@@ -69,8 +70,8 @@ import Graphics.UI.Gtk (
   on,
   radioActionChanged, radioActionCurrentValue, radioActionNew, radioActionSetGroup,
   set,
-  spinButtonGetValueAsInt, spinButtonNewWithRange, spinButtonSetNumeric, spinButtonSetUpdatePolicy,
-  spinButtonSetValue, spinButtonSetWrap,
+  spinButtonGetValue, spinButtonGetValueAsInt, spinButtonNewWithRange, spinButtonSetDigits,
+  spinButtonSetNumeric, spinButtonSetUpdatePolicy, spinButtonSetValue, spinButtonSetWrap,
   stockCancel,
   tableAttachDefaults, tableNew,
   toggleActionActive, toggleActionNew,
@@ -129,7 +130,7 @@ create ui = do
   on fileNewCustomAction actionActivated $ do
     dialog <- dialogNew
     upper <- dialogGetUpper dialog
-    table <- tableNew 2 2 False
+    table <- tableNew 4 2 False
     boxPackStart upper table PackGrow 0
 
     -- SGF only supports boards up to 'boardSizeMax', but Goatee works fine with
@@ -141,10 +142,12 @@ create ui = do
                   (fromIntegral boardSizeMin)
                   (fromIntegral arbitraryUpperLimit)
                   1
+          configureSpinButton spin
+          return spin
+        configureSpinButton spin = do
           spinButtonSetUpdatePolicy spin UpdateIfValid
           spinButtonSetNumeric spin True
           spinButtonSetWrap spin False
-          return spin
 
     widthLabel <- labelNewWithMnemonic "_Width"
     widthSpin <- makeSpinButton
@@ -158,6 +161,22 @@ create ui = do
     tableAttachDefaults table heightLabel 0 1 1 2
     tableAttachDefaults table heightSpin 1 2 1 2
 
+    handicapLabel <- labelNewWithMnemonic "H_andicap"
+    handicapSpin <- spinButtonNewWithRange 0 9 1
+    labelSetMnemonicWidget handicapLabel handicapSpin
+    configureSpinButton handicapSpin
+    tableAttachDefaults table handicapLabel 0 1 2 3
+    tableAttachDefaults table handicapSpin 1 2 2 3
+
+    komiLabel <- labelNewWithMnemonic "_Komi"
+    komiSpin <- spinButtonNewWithRange (-1000) 1000 0.5
+    labelSetMnemonicWidget komiLabel komiSpin
+    configureSpinButton komiSpin
+    spinButtonSetDigits komiSpin 1
+    spinButtonSetValue komiSpin 0
+    tableAttachDefaults table komiLabel 0 1 3 4
+    tableAttachDefaults table komiSpin 1 2 3 4
+
     dialogAddButton dialog stockCancel ResponseCancel
     dialogAddButton dialog "C_reate" ResponseOk
     dialogSetDefaultResponse dialog ResponseOk
@@ -169,9 +188,25 @@ create ui = do
     response <- dialogRun dialog
     width <- spinButtonGetValueAsInt widthSpin
     height <- spinButtonGetValueAsInt heightSpin
+    handicap <- spinButtonGetValueAsInt handicapSpin
+    komi <- (/ 10) . toRational . round . (* 10) <$> spinButtonGetValue komiSpin
     widgetDestroy dialog
-    when (response == ResponseOk) $
-      void $ openNewBoard (Just ui) (Just (width, height))
+    when (response == ResponseOk) $ do
+      ui' <- openNewBoard (Just ui) (Just (width, height))
+      when (komi /= 0) $ runUiGo ui' $ putProperty $ KM $ toRational komi
+      when (handicap > 0) $ do
+        -- If the board size + handicap configuration is known, then set up the
+        -- board for the handicap, otherwise, leave the user to do it.
+        --
+        -- TODO If the configuration is unknown and handicap >= 2, then maybe
+        -- set HA at least, anyway?
+        let stones = fromMaybe [] $ handicapStones width height handicap
+        unless (null stones) $ do
+          runUiGo ui' $ do
+            putProperty $ HA handicap
+            putProperty $ AB $ coords stones
+            putProperty $ PL White
+          setDirty ui' False
 
   fileOpenAction <- actionNew "FileOpen" "_Open file..." Nothing Nothing
   actionGroupAddActionWithAccel fileActions fileOpenAction $ Just "<Control>o"
