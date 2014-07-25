@@ -19,6 +19,7 @@
 module Game.Goatee.Sgf.Parser (
   parseString,
   parseFile,
+  propertyParser,
   ) where
 
 import Control.Arrow ((+++))
@@ -34,7 +35,7 @@ import Text.ParserCombinators.Parsec (
 
 -- | Parses a string in SGF format.  Returns an error string if parsing fails.
 parseString :: String -> Either String Collection
-parseString str = case parse collection "<collection>" str of
+parseString str = case parse collectionParser "<collection>" str of
   Left err -> Left $ show err
   Right (Collection roots) -> (concatErrors +++ Collection) $
                               andEithers $
@@ -86,28 +87,30 @@ parseString str = case parse collection "<collection>" str of
 parseFile :: String -> IO (Either String Collection)
 parseFile = fmap parseString . readFile
 
-collection :: Parser Collection
-collection = fmap Collection (spaces *> many (gameTree <* spaces) <* eof)
-             <?> "collection"
+collectionParser :: Parser Collection
+collectionParser =
+  fmap Collection (spaces *> many (gameTreeParser <* spaces) <* eof) <?>
+  "collection"
 
-gameTree :: Parser Node
-gameTree = do
+gameTreeParser :: Parser Node
+gameTreeParser = do
   char '('
-  nodes <- spaces *> many1 (node <* spaces) <?> "sequence"
-  subtrees <- many (gameTree <* spaces) <?> "subtrees"
+  nodes <- spaces *> many1 (nodeParser <* spaces) <?> "sequence"
+  subtrees <- many (gameTreeParser <* spaces) <?> "subtrees"
   char ')'
   let (sequence, [final]) = splitAt (length nodes - 1) nodes
   return $ foldr (\seqNode childNode -> seqNode { nodeChildren = [childNode] })
                  (final { nodeChildren = subtrees })
                  sequence
 
-node :: Parser Node
-node = fmap (\props -> emptyNode { nodeProperties = props })
-       (char ';' *> spaces *> many (property <* spaces)
-        <?> "node")
+nodeParser :: Parser Node
+nodeParser =
+  fmap (\props -> emptyNode { nodeProperties = props })
+  (char ';' *> spaces *> many (propertyParser <* spaces) <?>
+   "node")
 
-property :: Parser Property
-property = do
+propertyParser :: Parser Property
+propertyParser = do
   name <- many1 upper
   spaces
   propertyValueParser $ descriptorForName name

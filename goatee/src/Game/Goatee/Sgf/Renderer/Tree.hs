@@ -18,9 +18,9 @@
 -- | Functions for serializing SGF trees.
 module Game.Goatee.Sgf.Renderer.Tree (
   renderCollection,
+  renderProperty,
   ) where
 
-import Control.Monad (forM_)
 import Control.Monad.Writer (tell)
 import Game.Goatee.Common
 import Game.Goatee.Sgf.Property
@@ -51,6 +51,9 @@ renderGameTree node = do
 renderNode :: Node -> Render ()
 renderNode node = do
   tell "\n;"
-  forM_ (nodeProperties node) $ \property -> do
-    tell $ propertyName property
-    propertyValueRenderer property property
+  mapM_ renderProperty $ nodeProperties node
+
+renderProperty :: Property -> Render ()
+renderProperty property = do
+  tell $ propertyName property
+  propertyValueRenderer property property

@@ -37,7 +37,8 @@ library
         filepath >= 1.3 && < 1.4,
         gtk >= 0.12 && < 0.13,
         goatee >= 0.2 && < 0.3,
-        mtl >= 2.1 && < 2.3
+        mtl >= 2.1 && < 2.3,
+        parsec >= 3.1 && < 3.2
     exposed-modules:
         Game.Goatee.Ui.Gtk
         Game.Goatee.Ui.Gtk.Latch
