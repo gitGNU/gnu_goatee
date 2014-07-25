@@ -76,6 +76,7 @@ import Graphics.UI.Gtk (
   tableAttachDefaults, tableNew,
   toggleActionActive, toggleActionNew,
   widgetDestroy, widgetShowAll,
+  windowSetTitle,
   )
 
 data Actions ui = Actions {
@@ -129,6 +130,7 @@ create ui = do
   actionGroupAddActionWithAccel fileActions fileNewCustomAction Nothing
   on fileNewCustomAction actionActivated $ do
     dialog <- dialogNew
+    windowSetTitle dialog "New custom board"
     upper <- dialogGetUpper dialog
     table <- tableNew 4 2 False
     boxPackStart upper table PackGrow 0
