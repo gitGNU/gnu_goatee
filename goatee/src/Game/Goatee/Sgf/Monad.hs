@@ -18,34 +18,14 @@
 -- | A monad for working with game trees.
 module Game.Goatee.Sgf.Monad (
   -- * The Go monad
+  MonadGo (..),
   GoT, GoM,
   runGoT, runGo,
   evalGoT, evalGo,
   execGoT, execGo,
-  getCursor, getCoordState,
-  -- * Navigation
-  Step(..), goUp, goDown, goToRoot, goToGameInfoNode,
-  -- * Remembering positions
-  pushPosition, popPosition, dropPosition,
-  -- * Properties
-  getProperties,
-  modifyProperties,
-  getProperty,
-  getPropertyValue,
-  putProperty,
-  deleteProperty,
-  modifyProperty,
-  modifyPropertyValue,
-  modifyPropertyString,
-  modifyPropertyCoords,
-  modifyGameInfo,
-  modifyVariationMode,
-  getMark,
-  modifyMark,
-  -- * Children
-  addChild,
+  Step (..),
   -- * Event handling
-  Event, on, fire,
+  Event, fire,
   -- * Events
   childAddedEvent, ChildAddedHandler,
   gameInfoChangedEvent, GameInfoChangedHandler,
@@ -301,10 +281,10 @@ class Monad go => MonadGo go where
   -- | Registers a new event handler for a given event type.
   on :: Event go h -> h -> go ()
 
--- | The regular monad transformer for 'MonadGo'.
+-- | The standard monad transformer for 'MonadGo'.
 newtype GoT m a = GoT { goState :: StateT (GoState (GoT m)) m a }
 
--- | The regular monad for 'MonadGo'.
+-- | The standard monad for 'MonadGo'.
 type GoM = GoT Identity
 
 instance Monad m => Functor (GoT m) where
@@ -600,13 +580,11 @@ fire event handlerGenerator = do
   mapM_ handlerGenerator $ eventStateGetter event state
 
 -- | A type of event in the Go monad transformer that can be handled by
--- executing an action.  @go@ is the type of the type of the Go
--- monad/transformer.  @h@ is the type of monad or monadic function which will
--- be used by Go actions that can trigger the event.  For example, a navigation
--- event is characterized by a 'Step' that cannot easily be recovered from the
--- regular monad state, and comparing before-and-after states would be a pain.
--- So @h@ for navigation events is @'Step' -> go ()@; a handler takes a 'Step'
--- and returns a Go action to run as a result.
+-- executing an action.  @go@ is the type of the Go monad/transformer.  @h@ is
+-- the handler type, a function that takes some arguments relating to the event
+-- and returning an action in the Go monad.  The arguments to the handler are
+-- usually things that would be difficult to recover from the state of the monad
+-- alone, for example the 'Step' associated with a 'navigationEvent'.
 data Event go h = Event { eventName :: String
                         , eventStateGetter :: GoState go -> [h]
                         , eventStateSetter :: [h] -> GoState go -> GoState go
