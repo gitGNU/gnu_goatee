@@ -33,6 +33,69 @@ shopt -s expand_aliases
 # correct path.
 unset GIT_DIR
 
+declare -r forceVerifyTargetsAll=' goatee goatee-gtk goatee-wx other '
+targetIsKnown() {
+    [[ $forceVerifyTargetsAll = *\ $1\ * ]]
+}
+
+forceVerifyTargets=
+
+usage() {
+    cat <<EOF
+git-pre-commit - The Goatee Git pre-commit script.
+
+This script runs tests against the state of Goatee in the Git index.  A rough
+order of operations are:
+1. Stash away unstaged changes.
+2. Verify the working tree in chunks called 'targets'.
+3. Restore unstaged changes.
+4. Exit 0 if all verification passed, non-zero otherwise.
+
+Usage: git-pre-commit [options...]
+
+Options:
+    --help
+        Displays this help message.
+
+    --verify 'target ...'
+    --verify-all
+        Forces an explicit verification of specified targets.  The default is
+        to verify targets with changes that are staged, plus transitive
+        dependencies.
+
+Targets:
+   goatee     : The Goatee library.
+   goatee-gtk : The Goatee GTK+ UI.
+   goatee-wx  : The Goatee wxWidgets UI.
+   other      : Miscellaneous files not in a Cabal package.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help) usage; exit 0;;
+        --verify)
+            if [[ $# -eq 1 ]]; then
+                echo "$1 requires one argument.  See --help."
+                exit 1
+            fi
+            for target in $2; do
+                if ! targetIsKnown "$target"; then
+                    echo "Unknown target \"$target\" to verify."
+                    exit 1
+                fi
+            done
+            forceVerifyTargets="$forceVerifyTargets $2"
+            shift
+            ;;
+        --verify-all)
+            forceVerifyTargets="$forceVerifyTargetsAll"
+            ;;
+        *) echo "Unknown option: $1."; exit 1;;
+    esac
+    shift
+done
+
 precommitBuildOpts="-Werror -fno-warn-warnings-deprecations"
 projectDir="$(dirname "$(realpath "$(git rev-parse --git-dir)")")"
 scriptsDir="$(dirname "$(realpath "$0")")"
@@ -165,7 +228,8 @@ verifyPackage() {
 cd "$projectDir"
 set +e
 
-if git diff --full-index --binary | grep -q 'scripts/git-pre-commit'; then
+if git diff --name-only | grep -q scripts/git-pre-commit \
+    && git diff --name-only --cached | grep -q scripts/git-pre-commit; then
     err "Bash doesn't like scripts moving underneath it, so a partial commit to"
     err "scripts/git-pre-commit is incompatible with running the pre-commit"
     err "currently.  Please stash the changes yourself before attempting to"
@@ -185,21 +249,78 @@ else
 fi
 set +e
 
-verifyPackage goatee no-install-lib test; resultGoatee=$?
-if [[ $resultGoatee = 0 ]]; then
-    verifyPackage goatee-gtk install-lib test; resultGtk=$?
-    verifyPackage goatee-wx install-lib no-test; resultWx=$?
+# Determine what has changed, so that we only verify affected things.
+determineTargets() {
+    msgIncDepth
+    msg "Determining what targets to verify."
+    if [[ -n $forceVerifyTargets ]]; then
+        msg "Manual targets specified:" $forceVerifyTargets
+        forceVerifyTargets=" $forceVerifyTargets "
+        [[ $forceVerifyTargets = *\ goatee\ * ]]; verifyLib=$?
+        [[ $forceVerifyTargets = *\ goatee-gtk\ * ]]; verifyGtk=$?
+        [[ $forceVerifyTargets = *\ goatee-wx\ * ]]; verifyWx=$?
+        [[ $forceVerifyTargets = *\ other\ * ]]; verifyOther=$?
+    else
+        git diff --name-only --cached | grep -qv '^goatee\(\|-gtk\|wx\)/'; verifyOther=$?
+        if [[ $verifyOther -eq 0 ]]; then
+            msg "Files changed outside of Cabal packages.  Verifying everything."
+            verifyLib=0
+            verifyGtk=0
+            verifyWx=0
+        else
+            git diff --name-only --cached | grep -q '^goatee/'; verifyLib=$?
+            if [[ $verifyLib -eq 0 ]]; then
+                msg "Library changed, forcing verification of other packages."
+                verifyGtk=0
+                verifyWx=0
+            else
+                git diff --name-only --cached | grep -q '^goatee-gtk/'; verifyGtk=$?
+                git diff --name-only --cached | grep -q '^goatee-wx/'; verifyWx=$?
+                if [[ $verifyGtk -eq 0 ]]; then msg "GTK+ UI changed, will verify."; fi
+                if [[ $verifyWx -eq 0 ]]; then msg "wxWidgets UI changed, will verify."; fi
+            fi
+        fi
+    fi
+    msgDecDepth
+}
+determineTargets
+
+# Verify the affected targets!
+if [[ $verifyLib -eq 0 ]]; then
+    verifyPackage goatee no-install-lib test; resultGoatee=$?
+else
+    msg "Target goatee is unchanged, skipping verification."
+    resultGoatee=0
+fi
+if [[ $resultGoatee -eq 0 ]]; then
+    if [[ $verifyGtk -eq 0 ]]; then
+        verifyPackage goatee-gtk install-lib test; resultGtk=$?
+    else
+        msg "Target goatee-gtk is unchanged, skipping verification."
+        resultGtk=0
+    fi
+    if [[ $verifyWx -eq 0 ]]; then
+        verifyPackage goatee-wx install-lib no-test; resultWx=$?
+    else
+        msg "Target goatee-wx is unchanged, skipping verification."
+        resultWx=0
+    fi
 else
     msg "Skipping verification of goatee-gtk and goatee-wx, since goatee failed."
     resultGtk=1
     resultWx=1
 fi
 
-echo
-msg "Linting miscellaneous files."
-cd "$projectDir"
-"$scriptsDir"/lint "$scriptsDir"
-resultLintOther=$?
+if [[ $verifyOther -eq 0 ]]; then
+    echo
+    msg "Linting miscellaneous files."
+    cd "$projectDir"
+    "$scriptsDir"/lint "$scriptsDir"
+    resultLintOther=$?
+else
+    msg "Target other is unchanged, skipping verification."
+    resultLintOther=0
+fi
 
 if [[ -s "$unstagedDiff" ]]; then
     msg "Restoring stashed changes."
@@ -215,16 +336,27 @@ else
 fi
 
 showResult() {
-    msg "  $1: $(if [[ $2 = 0 ]]; then echo pass; else echo FAIL; fi) ($2)"
+    local packageName=$1
+    local verificationRun=$2
+    local verificationResult=$3
+    local label
+    if [[ $verificationRun -ne 0 ]]; then
+        label=skip
+    elif [[ $verificationResult -eq 0 ]]; then
+        label=pass
+    else
+        label=FAIL
+    fi
+    msg "  $packageName: $label ($verificationResult)"
 }
 
 echo
 msg "Results:"
-showResult "goatee    " $resultGoatee
-showResult "goatee-gtk" $resultGtk
-showResult "goatee-wx " $resultWx
-showResult "lint-other" $resultLintOther
-showResult "unstash   " $resultUnstash
+showResult "goatee    " $verifyLib $resultGoatee
+showResult "goatee-gtk" $verifyGtk $resultGtk
+showResult "goatee-wx " $verifyWx $resultWx
+showResult "lint-other" $verifyOther $resultLintOther
+showResult "unstash   " $resultUnstash 0
 
 if [[ $resultGoatee = 0 \
     && $resultGtk = 0 \
