@@ -42,6 +42,8 @@ import qualified Game.Goatee.Ui.Gtk.InfoLine as InfoLine
 import Game.Goatee.Ui.Gtk.InfoLine (InfoLine)
 import qualified Game.Goatee.Ui.Gtk.NodePropertiesPanel as NodePropertiesPanel
 import Game.Goatee.Ui.Gtk.NodePropertiesPanel (NodePropertiesPanel)
+import qualified Game.Goatee.Ui.Gtk.PlayPanel as PlayPanel
+import Game.Goatee.Ui.Gtk.PlayPanel (PlayPanel)
 import Graphics.UI.Gtk (
   Action,
   Menu,
@@ -67,10 +69,11 @@ import System.IO (hPutStrLn, stderr)
 data MainWindow ui = MainWindow { myUi :: ui
                                 , myWindow :: Window
                                 , myActions :: Actions ui
+                                , myInfoLine :: InfoLine ui
+                                , myGoban :: Goban ui
+                                , myPlayPanel :: PlayPanel ui
                                 , myGamePropertiesPanel :: GamePropertiesPanel ui
                                 , myNodePropertiesPanel :: NodePropertiesPanel ui
-                                , myGoban :: Goban ui
-                                , myInfoLine :: InfoLine ui
                                 , myDirtyChangedHandler :: IORef (Maybe Registration)
                                 , myFilePathChangedHandler :: IORef (Maybe Registration)
                                 }
@@ -175,7 +178,7 @@ create ui = do
   addActionsToMenu menuHelpMenu actions [Actions.myHelpAboutAction]
 
   infoLine <- InfoLine.create ui
-  boxPackStart boardBox (InfoLine.myLabel infoLine) PackNatural 0
+  boxPackStart boardBox (InfoLine.myWidget infoLine) PackNatural 0
 
   hPaned <- hPanedNew
   boxPackStart boardBox hPaned PackGrow 0
@@ -192,8 +195,10 @@ create ui = do
   controlsBook <- notebookNew
   panedAdd2 hPaned controlsBook
 
+  playPanel <- PlayPanel.create ui actions
   gamePropertiesPanel <- GamePropertiesPanel.create ui
   nodePropertiesPanel <- NodePropertiesPanel.create ui
+  notebookAppendPage controlsBook (PlayPanel.myWidget playPanel) "Play"
   notebookAppendPage controlsBook (GamePropertiesPanel.myWidget gamePropertiesPanel) "Game"
   notebookAppendPage controlsBook (NodePropertiesPanel.myWidget nodePropertiesPanel) "Properties"
 
@@ -203,10 +208,11 @@ create ui = do
   let me = MainWindow { myUi = ui
                       , myWindow = window
                       , myActions = actions
+                      , myInfoLine = infoLine
+                      , myGoban = goban
+                      , myPlayPanel = playPanel
                       , myGamePropertiesPanel = gamePropertiesPanel
                       , myNodePropertiesPanel = nodePropertiesPanel
-                      , myGoban = goban
-                      , myInfoLine = infoLine
                       , myDirtyChangedHandler = dirtyChangedHandler
                       , myFilePathChangedHandler = filePathChangedHandler
                       }
@@ -234,10 +240,11 @@ initialize me = do
 destroy :: UiCtrl ui => MainWindow ui -> IO ()
 destroy me = do
   Actions.destroy $ myActions me
+  InfoLine.destroy $ myInfoLine me
+  Goban.destroy $ myGoban me
+  PlayPanel.destroy $ myPlayPanel me
   GamePropertiesPanel.destroy $ myGamePropertiesPanel me
   NodePropertiesPanel.destroy $ myNodePropertiesPanel me
-  Goban.destroy $ myGoban me
-  InfoLine.destroy $ myInfoLine me
 
   let ui = myUi me
   F.mapM_ (unregisterDirtyChangedHandler ui) =<< readIORef (myDirtyChangedHandler me)

@@ -21,17 +21,18 @@ module Game.Goatee.Ui.Gtk.InfoLine (
   InfoLine,
   create,
   destroy,
-  myLabel,
+  myWidget,
   ) where
 
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Monad
 import Game.Goatee.Ui.Gtk.Common
-import Graphics.UI.Gtk (Label, labelNew, labelSetMarkup)
+import Graphics.UI.Gtk (Label, Widget, labelNew, labelSetMarkup, toWidget)
 
 data InfoLine ui = InfoLine { myUi :: ui
                             , myRegistrations :: ViewRegistrations
+                            , myWidget :: Widget
                             , myLabel :: Label
                             }
 
@@ -47,6 +48,7 @@ create ui = do
 
   let me = InfoLine { myUi = ui
                     , myRegistrations = registrations
+                    , myWidget = toWidget label
                     , myLabel = label
                     }
 

@@ -24,60 +24,36 @@ module Game.Goatee.Ui.Gtk.GamePropertiesPanel (
   myWidget,
   ) where
 
-import Control.Monad (forM_, void, when)
+import Control.Monad (forM_, void)
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Monad hiding (on)
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Tree
-import Game.Goatee.Sgf.Types
 import Game.Goatee.Ui.Gtk.Common
-import Game.Goatee.Ui.Gtk.Latch
 import Game.Goatee.Ui.Gtk.Utils
 import Graphics.UI.Gtk (
   Entry,
-  Packing (PackGrow, PackNatural),
-  PolicyType (PolicyAutomatic),
-  TextBuffer, TextView,
+  Packing (PackNatural),
   Widget,
-  WrapMode (WrapWord),
   boxPackStart,
-  bufferChanged,
-  containerAdd,
   entryNew, entrySetText,
-  get,
   hSeparatorNew,
   labelNewWithMnemonic, labelSetMnemonicWidget,
-  on,
-  scrolledWindowNew,
-  scrolledWindowSetPolicy,
   tableAttachDefaults, tableNew, tableSetRowSpacing,
-  textBufferSetText, textBufferText,
-  textViewGetBuffer, textViewNew, textViewSetWrapMode,
   toWidget,
   vBoxNew,
   )
 
-data GamePropertiesPanel ui =
-  GamePropertiesPanel { myUi :: ui
-                      , myRegistrations :: ViewRegistrations
-                      , myWidget :: Widget
-                      , myBlackName :: Entry
-                      , myBlackRank :: Entry
-                      , myBlackTeam :: Entry
-                      , myWhiteName :: Entry
-                      , myWhiteRank :: Entry
-                      , myWhiteTeam :: Entry
-                      , myComment :: TextView
-                      , myCommentLatch :: Latch
-                        -- ^ When a 'TextBuffer' is programatically assigned to,
-                        -- two change events are fired, one to delete the old
-                        -- text and one to insert the new text.  We don't want
-                        -- to handle the intermediate value by writing it back
-                        -- to the model because this triggers dirtyness.  So we
-                        -- hold this latch on while we are doing a model-to-view
-                        -- update in order to avoid this problem.
-                      }
+data GamePropertiesPanel ui = GamePropertiesPanel {
+  myUi :: ui
+  , myRegistrations :: ViewRegistrations
+  , myWidget :: Widget
+  , myBlackName :: Entry
+  , myBlackRank :: Entry
+  , myBlackTeam :: Entry
+  , myWhiteName :: Entry
+  , myWhiteRank :: Entry
+  , myWhiteTeam :: Entry
+  }
 
 instance UiCtrl ui => UiView (GamePropertiesPanel ui) ui where
   viewName = const "GamePropertiesPanel"
@@ -139,28 +115,19 @@ create ui = do
 
   addSeparator 7
 
-  comment <- textViewNew
-  commentLatch <- newLatch
-  textViewSetWrapMode comment WrapWord
-  commentScroll <- scrolledWindowNew Nothing Nothing
-  scrolledWindowSetPolicy commentScroll PolicyAutomatic PolicyAutomatic
-  containerAdd commentScroll comment
-  boxPackStart box commentScroll PackGrow 0
-
   registrations <- viewNewRegistrations
 
-  let me = GamePropertiesPanel { myUi = ui
-                               , myRegistrations = registrations
-                               , myWidget = toWidget box
-                               , myBlackName = blackNameEntry
-                               , myBlackRank = blackRankEntry
-                               , myBlackTeam = blackTeamEntry
-                               , myWhiteName = whiteNameEntry
-                               , myWhiteRank = whiteRankEntry
-                               , myWhiteTeam = whiteTeamEntry
-                               , myComment = comment
-                               , myCommentLatch = commentLatch
-                               }
+  let me = GamePropertiesPanel {
+        myUi = ui
+        , myRegistrations = registrations
+        , myWidget = toWidget box
+        , myBlackName = blackNameEntry
+        , myBlackRank = blackRankEntry
+        , myBlackTeam = blackTeamEntry
+        , myWhiteName = whiteNameEntry
+        , myWhiteRank = whiteRankEntry
+        , myWhiteTeam = whiteTeamEntry
+        }
 
   initialize me
   return me
@@ -173,16 +140,7 @@ initialize me = do
   viewRegister me gameInfoChangedEvent $ \_ newInfo ->
     afterGo $ updateUiGameInfo me newInfo
 
-  -- Watch for node changes.
-  let onNodeChange = do cursor <- getCursor
-                        afterGo $ updateUiNodeInfo me cursor
-  viewRegister me navigationEvent $ const onNodeChange
-  viewRegister me propertiesModifiedEvent $ const $ const onNodeChange
-
   updateUi me =<< readCursor ui
-
-  commentBuffer <- textViewGetBuffer $ myComment me
-  on commentBuffer bufferChanged $ handleCommentBufferChanged me commentBuffer
 
   connectEntryToGameInfo ui myBlackName $ \x info -> info { gameInfoBlackName = strToMaybe x }
   connectEntryToGameInfo ui myBlackRank $ \x info -> info { gameInfoBlackRank = strToMaybe x }
@@ -199,18 +157,8 @@ initialize me = do
 destroy :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
 destroy = viewUnregisterAll
 
-handleCommentBufferChanged :: UiCtrl ui => GamePropertiesPanel ui -> TextBuffer -> IO ()
-handleCommentBufferChanged me commentBuffer =
-  -- Don't push the new comment value back to the model if we're already
-  -- updating the view from the model.
-  whenLatchOff (myCommentLatch me) $ do
-    newComment <- get commentBuffer textBufferText
-    runUiGo (myUi me) $ modifyPropertyString propertyC $ const newComment
-
 updateUi :: UiCtrl ui => GamePropertiesPanel ui -> Cursor -> IO ()
-updateUi me cursor = do
-  updateUiGameInfo me $ boardGameInfo $ cursorBoard cursor
-  updateUiNodeInfo me cursor
+updateUi me cursor = updateUiGameInfo me $ boardGameInfo $ cursorBoard cursor
 
 updateUiGameInfo :: GamePropertiesPanel ui -> GameInfo -> IO ()
 updateUiGameInfo me info =
@@ -221,15 +169,3 @@ updateUiGameInfo me info =
          (gameInfoWhiteRank, myWhiteRank),
          (gameInfoWhiteTeamName, myWhiteTeam)] $ \(getter, entry) ->
     entrySetText (entry me) $ fromMaybe "" $ getter info
-
-updateUiNodeInfo :: UiCtrl ui => GamePropertiesPanel ui -> Cursor -> IO ()
-updateUiNodeInfo me cursor = do
-  let newText = maybe "" fromText $ findPropertyValue propertyC $ cursorNode cursor
-  buf <- textViewGetBuffer $ myComment me
-  oldText <- get buf textBufferText
-  when (oldText /= newText) $ do
-    withLatchOn (myCommentLatch me) $ textBufferSetText buf newText
-    -- It's not necessary to call this handler, but we do for consistency, since
-    -- all other widgets currently behave this way (write back and forth until
-    -- synchronized).
-    handleCommentBufferChanged me buf
