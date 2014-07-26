@@ -18,10 +18,29 @@
 -- | General GTK utilities that don't exist in the Gtk2Hs.
 module Game.Goatee.Ui.Gtk.Utils (
   onEntryChange,
+  spinButtonGetValueAsRational,
+  textViewConfigure
   ) where
 
-import Control.Monad (void)
-import Graphics.UI.Gtk (EditableClass, EntryClass, editableChanged, entryGetText, on)
+import Control.Applicative ((<$>))
+import Control.Monad (void, when)
+import Game.Goatee.Ui.Gtk.Latch
+import Graphics.UI.Gtk (
+  AttrOp ((:=)),
+  EditableClass,
+  EntryClass,
+  SpinButtonClass,
+  TextViewClass,
+  bufferChanged,
+  editableChanged,
+  entryGetText,
+  get,
+  on,
+  set,
+  spinButtonGetDigits, spinButtonGetValue,
+  textBufferText,
+  textViewBuffer,
+  )
 
 -- | Registers a handler to be called when the value contained in the entry's
 -- buffer changes.  The handler is called with the new value.
@@ -32,3 +51,38 @@ onEntryChange :: (EditableClass self, EntryClass self)
 onEntryChange entry handler =
   void $ on entry editableChanged runHandler
   where runHandler = entryGetText entry >>= handler
+
+-- | Retrieves the current value of a spin button as a rational that's rounded
+-- to the number of digits the spin button is configured for.
+spinButtonGetValueAsRational :: SpinButtonClass self => self -> IO Rational
+spinButtonGetValueAsRational spin = do
+  powerOfTen <- (10 ^) <$> spinButtonGetDigits spin :: IO Rational
+  (/ powerOfTen) . toRational . round . (* fromRational powerOfTen) <$>
+    spinButtonGetValue spin
+
+-- | Configures event handlers on a 'TextView'.
+textViewConfigure :: TextViewClass self => self -> (String -> IO ()) -> IO (String -> IO ())
+textViewConfigure textView onViewChange = do
+  -- When a 'TextBuffer' is programatically assigned to, two change events are
+  -- fired, one to delete the old text and one to insert the new text.  For text
+  -- views connected to models, we don't want to handle the intermediate value
+  -- by writing it back to the model because this triggers dirtyness (for
+  -- example, when moving between two adjacent game nodes with different
+  -- comments, firing the change handler with an empty comment will change the
+  -- node and make the UI dirty).  So for convenience, we hold a latch on while
+  -- we are doing a model-to-view update in order to prevent the handler from
+  -- firing while we're doing the assignment, then manually fire the handler
+  -- afterward.  This avoids the double-assignment problem.
+  buffer <- get textView textViewBuffer
+  latch <- newLatch
+  on buffer bufferChanged $ whenLatchOff latch $ do
+    newValue <- get buffer textBufferText
+    onViewChange newValue
+  let setValue value = do
+        oldValue <- get buffer textBufferText
+        when (value /= oldValue) $ do
+          withLatchOn latch $ set buffer [textBufferText := value]
+          -- Like other model-view widgets, we keep firing handlers in the view
+          -- and model, writing back and forth until synchronized.
+          onViewChange value
+  return setValue

@@ -25,6 +25,7 @@ module Game.Goatee.Sgf.Property.Parser (
   coordPairListParser,
   doubleParser,
   gameResultParser,
+  parseGameResult,
   labelListParser,
   moveParser,
   noneParser,
@@ -150,15 +151,18 @@ doubleParser =
   "double"
 
 gameResultParser :: Parser GameResult
-gameResultParser = single (parseGameResult <$> simpleText False) <?> "game result"
-  where parseGameResult text = case fromSimpleText text of
-          "0" -> GameResultDraw
-          "Draw" -> GameResultDraw
-          "Void" -> GameResultVoid
-          "?" -> GameResultUnknown
-          rawText -> case parse gameResultWin "<game result win>" rawText of
-            Left _ -> GameResultOther text
-            Right win -> win
+gameResultParser =
+  single (parseGameResult <$> simpleText False) <?> "game result"
+
+parseGameResult :: SimpleText -> GameResult
+parseGameResult text = case fromSimpleText text of
+  "0" -> GameResultDraw
+  "Draw" -> GameResultDraw
+  "Void" -> GameResultVoid
+  "?" -> GameResultUnknown
+  rawText -> case parse gameResultWin "<game result win>" rawText of
+    Left _ -> GameResultOther $ text
+    Right win -> win
 
 gameResultWin :: Parser GameResult
 gameResultWin = GameResultWin <$> color <* char '+' <*> winReason <* eof

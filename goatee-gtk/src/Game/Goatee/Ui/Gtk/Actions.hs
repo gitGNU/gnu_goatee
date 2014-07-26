@@ -43,6 +43,7 @@ import Control.Applicative ((<$>))
 import Control.Monad (unless, void, when)
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Ui.Gtk.Common
+import Game.Goatee.Ui.Gtk.Utils
 import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Monad hiding (on)
 import Game.Goatee.Sgf.Property
@@ -70,7 +71,7 @@ import Graphics.UI.Gtk (
   on,
   radioActionChanged, radioActionCurrentValue, radioActionNew, radioActionSetGroup,
   set,
-  spinButtonGetValue, spinButtonGetValueAsInt, spinButtonNewWithRange, spinButtonSetDigits,
+  spinButtonGetValueAsInt, spinButtonNewWithRange, spinButtonSetDigits,
   spinButtonSetNumeric, spinButtonSetUpdatePolicy, spinButtonSetValue, spinButtonSetWrap,
   stockCancel,
   tableAttachDefaults, tableNew,
@@ -191,7 +192,7 @@ create ui = do
     width <- spinButtonGetValueAsInt widthSpin
     height <- spinButtonGetValueAsInt heightSpin
     handicap <- spinButtonGetValueAsInt handicapSpin
-    komi <- (/ 10) . toRational . round . (* 10) <$> spinButtonGetValue komiSpin
+    komi <- spinButtonGetValueAsRational komiSpin
     widgetDestroy dialog
     when (response == ResponseOk) $ do
       ui' <- openNewBoard (Just ui) (Just (width, height))

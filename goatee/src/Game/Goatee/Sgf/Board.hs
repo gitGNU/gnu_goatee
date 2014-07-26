@@ -135,7 +135,7 @@ gameInfoToProperties info = execWriter $ do
   copy RE gameInfoResult
 
   copy (GN . toSimpleText) gameInfoGameName
-  copy (GC . toSimpleText) gameInfoGameComment
+  copy (GC . toText) gameInfoGameComment
   copy (ON . toSimpleText) gameInfoOpeningComment
 
   copy (EV . toSimpleText) gameInfoEvent
@@ -409,7 +409,7 @@ applyProperty (EV str) board =
   updateBoardInfo (\info -> info { gameInfoEvent = Just $ fromSimpleText str })
                   board
 applyProperty (GC str) board =
-  updateBoardInfo (\info -> info { gameInfoGameComment = Just $ fromSimpleText str })
+  updateBoardInfo (\info -> info { gameInfoGameComment = Just $ fromText str })
                   board
 applyProperty (GN str) board =
   updateBoardInfo (\info -> info { gameInfoGameName = Just $ fromSimpleText str })

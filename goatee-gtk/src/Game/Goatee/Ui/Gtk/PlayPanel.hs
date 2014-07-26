@@ -22,7 +22,6 @@ module Game.Goatee.Ui.Gtk.PlayPanel (
   myWidget,
   ) where
 
-import Control.Monad (when)
 import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Monad hiding (on)
 import Game.Goatee.Sgf.Property
@@ -31,26 +30,20 @@ import Game.Goatee.Sgf.Types
 import qualified Game.Goatee.Ui.Gtk.Actions as Actions
 import Game.Goatee.Ui.Gtk.Actions (Actions)
 import Game.Goatee.Ui.Gtk.Common
-import Game.Goatee.Ui.Gtk.Latch
+import Game.Goatee.Ui.Gtk.Utils
 import Graphics.UI.Gtk (
-  AttrOp ((:=)),
   Packing (PackGrow, PackNatural),
   PolicyType (PolicyAutomatic),
-  TextBuffer,
   TextView,
   Widget,
   WrapMode (WrapWord),
   actionActivate,
   boxPackStart,
-  bufferChanged,
   buttonActivated, buttonNewWithLabel,
   containerAdd,
-  get,
   on,
   scrolledWindowNew, scrolledWindowSetPolicy,
-  set,
-  textBufferText,
-  textViewGetBuffer, textViewNew, textViewSetWrapMode,
+  textViewNew, textViewSetWrapMode,
   toWidget,
   vBoxNew,
   )
@@ -60,12 +53,7 @@ data PlayPanel ui = PlayPanel {
   , myRegistrations :: ViewRegistrations
   , myWidget :: Widget
   , myComment :: TextView
-  , myCommentLatch :: Latch
-    -- ^ When a 'TextBuffer' is programatically assigned to, two change events
-    -- are fired, one to delete the old text and one to insert the new text.  We
-    -- don't want to handle the intermediate value by writing it back to the
-    -- model because this triggers dirtyness.  So we hold this latch on while we
-    -- are doing a model-to-view update in order to avoid this problem.
+  , myCommentSetter :: String -> IO ()
   }
 
 instance UiCtrl ui => UiView (PlayPanel ui) ui where
@@ -82,12 +70,14 @@ create ui actions = do
   on passButton buttonActivated $ actionActivate $ Actions.myGamePassAction actions
 
   comment <- textViewNew
-  commentLatch <- newLatch
   textViewSetWrapMode comment WrapWord
   commentScroll <- scrolledWindowNew Nothing Nothing
   scrolledWindowSetPolicy commentScroll PolicyAutomatic PolicyAutomatic
   containerAdd commentScroll comment
   boxPackStart box commentScroll PackGrow 0
+
+  commentSetter <- textViewConfigure comment $ \value ->
+    runUiGo ui $ modifyPropertyString propertyC $ const value
 
   registrations <- viewNewRegistrations
 
@@ -96,7 +86,7 @@ create ui actions = do
         , myRegistrations = registrations
         , myWidget = toWidget box
         , myComment = comment
-        , myCommentLatch = commentLatch
+        , myCommentSetter = commentSetter
         }
 
   initialize me
@@ -114,29 +104,9 @@ initialize me = do
 
   updateFromCursor me =<< readCursor ui
 
-  commentBuffer <- textViewGetBuffer $ myComment me
-  on commentBuffer bufferChanged $ handleCommentBufferChanged me commentBuffer
-  return ()
-
 destroy :: UiCtrl ui => PlayPanel ui -> IO ()
 destroy = viewUnregisterAll
 
 updateFromCursor :: UiCtrl ui => PlayPanel ui -> Cursor -> IO ()
-updateFromCursor me cursor = do
-  let newText = maybe "" fromText $ findPropertyValue propertyC $ cursorNode cursor
-  buffer <- textViewGetBuffer $ myComment me
-  oldText <- get buffer textBufferText
-  when (oldText /= newText) $ do
-    withLatchOn (myCommentLatch me) $ set buffer [textBufferText := newText]
-    -- It's not necessary to call this handler, but we do for consistency, since
-    -- all other widgets currently behave this way (write back and forth until
-    -- synchronized).
-    handleCommentBufferChanged me buffer
-
-handleCommentBufferChanged :: UiCtrl ui => PlayPanel ui -> TextBuffer -> IO ()
-handleCommentBufferChanged me buffer =
-  -- Don't push the new comment value back to the model if we're already
-  -- updating the view from the model.
-  whenLatchOff (myCommentLatch me) $ do
-    newComment <- get buffer textBufferText
-    runUiGo (myUi me) $ modifyPropertyString propertyC $ const newComment
+updateFromCursor me cursor =
+  myCommentSetter me $ maybe "" fromText $ findPropertyValue propertyC $ cursorNode cursor

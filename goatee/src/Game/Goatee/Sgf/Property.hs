@@ -19,9 +19,13 @@
 module Game.Goatee.Sgf.Property (
   module Game.Goatee.Sgf.Property.Base,
   module Game.Goatee.Sgf.Property.Info,
+  module Game.Goatee.Sgf.Property.Parser,
+  module Game.Goatee.Sgf.Property.Renderer,
   PropertyValueType, pvtParser, pvtRenderer, pvtRendererPretty,
   ) where
 
 import Game.Goatee.Sgf.Property.Base
 import Game.Goatee.Sgf.Property.Info
+import Game.Goatee.Sgf.Property.Parser
+import Game.Goatee.Sgf.Property.Renderer
 import Game.Goatee.Sgf.Property.Value

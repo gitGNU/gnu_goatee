@@ -54,7 +54,7 @@ propertyMetadataTests = testGroup "property metadata" [
         rootProperties = [-- Root properties.
                           AP st st, CA st, FF 1, GM 1, ST vm, SZ 1 1]
         gameInfoProperties = [-- Game info properties.
-                              AN st, BR st, BT st, CP st, DT st, EV st, GC st, GN st, ON st, OT st,
+                              AN st, BR st, BT st, CP st, DT st, EV st, GC tx, GN st, ON st, OT st,
                               PB st, PC st, PW st, RE GameResultVoid, RO st, RU ru,
                               SO st, TM rv, US st, WR st, WT st]
         allProperties = moveProperties ++ setupProperties ++ generalProperties ++
