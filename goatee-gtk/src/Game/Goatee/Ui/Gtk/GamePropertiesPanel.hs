@@ -51,7 +51,7 @@ import Graphics.UI.Gtk (
   entryNew, entrySetText, entryWidthChars,
   hBoxNew,
   hSeparatorNew,
-  labelNew, labelNewWithMnemonic, labelSetMnemonicWidget, labelSetText,
+  labelNew, labelSetMnemonicWidget, labelSetText,
   onValueSpinned,
   scrolledWindowAddWithViewport, scrolledWindowNew, scrolledWindowSetPolicy,
   set,
@@ -134,7 +134,7 @@ create ui = do
         tableSetRowSpacing table row 6
       addWidget labelText widget = do
         row <- nextRow
-        label <- labelNewWithMnemonic labelText
+        label <- labelNew $ Just labelText
         labelSetMnemonicWidget label widget
         tableAttach table label 0 1 row (row + 1)
                     [Fill] [] 0 0
@@ -152,13 +152,13 @@ create ui = do
         set entry [entryWidthChars := 0]
         return entry
 
-  blackNameEntry <- addWidget "_Black" =<< tableEntryNew
-  blackRankEntry <- addWidget "_Rank" =<< tableEntryNew
-  blackTeamEntry <- addWidget "T_eam" =<< tableEntryNew
+  blackNameEntry <- addWidget "Black" =<< tableEntryNew
+  blackRankEntry <- addWidget "Rank" =<< tableEntryNew
+  blackTeamEntry <- addWidget "Team" =<< tableEntryNew
   addSeparator
-  whiteNameEntry <- addWidget "_White" =<< tableEntryNew
-  whiteRankEntry <- addWidget "Ran_k" =<< tableEntryNew
-  whiteTeamEntry <- addWidget "Te_am" =<< tableEntryNew
+  whiteNameEntry <- addWidget "White" =<< tableEntryNew
+  whiteRankEntry <- addWidget "Rank" =<< tableEntryNew
+  whiteTeamEntry <- addWidget "Team" =<< tableEntryNew
   addSeparator
   rulesetEntry <- addWidget "Ruleset" =<< tableEntryNew
 
