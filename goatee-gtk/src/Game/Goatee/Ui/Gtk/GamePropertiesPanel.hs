@@ -117,7 +117,7 @@ create ui = do
   scroll <- scrolledWindowNew Nothing Nothing
   box <- vBoxNew False 0
   table <- tableNew rows cols False
-  scrolledWindowSetPolicy scroll PolicyAutomatic PolicyAutomatic
+  scrolledWindowSetPolicy scroll PolicyNever PolicyAutomatic
   scrolledWindowAddWithViewport scroll box
   boxPackStart box table PackNatural 0
 
@@ -189,9 +189,10 @@ create ui = do
   addWideWidget =<< labelNew (Just "Game comment:")
 
   gameCommentScroll <- scrolledWindowNew Nothing Nothing
-  scrolledWindowSetPolicy scroll PolicyAutomatic PolicyNever
+  scrolledWindowSetPolicy scroll PolicyAutomatic PolicyAutomatic
   gameCommentTextView <- textViewNew
-  --boxPackStart box gameCommentTextView PackNatural 0
+  -- Set a minimum height on the text view, otherwise it's too short.
+  widgetSetSizeRequest gameCommentTextView 0 175
   containerAdd gameCommentScroll gameCommentTextView
   boxPackStart box gameCommentScroll PackNatural 0
 
