@@ -69,6 +69,7 @@ import Control.Monad.Error (throwError)
 import Control.Monad.Writer (tell)
 import Data.Char (chr, ord)
 import Data.List (intersperse)
+import qualified Game.Goatee.Common.Bigfloat as BF
 import Game.Goatee.Sgf.Renderer
 import Game.Goatee.Sgf.Types
 
@@ -218,7 +219,7 @@ renderGameResultPretty' result = case result of
   GameResultWin color reason ->
     (case color of { Black -> 'B'; White -> 'W' }) : '+' :
     (case reason of
-        WinByScore diff -> show $ fromRational diff
+        WinByScore diff -> show diff
         WinByResignation -> "Resign"
         WinByTime -> "Time"
         WinByForfeit -> "Forfeit")
@@ -266,10 +267,11 @@ renderNonePretty :: () -> Render ()
 renderNonePretty = rendererOf "none pretty" $ tell . const ""
 
 renderRealBracketed :: RealValue -> Render ()
-renderRealBracketed = fmap bracketed $ rendererOf "real" $ renderShowable . fromRational
+renderRealBracketed =
+  fmap bracketed $ rendererOf "real" (renderShowable :: BF.Bigfloat -> Render ())
 
 renderRealPretty :: RealValue -> Render ()
-renderRealPretty = rendererOf "real pretty" renderShowable . fromRational
+renderRealPretty = rendererOf "real pretty" (renderShowable :: BF.Bigfloat -> Render ())
 
 renderRulesetBracketed :: Ruleset -> Render ()
 renderRulesetBracketed = fmap bracketed $ rendererOf "ruleset" $ tell . fromRuleset

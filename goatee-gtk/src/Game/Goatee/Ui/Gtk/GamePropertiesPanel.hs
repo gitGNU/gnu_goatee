@@ -24,10 +24,12 @@ module Game.Goatee.Ui.Gtk.GamePropertiesPanel (
   myWidget,
   ) where
 
+import Control.Arrow (first)
 import Control.Applicative ((<$>))
 import Control.Monad (forM_, void, when)
 import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Maybe (fromMaybe)
+import qualified Game.Goatee.Common.Bigfloat as BF
 import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Monad hiding (on)
 import Game.Goatee.Sgf.Property
@@ -264,7 +266,7 @@ initialize me = do
 
   connectEntry myRulesetEntry $ \x info -> info { gameInfoRuleset = toRuleset <$> strToMaybe x }
   connect (onValueSpinned $ myMainTimeSpin me)
-          (spinButtonGetValueAsRational $ myMainTimeSpin me) $ \x info ->
+          (spinButtonGetValueAsBigfloat $ myMainTimeSpin me) $ \x info ->
     info { gameInfoBasicTimeSeconds = if x == 0 then Nothing else Just x }
   connectEntry myOvertimeEntry $ \x info -> info { gameInfoOvertime = strToMaybe x }
   -- TODO Game result display checkbox.
@@ -337,26 +339,34 @@ updateUiGameInfo me info = do
         ] $ \(getter, entry) ->
     entrySetText (entry me) $ fromMaybe "" $ getter info
 
-  spinButtonSetValue (myMainTimeSpin me) $ maybe 0 fromRational $
+  spinButtonSetValue (myMainTimeSpin me) $ maybe 0 BF.toDouble $
     gameInfoBasicTimeSeconds info
   labelSetText (myMainTimeLabel me) $ maybe "" renderSeconds $
     gameInfoBasicTimeSeconds info
 
   myGameCommentTextViewSetter me $ fromMaybe "" $ gameInfoGameComment info
 
-renderSeconds :: Rational -> String
-renderSeconds totalSeconds =
-  let isNegative = totalSeconds < 0
-      totalSeconds' = abs totalSeconds
-      wholeSeconds = truncate totalSeconds' :: Integer
-      fractionalSeconds = totalSeconds' - fromIntegral wholeSeconds
+renderSeconds :: BF.Bigfloat -> String
+renderSeconds totalSecondsFloat =
+  let isNegative = totalSecondsFloat < 0
+      (wholeSeconds, fractionalSecondsStr) = first abs $ splitFloat totalSecondsFloat
       (totalMinutes, seconds) = wholeSeconds `divMod` 60
       (hours, minutes) = totalMinutes `divMod` 60
   in (if isNegative then ('-':) else id) $
      (if hours > 0
       then show hours ++ ':' : show2 minutes ++ ':' : show2 seconds
       else show minutes ++ ':' : show2 seconds) ++
-     (if fractionalSeconds > 0
-      then '.' : tail (dropWhile (/= '.') $ show $ fromRational fractionalSeconds)
-      else [])
+     fractionalSecondsStr
   where show2 n = if n < 10 then '0' : show n else show n
+
+-- | Returns a pair containing the signed whole part of a 'BF.Bigfloat', plus a
+-- string containing a decimal place and everything after it, if the float has a
+-- fractional part, otherwise an empty string.
+splitFloat :: BF.Bigfloat -> (Integer, String)
+splitFloat x =
+  let xs = show x
+      (addNeg, xs') = case xs of
+        '-':xs' -> (('-':), xs')
+        _ -> (id, xs)
+      (hd, tl) = break (== '.') xs'
+  in (read $ addNeg hd, tl)

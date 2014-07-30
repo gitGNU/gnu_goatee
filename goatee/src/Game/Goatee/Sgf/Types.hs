@@ -28,11 +28,13 @@ module Game.Goatee.Sgf.Types (
   isStarPoint,
   handicapStones,
   -- * Property values
-  RealValue,
+  -- ** Text values
   Stringlike (..),
   Text, fromText, toText,
   SimpleText, fromSimpleText, toSimpleText,
+  -- ** Other values
   UnknownPropertyValue, fromUnknownPropertyValue, toUnknownPropertyValue,
+  RealValue,
   DoubleValue (..),
   Color (..), cnot,
   VariationMode (..), VariationModeSource (..), defaultVariationMode,
@@ -49,6 +51,7 @@ import Data.Function (on)
 import Data.List (delete, groupBy, partition, sort)
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Common
+import qualified Game.Goatee.Common.Bigfloat as BF
 
 -- | The FF versions supported by Goatee.  Currently only 4.
 supportedFormatVersions :: [Int]
@@ -261,9 +264,6 @@ handicapStones width height handicap =
   else do positions <- starLines width height
           return $ map (mapTuple (positions !!)) (handicapStoneIndices !! handicap)
 
--- | An SGF real value.
-type RealValue = Rational
-
 -- | A class for SGF data types that are coercable to and from strings.
 --
 -- The construction of an SGF value with 'stringToSgf' may process the input,
@@ -329,6 +329,9 @@ instance Stringlike UnknownPropertyValue where
 -- | Constructs a value for a 'UnknownProperty'.
 toUnknownPropertyValue :: String -> UnknownPropertyValue
 toUnknownPropertyValue = UnknownPropertyValue
+
+-- | An SGF real value is a decimal number of unspecified precision.
+type RealValue = BF.Bigfloat
 
 -- | An SGF double value: either 1 or 2, nothing else.
 data DoubleValue = Double1

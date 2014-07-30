@@ -61,7 +61,7 @@ data GameInfo = GameInfo { gameInfoRootInfo :: RootInfo
                          , gameInfoWhiteRank :: Maybe String
 
                          , gameInfoRuleset :: Maybe Ruleset
-                         , gameInfoBasicTimeSeconds :: Maybe Rational
+                         , gameInfoBasicTimeSeconds :: Maybe RealValue
                          , gameInfoOvertime :: Maybe String
                          , gameInfoResult :: Maybe GameResult
 

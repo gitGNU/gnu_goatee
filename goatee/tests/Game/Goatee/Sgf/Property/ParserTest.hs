@@ -23,7 +23,6 @@ import Data.Maybe (catMaybes)
 import Game.Goatee.Common
 import Game.Goatee.Sgf.ParserTestUtils
 import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Property.Parser
 import Game.Goatee.Sgf.TestInstances ()
 import Game.Goatee.Sgf.TestUtils
 import Game.Goatee.Sgf.Types
@@ -75,9 +74,9 @@ parserGameResultTests = testGroup "gameResultParser" [
     assertParse gameResultParser "[?]" (@?= GameResultUnknown),
 
   testCase "Black wins by points" $ do
-    assertParse gameResultParser "[B+0.5]" (@?= GameResultWin Black (WinByScore 0.5))
-    assertParse gameResultParser "[B+11]" (@?= GameResultWin Black (WinByScore 11))
-    assertParse gameResultParser "[B+354.5]" (@?= GameResultWin Black (WinByScore 354.5)),
+    assertParse gameResultParser "[B+0.5]" (@?= GameResultWin Black (WinByScore $ read "0.5"))
+    assertParse gameResultParser "[B+11]" (@?= GameResultWin Black (WinByScore $ read "11"))
+    assertParse gameResultParser "[B+354.5]" (@?= GameResultWin Black (WinByScore $ read "354.5")),
 
   testCase "Black wins by resignation" $ do
     assertParse gameResultParser "[B+R]" (@?= GameResultWin Black WinByResignation)
@@ -92,9 +91,9 @@ parserGameResultTests = testGroup "gameResultParser" [
     assertParse gameResultParser "[B+Forfeit]" (@?= GameResultWin Black WinByForfeit),
 
   testCase "White wins by points" $ do
-    assertParse gameResultParser "[W+0.5]" (@?= GameResultWin White (WinByScore 0.5))
-    assertParse gameResultParser "[W+11]" (@?= GameResultWin White (WinByScore 11))
-    assertParse gameResultParser "[W+354.5]" (@?= GameResultWin White (WinByScore 354.5)),
+    assertParse gameResultParser "[W+0.5]" (@?= GameResultWin White (WinByScore $ read "0.5"))
+    assertParse gameResultParser "[W+11]" (@?= GameResultWin White (WinByScore $ read "11"))
+    assertParse gameResultParser "[W+354.5]" (@?= GameResultWin White (WinByScore $ read "354.5")),
 
   testCase "White wins by resignation" $ do
     assertParse gameResultParser "[W+R]" (@?= GameResultWin White WinByResignation)
@@ -128,16 +127,16 @@ parserRealTests = testGroup "realParser" $ integerTestsFor realParser ++ [
   testCase "parses a decimal zero" $ assertParse realParser "[0.0]" (@?= 0),
 
   testCase "parses fractional positive numbers" $ do
-    assertParse realParser "[0.5]" (@?= (1/2))
-    assertParse realParser "[0.00125]" (@?= (1/800))
-    assertParse realParser "[3.14]" (@?= (314/100))
-    assertParse realParser "[10.0]" (@?= 10),
+    assertParse realParser "[0.5]" (@?= read "0.5")
+    assertParse realParser "[00.001250]" (@?= read "0.00125")
+    assertParse realParser "[3.14]" (@?= read "3.14")
+    assertParse realParser "[10.0]" (@?= read "10"),
 
   testCase "parses fractional negative numbers" $ do
-    assertParse realParser "[-0.5]" (@?= (-1/2))
-    assertParse realParser "[-0.00125]" (@?= (-1/800))
-    assertParse realParser "[-3.14]" (@?= (-314/100))
-    assertParse realParser "[-10.0]" (@?= (-10))
+    assertParse realParser "[-0.5]" (@?= read "-0.5")
+    assertParse realParser "[-00.001250]" (@?= read "-0.00125")
+    assertParse realParser "[-3.14]" (@?= read "-3.14")
+    assertParse realParser "[-10.0]" (@?= read "-10")
   ]
 
 parserRulesetTests = testGroup "rulesetParser" [

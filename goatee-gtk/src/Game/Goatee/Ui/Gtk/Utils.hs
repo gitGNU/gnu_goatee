@@ -18,12 +18,13 @@
 -- | General GTK utilities that don't exist in the Gtk2Hs.
 module Game.Goatee.Ui.Gtk.Utils (
   onEntryChange,
-  spinButtonGetValueAsRational,
+  spinButtonGetValueAsBigfloat,
   textViewConfigure
   ) where
 
 import Control.Applicative ((<$>))
 import Control.Monad (void, when)
+import qualified Game.Goatee.Common.Bigfloat as BF
 import Game.Goatee.Ui.Gtk.Latch
 import Graphics.UI.Gtk (
   AttrOp ((:=)),
@@ -37,7 +38,7 @@ import Graphics.UI.Gtk (
   get,
   on,
   set,
-  spinButtonGetDigits, spinButtonGetValue,
+  spinButtonGetValue,
   textBufferText,
   textViewBuffer,
   )
@@ -52,13 +53,10 @@ onEntryChange entry handler =
   void $ on entry editableChanged runHandler
   where runHandler = entryGetText entry >>= handler
 
--- | Retrieves the current value of a spin button as a rational that's rounded
--- to the number of digits the spin button is configured for.
-spinButtonGetValueAsRational :: SpinButtonClass self => self -> IO Rational
-spinButtonGetValueAsRational spin = do
-  powerOfTen <- (10 ^) <$> spinButtonGetDigits spin :: IO Rational
-  (/ powerOfTen) . toRational . round . (* fromRational powerOfTen) <$>
-    spinButtonGetValue spin
+-- | Retrieves the current value of a spin button as a 'BF.Bigfloat' that's
+-- rounded to the number of digits the spin button is configured for.
+spinButtonGetValueAsBigfloat :: SpinButtonClass self => self -> IO BF.Bigfloat
+spinButtonGetValueAsBigfloat spin = BF.fromDouble <$> spinButtonGetValue spin
 
 -- | Configures event handlers on a 'TextView'.
 textViewConfigure :: TextViewClass self => self -> (String -> IO ()) -> IO (String -> IO ())

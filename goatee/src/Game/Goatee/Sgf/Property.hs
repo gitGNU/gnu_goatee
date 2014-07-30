@@ -17,15 +17,12 @@
 
 -- | Structures and functions for working with SGF node properties.
 module Game.Goatee.Sgf.Property (
-  module Game.Goatee.Sgf.Property.Base,
-  module Game.Goatee.Sgf.Property.Info,
-  module Game.Goatee.Sgf.Property.Parser,
-  module Game.Goatee.Sgf.Property.Renderer,
+  module Exported,
   PropertyValueType, pvtParser, pvtRenderer, pvtRendererPretty,
   ) where
 
-import Game.Goatee.Sgf.Property.Base
-import Game.Goatee.Sgf.Property.Info
-import Game.Goatee.Sgf.Property.Parser
-import Game.Goatee.Sgf.Property.Renderer
+import Game.Goatee.Sgf.Property.Base as Exported
+import Game.Goatee.Sgf.Property.Info as Exported
+import Game.Goatee.Sgf.Property.Parser as Exported
+import Game.Goatee.Sgf.Property.Renderer as Exported
 import Game.Goatee.Sgf.Property.Value

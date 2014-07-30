@@ -17,6 +17,7 @@
 
 module Main (main) where
 
+import qualified Game.Goatee.Common.BigfloatTest
 import qualified Game.Goatee.CommonTest
 import qualified Game.Goatee.Sgf.BoardTest
 import qualified Game.Goatee.Sgf.MonadTest
@@ -28,7 +29,8 @@ import qualified Game.Goatee.Sgf.TreeTest
 import qualified Game.Goatee.Sgf.TypesTest
 import Test.Framework (defaultMain)
 
-tests = [ Game.Goatee.CommonTest.tests
+tests = [ Game.Goatee.Common.BigfloatTest.tests
+        , Game.Goatee.CommonTest.tests
         , Game.Goatee.Sgf.BoardTest.tests
         , Game.Goatee.Sgf.MonadTest.tests
         , Game.Goatee.Sgf.ParserTest.tests

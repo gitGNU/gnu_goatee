@@ -192,11 +192,11 @@ create ui = do
     width <- spinButtonGetValueAsInt widthSpin
     height <- spinButtonGetValueAsInt heightSpin
     handicap <- spinButtonGetValueAsInt handicapSpin
-    komi <- spinButtonGetValueAsRational komiSpin
+    komi <- spinButtonGetValueAsBigfloat komiSpin
     widgetDestroy dialog
     when (response == ResponseOk) $ do
       ui' <- openNewBoard (Just ui) (Just (width, height))
-      when (komi /= 0) $ runUiGo ui' $ putProperty $ KM $ toRational komi
+      when (komi /= 0) $ runUiGo ui' $ putProperty $ KM komi
       when (handicap > 0) $ do
         -- If the board size + handicap configuration is known, then set up the
         -- board for the handicap, otherwise, leave the user to do it.
