@@ -19,21 +19,19 @@ module Game.Goatee.Ui.Gtk.LatchTest (tests) where
 
 import Data.IORef (modifyIORef, newIORef, readIORef)
 import Game.Goatee.Ui.Gtk.Latch
-import Test.Framework (testGroup)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@=?))
+import Test.HUnit ((~:), (@=?), Test (TestList))
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
-tests = testGroup "Game.Goatee.Ui.Gtk.Latch" [
-  testCase "a new latch is off" $ do
+tests = "Game.Goatee.Ui.Gtk.Latch" ~: TestList [
+  "a new latch is off" ~: do
      latch <- newLatch
      ref <- newIORef 0
      whenLatchOff latch $ modifyIORef ref (+ 1)
      whenLatchOn latch $ modifyIORef ref (+ 2)
      (1 @=?) =<< readIORef ref,
 
-  testCase "a latch can be held on" $ do
+  "a latch can be held on" ~: do
      latch <- newLatch
      ref <- newIORef 0
      withLatchOn latch $ do
@@ -41,7 +39,7 @@ tests = testGroup "Game.Goatee.Ui.Gtk.Latch" [
        whenLatchOn latch $ modifyIORef ref (+ 2)
      (2 @=?) =<< readIORef ref,
 
-  testCase "a new latch returns to being off after it is released" $ do
+  "a new latch returns to being off after it is released" ~: do
      latch <- newLatch
      ref <- newIORef 0
      withLatchOn latch $ do

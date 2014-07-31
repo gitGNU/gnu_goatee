@@ -25,11 +25,9 @@ import Game.Goatee.Sgf.Tree
 import Game.Goatee.Sgf.Types
 import Game.Goatee.Test.Common
 import Paths_goatee (version)
-import Test.Framework (testGroup)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@=?), (@?=))
+import Test.HUnit ((~:), (@=?), (@?=), Test (TestList))
 
-tests = testGroup "Game.Goatee.Sgf.Tree" [
+tests = "Game.Goatee.Sgf.Tree" ~: TestList [
   emptyNodeTests,
   rootNodeTests,
   findPropertyTests,
@@ -37,32 +35,32 @@ tests = testGroup "Game.Goatee.Sgf.Tree" [
   addChildTests
   ]
 
-emptyNodeTests = testGroup "emptyNode" [
-  testCase "has no properties" $ [] @=? nodeProperties emptyNode,
-  testCase "has no children" $ [] @=? nodeChildren emptyNode
+emptyNodeTests = "emptyNode" ~: TestList [
+  "has no properties" ~: [] @=? nodeProperties emptyNode,
+  "has no children" ~: [] @=? nodeChildren emptyNode
   ]
 
-rootNodeTests = testGroup "rootNode" [
-  testCase "sets SZ correctly" $ do
+rootNodeTests = "rootNode" ~: TestList [
+  "sets SZ correctly" ~: do
     assertElem (SZ 9 9) $ nodeProperties $ rootNode $ Just (9, 9)
     assertElem (SZ 19 19) $ nodeProperties $ rootNode $ Just (19, 19)
     assertElem (SZ 9 5) $ nodeProperties $ rootNode $ Just (9, 5),
 
-  testCase "sets AP correctly" $ do
+  "sets AP correctly" ~: do
     let ap = AP (toSimpleText applicationName)
                 (toSimpleText $ showVersion version)
     assertElem ap $ nodeProperties $ rootNode Nothing
     assertElem ap $ nodeProperties $ rootNode $ Just (9, 9)
   ]
 
-findPropertyTests = testGroup "findProperty" [
-  testCase "returns Nothing for an empty node" $
+findPropertyTests = "findProperty" ~: TestList [
+  "returns Nothing for an empty node" ~:
     Nothing @=? findProperty propertyB (mk []),
 
-  testCase "returns Nothing if no properties match" $
+  "returns Nothing if no properties match" ~:
     Nothing @=? findProperty propertyB (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9]),
 
-  testCase "finds present properties" $ do
+  "finds present properties" ~: do
      Just (B (Just (2,3))) @=?
        findProperty propertyB (mk [B (Just (2,3))])
      Just (W Nothing) @=?
@@ -72,14 +70,14 @@ findPropertyTests = testGroup "findProperty" [
      Just (GW Double2) @=?
        findProperty propertyGW (mk [IT, GW Double2]),
 
-  testCase "doesn't find absent properties" $ do
+  "doesn't find absent properties" ~: do
     Nothing @=? findProperty propertyW (mk [B Nothing])
     Nothing @=? findProperty propertyW (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9])
   ]
   where mk properties = emptyNode { nodeProperties = properties }
 
-addPropertyTests = testGroup "addProperty" [
-  testCase "adds properties in order" $ do
+addPropertyTests = "addProperty" ~: TestList [
+  "adds properties in order" ~: do
     let prop1 = B (Just (6,6))
         prop2 = RE GameResultVoid
         prop3 = C (toText "Game over.")
@@ -91,8 +89,8 @@ addPropertyTests = testGroup "addProperty" [
     node3 @?= emptyNode { nodeProperties = [prop1, prop2, prop3] }
   ]
 
-addChildTests = testGroup "addChild" [
-  testCase "adds children in order" $ do
+addChildTests = "addChild" ~: TestList [
+  "adds children in order" ~: do
     let node1 = emptyNode { nodeProperties = [B (Just (0,0))] }
         node2 = emptyNode { nodeProperties = [W (Just (1,1))] }
         node3 = emptyNode { nodeProperties = [B (Just (2,2))] }

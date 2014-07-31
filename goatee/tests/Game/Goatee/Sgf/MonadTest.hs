@@ -30,9 +30,7 @@ import Game.Goatee.Sgf.TestInstances ()
 import Game.Goatee.Sgf.TestUtils
 import Game.Goatee.Sgf.Types
 import Game.Goatee.Test.Common
-import Test.Framework (testGroup)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@=?), (@?=))
+import Test.HUnit ((~:), (@=?), (@?=), Test (TestList))
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
@@ -43,7 +41,7 @@ runLoggedGo go cursor =
   let ((value, cursor'), log) = runWriter $ runGoT go cursor
   in (value, cursor', log)
 
-tests = testGroup "Game.Goatee.Sgf.Monad" [
+tests = "Game.Goatee.Sgf.Monad" ~: TestList [
   monadTests,
   navigationTests,
   positionStackTests,
@@ -64,13 +62,13 @@ tests = testGroup "Game.Goatee.Sgf.Monad" [
   gameInfoChangedTests
   ]
 
-monadTests = testGroup "monad properties" [
-  testCase "returns a value it's given" $
+monadTests = "monad properties" ~: TestList [
+  "returns a value it's given" ~:
     let cursor = rootCursor $ node []
         (value, cursor') = runGo (return 3) cursor
     in (value, cursorNode cursor') @?= (3, cursorNode cursor),
 
-  testCase "getCursor works" $ do
+  "getCursor works" ~: do
     let cursor = rootCursor nodeA
         nodeA = node1 [SZ 3 3, B $ Just (0,0)] nodeB
         nodeB = node1 [W $ Just (1,1)] nodeC
@@ -79,7 +77,7 @@ monadTests = testGroup "monad properties" [
     nodeB @=? evalGo (goDown 0 >> liftM cursorNode getCursor) cursor
     nodeC @=? evalGo (goDown 0 >> goDown 0 >> liftM cursorNode getCursor) cursor,
 
-  testCase "getCoordState works" $ do
+  "getCoordState works" ~: do
     let cursor = child 0 $ child 0 $ rootCursor $
                  node1 [SZ 2 2, B $ Just (0,0)] $
                  node1 [W $ Just (1,0), TR $ coord1 (0,0)] $
@@ -90,8 +88,8 @@ monadTests = testGroup "monad properties" [
     map coordMark states @?= [Nothing, Just MarkCircle, Nothing, Nothing]
   ]
 
-navigationTests = testGroup "navigation" [
-  testCase "navigates down a tree" $
+navigationTests = "navigation" ~: TestList [
+  "navigates down a tree" ~:
     let cursor = rootCursor $
                  node1 [B $ Just (0,0)] $
                  node' [W $ Just (1,1)] [node [B $ Just (2,2)],
@@ -100,7 +98,7 @@ navigationTests = testGroup "navigation" [
         (_, cursor') = runGo action cursor
     in cursorProperties cursor' @?= [B Nothing],
 
-  testCase "navigates up a tree" $
+  "navigates up a tree" ~:
     let cursor = child 1 $ child 0 $ rootCursor $
                  node1 [B $ Just (0,0)] $
                  node' [W $ Just (1,1)] [node [B $ Just (2,2)],
@@ -109,7 +107,7 @@ navigationTests = testGroup "navigation" [
         (_, cursor') = runGo action cursor
     in cursorProperties cursor' @?= [B $ Just (0,0)],
 
-  testCase "invokes handlers when navigating" $
+  "invokes handlers when navigating" ~:
     let cursor = rootCursor $ node1 [B Nothing] $ node [W Nothing]
         action = do on navigationEvent $ \step -> case step of
                       GoUp index -> tell ["Up " ++ show index]
@@ -122,7 +120,7 @@ navigationTests = testGroup "navigation" [
         (_, _, log) = runLoggedGo action cursor
     in log @?= ["Down 0", "Up 0"],
 
-  testCase "navigates to the root of a tree, invoking handlers" $ do
+  "navigates to the root of a tree, invoking handlers" ~: do
     let cursor = child 0 $ child 0 $ rootCursor $
                  node1 [B $ Just (0,0)] $
                  node1 [W $ Just (1,1)] $
@@ -133,20 +131,20 @@ navigationTests = testGroup "navigation" [
     cursorProperties cursor' @?= [B $ Just (0,0)]
     log @?= ["GoUp 0", "GoUp 0"],
 
-  testGroup "goToGameInfoNode" [
-    testCase "can navigate up to find game info" $
+  "goToGameInfoNode" ~: TestList [
+    "can navigate up to find game info" ~:
       let props = [PB (toSimpleText ""), B Nothing]
           cursor = child 0 $ rootCursor $ node1 props $ node [W Nothing]
           action = void $ goToGameInfoNode False
       in cursorProperties (execGo action cursor) @?= props,
 
-    testCase "can find game info at the current node" $
+    "can find game info at the current node" ~:
       let props = [PB (toSimpleText ""), W Nothing]
           cursor = child 0 $ rootCursor $ node1 [B Nothing] $ node props
           action = void $ goToGameInfoNode False
       in cursorProperties (execGo action cursor) @?= props,
 
-    testCase "doesn't find game info from a subnode" $
+    "doesn't find game info from a subnode" ~:
       let cursor = child 0 $ rootCursor $
                    node1 [B $ Just (0,0)] $
                    node1 [W $ Just (1,1)] $
@@ -154,7 +152,7 @@ navigationTests = testGroup "navigation" [
           action = void $ goToGameInfoNode False
       in cursorProperties (execGo action cursor) @?= [W $ Just (1,1)],
 
-    testCase "can return to the initial node when no game info is found" $
+    "can return to the initial node when no game info is found" ~:
       let cursor = child 0 $ child 0 $ rootCursor $
                    node1 [B $ Just (0,0)] $
                    node1 [W $ Just (1,1)] $
@@ -162,7 +160,7 @@ navigationTests = testGroup "navigation" [
           action = void $ goToGameInfoNode False
       in cursorProperties (execGo action cursor) @?= [B $ Just (2,2)],
 
-    testCase "can finish at the root node when no game info is found" $
+    "can finish at the root node when no game info is found" ~:
       let cursor = child 0 $ child 0 $ rootCursor $
                    node1 [B $ Just (0,0)] $
                    node1 [W $ Just (1,1)] $
@@ -172,8 +170,8 @@ navigationTests = testGroup "navigation" [
     ]
   ]
 
-positionStackTests = testGroup "position stack" [
-  testCase "should push, pop, and drop with no navigation" $ do
+positionStackTests = "position stack" ~: TestList [
+  "should push, pop, and drop with no navigation" ~: do
     let cursor = rootCursor $ node []
         actions = [pushPosition >> popPosition,
                    pushPosition >> pushPosition >> popPosition >> popPosition,
@@ -182,7 +180,7 @@ positionStackTests = testGroup "position stack" [
                    pushPosition >> pushPosition >> popPosition >> dropPosition]
     forM_ actions $ \action -> cursorProperties (execGo action cursor) @?= [],
 
-  testCase "should backtrack up and down the tree" $ do
+  "should backtrack up and down the tree" ~: do
     let cursor = child 0 $ child 1 $ rootCursor $
                  node' [B $ Just (0,0)]
                        [node1 [W $ Just (1,1)] $ node [B $ Just (2,2)],
@@ -191,7 +189,7 @@ positionStackTests = testGroup "position stack" [
     cursorProperties (execGo (action >> popPosition) cursor) @?= [B Nothing]
     cursorProperties (execGo (action >> dropPosition) cursor) @?= [B $ Just (2,2)],
 
-  testCase "should pop multiple stacks" $ do
+  "should pop multiple stacks" ~: do
     let cursor = child 0 $ child 0 commonCursor
         action = do navigate
                     log >> popPosition
@@ -200,7 +198,7 @@ positionStackTests = testGroup "position stack" [
     execWriter (runGoT action cursor) @?=
       ["B (2,2)", "B (3,3)", "B (5,5)", "B (3,3)", "B (2,2)"],
 
-  testCase "should drop then pop" $ do
+  "should drop then pop" ~: do
     let cursor = child 0 $ child 0 commonCursor
         action = do navigate
                     log >> dropPosition
@@ -209,7 +207,7 @@ positionStackTests = testGroup "position stack" [
     execWriter (runGoT action cursor) @?=
       ["B (2,2)", "B (3,3)", "B (5,5)", "B (5,5)", "B (2,2)"],
 
-  testCase "should drop twice" $ do
+  "should drop twice" ~: do
     let cursor = child 0 $ child 0 commonCursor
         action = do navigate
                     log >> dropPosition
@@ -218,7 +216,7 @@ positionStackTests = testGroup "position stack" [
     execWriter (runGoT action cursor) @?=
       ["B (2,2)", "B (3,3)", "B (5,5)", "B (5,5)", "B (5,5)"],
 
-  testCase "should fire navigation handlers while popping" $ do
+  "should fire navigation handlers while popping" ~: do
     let cursor = rootCursor $ node1 [B Nothing] $ node [W Nothing]
         action = do pushPosition
                     goDown 0
@@ -242,32 +240,32 @@ positionStackTests = testGroup "position stack" [
                       log >> pushPosition
                       goUp >> goUp >> goDown 1 >> goDown 0
 
-propertiesTests = testGroup "properties" [
-  testGroup "getProperties" [
-    testCase "returns an empty list" $
+propertiesTests = "properties" ~: TestList [
+  "getProperties" ~: TestList [
+    "returns an empty list" ~:
       let cursor = rootCursor $ node []
       in evalGo getProperties cursor @?= [],
 
-    testCase "returns a non-empty list" $
+    "returns a non-empty list" ~:
       let properties = [PB $ toSimpleText "Foo", B Nothing]
           cursor = rootCursor $ node properties
       in evalGo getProperties cursor @?= properties
     ],
 
-  testGroup "modifyProperties" [
-    testCase "adds properties" $
+  "modifyProperties" ~: TestList [
+    "adds properties" ~:
       let cursor = rootCursor $ node [FF 1]
           action = do modifyProperties $ \props -> return $ props ++ [B Nothing, W Nothing]
                       getProperties
       in evalGo action cursor @?= [FF 1, B Nothing, W Nothing],
 
-    testCase "removes properties" $
+    "removes properties" ~:
       let cursor = rootCursor $ node [W Nothing, FF 1, B Nothing]
           action = do modifyProperties $ \props -> return $ filter (not . isMoveProperty) props
                       getProperties
       in evalGo action cursor @?= [FF 1],
 
-    testCase "fires a properties modified event" $
+    "fires a properties modified event" ~:
       let cursor = rootCursor $ node [FF 1]
           action = do on propertiesModifiedEvent $ \old new -> tell [(old, new)]
                       modifyProperties $ const $ return [FF 2]
@@ -280,23 +278,23 @@ propertiesTests = testGroup "properties" [
           W _ -> True
           _ -> False
 
-getPropertyTests = testGroup "getProperty" [
-  testCase "doesn't find an unset property" $ do
+getPropertyTests = "getProperty" ~: TestList [
+  "doesn't find an unset property" ~: do
     Nothing @=? evalGo (getProperty propertyW) (rootCursor $ node [])
     Nothing @=? evalGo (getProperty propertyW) (rootCursor $ node [B Nothing]),
 
-  testCase "finds a set property" $ do
+  "finds a set property" ~: do
     Just (B Nothing) @=? evalGo (getProperty propertyB) (rootCursor $ node [B Nothing])
     Just (B Nothing) @=? evalGo (getProperty propertyB) (rootCursor $ node [B Nothing, DO])
     Just DO @=? evalGo (getProperty propertyDO) (rootCursor $ node [B Nothing, DO])
   ]
 
-getPropertyValueTests = testGroup "getPropertyValue" [
-  testCase "doesn't find an unset property" $ do
+getPropertyValueTests = "getPropertyValue" ~: TestList [
+  "doesn't find an unset property" ~: do
     Nothing @=? evalGo (getPropertyValue propertyW) (rootCursor $ node [])
     Nothing @=? evalGo (getPropertyValue propertyW) (rootCursor $ node [B Nothing]),
 
-  testCase "finds a set property" $ do
+  "finds a set property" ~: do
     Just Nothing @=? evalGo (getPropertyValue propertyB) (rootCursor $ node [B Nothing])
     Just (Just (0,0)) @=?
       evalGo (getPropertyValue propertyB) (rootCursor $ node [B $ Just (0,0), TE Double1])
@@ -304,23 +302,23 @@ getPropertyValueTests = testGroup "getPropertyValue" [
       evalGo (getPropertyValue propertyTE) (rootCursor $ node [B $ Just (0,0), TE Double1])
   ]
 
-putPropertyTests = testGroup "putProperty" [
-  testCase "adds an unset property" $ do
+putPropertyTests = "putProperty" ~: TestList [
+  "adds an unset property" ~: do
     [IT] @=? cursorProperties (execGo (putProperty IT) $ rootCursor $ node [])
     [DO, IT] @=?
       sortProperties (cursorProperties (execGo (putProperty IT) $ rootCursor $ node [DO])),
 
-  testCase "replaces an existing property" $
+  "replaces an existing property" ~:
     [TE Double2] @=?
     cursorProperties (execGo (putProperty $ TE Double2) (rootCursor $ node [TE Double1]))
   ]
 
-deletePropertyTests = testGroup "deleteProperty" [
-  testCase "does nothing when the property isn't set" $ do
+deletePropertyTests = "deleteProperty" ~: TestList [
+  "does nothing when the property isn't set" ~: do
     [] @=? cursorProperties (execGo (deleteProperty DO) $ rootCursor $ node [])
     [B Nothing] @=? cursorProperties (execGo (deleteProperty DO) $ rootCursor $ node [B Nothing]),
 
-  testCase "removes a property" $ do
+  "removes a property" ~: do
     [] @=? cursorProperties (execGo (deleteProperty DO) $ rootCursor $ node [DO])
     -- This is documented behaviour for deleteProperty, the fact that it doesn't
     -- matter what the property value is:
@@ -328,25 +326,25 @@ deletePropertyTests = testGroup "deleteProperty" [
       (execGo (deleteProperty $ B $ Just (0,0)) $ rootCursor $ node [DO, B Nothing])
   ]
 
-modifyPropertyTests = testGroup "modifyProperty" [
-  testCase "adds a property to an empty node" $
+modifyPropertyTests = "modifyProperty" ~: TestList [
+  "adds a property to an empty node" ~:
     let cursor = rootCursor $ node []
         action = modifyProperty propertyIT (\Nothing -> Just IT)
     in cursorProperties (execGo action cursor) @?= [IT],
 
-  testCase "adds a property to a non-empty node" $
+  "adds a property to a non-empty node" ~:
     let cursor = rootCursor $ node [KO]
         action = modifyProperty propertyIT (\Nothing -> Just IT)
     in sortProperties (cursorProperties $ execGo action cursor) @?= [IT, KO],
 
-  testCase "removes a property" $ do
+  "removes a property" ~: do
     let cursor = rootCursor $ node [IT, KO]
         cursor' = execGo (modifyProperty propertyKO $ \(Just KO) -> Nothing) cursor
         cursor'' = execGo (modifyProperty propertyIT $ \(Just IT) -> Nothing) cursor'
     cursorProperties cursor' @?= [IT]
     cursorProperties cursor'' @?= [],
 
-  testCase "updates a property" $ do
+  "updates a property" ~: do
     let cursor = rootCursor $ node [B $ Just (0,0), BM Double2]
         action = modifyProperty propertyB $ \(Just (B (Just (0,0)))) -> Just $ B $ Just (1,1)
         cursor' = execGo action cursor
@@ -355,7 +353,7 @@ modifyPropertyTests = testGroup "modifyProperty" [
     sortProperties (cursorProperties cursor') @?= [B $ Just (1,1), BM Double2]
     sortProperties (cursorProperties cursor'') @?= [B $ Just (1,1), BM Double1],
 
-  testCase "fires an event when modifying a property" $ do
+  "fires an event when modifying a property" ~: do
     let cursor = rootCursor $ node [B $ Just (0,0)]
         action = do on propertiesModifiedEvent $ \[B (Just (0,0))] [] -> tell [0]
                     modifyProperty propertyB $ \(Just (B (Just (0,0)))) -> Nothing
@@ -363,7 +361,7 @@ modifyPropertyTests = testGroup "modifyProperty" [
     [0] @=? log
     [] @=? cursorProperties cursor',
 
-  testCase "modifying but not actually changing a property doesn't fire an event" $ do
+  "modifying but not actually changing a property doesn't fire an event" ~: do
     let cursor = rootCursor $ node [B $ Just (0,0)]
         action = do on propertiesModifiedEvent $ \_ _ -> tell ["Event fired."]
                     modifyProperty propertyB $ \p@(Just (B {})) -> p
@@ -372,25 +370,25 @@ modifyPropertyTests = testGroup "modifyProperty" [
     [] @=? log
   ]
 
-modifyPropertyValueTests = testGroup "modifyPropertyValue" [
-  testCase "adds a property to an empty node" $
+modifyPropertyValueTests = "modifyPropertyValue" ~: TestList [
+  "adds a property to an empty node" ~:
     let cursor = rootCursor $ node []
         action = modifyPropertyValue propertyPL (\Nothing -> Just Black)
     in cursorProperties (execGo action cursor) @?= [PL Black],
 
-  testCase "adds a property to a non-empty node" $
+  "adds a property to a non-empty node" ~:
     let cursor = rootCursor $ node [KO]
         action = modifyPropertyValue propertyPL (\Nothing -> Just White)
     in sortProperties (cursorProperties $ execGo action cursor) @?= [KO, PL White],
 
-  testCase "removes a property" $ do
+  "removes a property" ~: do
     let cursor = rootCursor $ node [B Nothing, TE Double2]
         cursor' = execGo (modifyPropertyValue propertyTE $ \(Just Double2) -> Nothing) cursor
         cursor'' = execGo (modifyPropertyValue propertyB $ \(Just Nothing) -> Nothing) cursor'
     cursorProperties cursor' @?= [B Nothing]
     cursorProperties cursor'' @?= [],
 
-  testCase "updates a property" $ do
+  "updates a property" ~: do
     let cursor = rootCursor $ node [B $ Just (0,0), BM Double2]
         action = modifyPropertyValue propertyB $ \(Just (Just (0,0))) -> Just $ Just (1,1)
         cursor' = execGo action cursor
@@ -401,27 +399,27 @@ modifyPropertyValueTests = testGroup "modifyPropertyValue" [
   ]
 
 modifyPropertyStringTests =
-  testGroup "modifyPropertyString"
+  "modifyPropertyString" ~: TestList $
   -- Test a Text property and a SimpleText property.
-  (assumptions ++ genTests "comment" propertyC ++ genTests "game name" propertyGN)
+  assumptions ++ genTests "comment" propertyC ++ genTests "game name" propertyGN
   where assumptions = let _ = C $ toText ""
                           _ = GN $ toSimpleText ""
                       in []
         genTests name property = [
-          testCase ("adds a " ++ name) $
+          "adds a " ++ name ~:
             let cursor = rootCursor $ node []
                 action = modifyPropertyString property (++ "Hello.")
             in cursorProperties (execGo action cursor) @?=
                [propertyBuilder property $ stringToSgf "Hello."],
 
-          testCase ("removes a " ++ name) $
+          "removes a " ++ name ~:
             let cursor = rootCursor $ node [propertyBuilder property $ stringToSgf "Hello."]
                 action = modifyPropertyString property $ \value -> case value of
                   "Hello." -> ""
                   other -> error $ "Got: " ++ other
             in cursorProperties (execGo action cursor) @?= [],
 
-          testCase ("updates a " ++ name) $
+          "updates a " ++ name ~:
             let cursor = child 0 $ rootCursor $
                          node1 [propertyBuilder property $ stringToSgf "one"] $
                          node [propertyBuilder property $ stringToSgf "two"]
@@ -433,42 +431,42 @@ modifyPropertyStringTests =
                ([propertyBuilder property $ stringToSgf "three"],
                 [propertyBuilder property $ stringToSgf "one"]),
 
-          testCase "leaves a non-existant comment" $
+          "leaves a non-existant comment" ~:
             let result = execGo (modifyPropertyString property id) $ rootCursor $ node []
             in cursorProperties result @?= []
           ]
 
-modifyPropertyCoordsTests = testGroup "modifyPropertyCoords" [
-  testCase "adds a property where there was none" $
+modifyPropertyCoordsTests = "modifyPropertyCoords" ~: TestList [
+  "adds a property where there was none" ~:
     let cursor = rootCursor $ node []
         action = modifyPropertyCoords propertySL $ \[] -> [(0,0), (1,1)]
     in [SL $ coords [(0,0), (1,1)]] @=? cursorProperties (execGo action cursor),
 
-  testCase "removes a property where there was one" $
+  "removes a property where there was one" ~:
     let cursor = rootCursor $ node [TR $ coord1 (5,5)]
         action = modifyPropertyCoords propertyTR $ \[(5,5)] -> []
     in [] @=? cursorProperties (execGo action cursor),
 
-  testCase "modifies an existing property" $
+  "modifies an existing property" ~:
     let cursor = rootCursor $ node [CR $ coord1 (3,4)]
         action = modifyPropertyCoords propertyCR $ \[(3,4)] -> [(2,2)]
     in [CR $ coord1 (2,2)] @=? cursorProperties (execGo action cursor),
 
-  testCase "doesn't affect other properties" $
+  "doesn't affect other properties" ~:
     let cursor = rootCursor $ node [SQ $ coord1 (0,0), MA $ coord1 (1,1)]
         action = modifyPropertyCoords propertyMA $ \[(1,1)] -> [(2,2)]
     in [MA $ coord1 (2,2), SQ $ coord1 (0,0)] @=?
        sortProperties (cursorProperties $ execGo action cursor)
   ]
 
-modifyGameInfoTests = testGroup "modifyGameInfo" [
-  testGroup "creates info on the root node, starting with none" [
-     testCase "starting from the root node" $
+modifyGameInfoTests = "modifyGameInfo" ~: TestList [
+  "creates info on the root node, starting with none" ~: TestList [
+     "starting from the root node" ~:
        let cursor = rootCursor $ node []
            action = modifyGameInfo (\info -> info { gameInfoGameName = Just "Orange" })
        in cursorProperties (execGo action cursor) @?= [GN $ toSimpleText "Orange"],
 
-     testCase "starting from a non-root node" $
+     "starting from a non-root node" ~:
        let cursor = child 0 $ rootCursor $ node1 [] $ node [B Nothing]
            action = modifyGameInfo (\info -> info { gameInfoGameName = Just "Orange" })
            cursor' = execGo action cursor
@@ -476,15 +474,15 @@ modifyGameInfoTests = testGroup "modifyGameInfo" [
           ([B Nothing], [GN $ toSimpleText "Orange"])
      ],
 
-  testGroup "modifies existing info on the root" [
-    testCase "starting from the root node" $
+  "modifies existing info on the root" ~: TestList [
+    "starting from the root node" ~:
       let cursor = rootCursor $ node [GN $ toSimpleText "Orange"]
           action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing
                                                  , gameInfoBlackName = Just "Peanut butter"
                                                  })
       in cursorProperties (execGo action cursor) @?= [PB $ toSimpleText "Peanut butter"],
 
-    testCase "starting from a non-root node" $
+    "starting from a non-root node" ~:
       let cursor = child 0 $ rootCursor $ node1 [GN $ toSimpleText "Orange"] $ node [B Nothing]
           action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing
                                                  , gameInfoBlackName = Just "Peanut butter"
@@ -494,7 +492,7 @@ modifyGameInfoTests = testGroup "modifyGameInfo" [
          ([B Nothing], [PB $ toSimpleText "Peanut butter"])
     ],
 
-  testCase "moves game info from a non-root node to the root" $
+  "moves game info from a non-root node to the root" ~:
     let cursor = child 0 $ child 0 $ child 0 $ rootCursor $
                  node1 [SZ 19 19] $
                  node1 [B $ Just (0,0), GN $ toSimpleText "Orange"] $
@@ -516,35 +514,35 @@ modifyGameInfoTests = testGroup "modifyGameInfo" [
         [PB $ toSimpleText "Peanut butter", SZ 19 19]]
   ]
 
-modifyVariationModeTests = testGroup "modifyVariationMode" [
-  testCase "testing modes are not default" $ do
+modifyVariationModeTests = "modifyVariationMode" ~: TestList [
+  "testing modes are not default" ~: do
     defaultVariationMode @/=? mode
     defaultVariationMode @/=? mode2,
 
-  testCase "modifies when at a root node" $
+  "modifies when at a root node" ~:
     node1 [ST mode] (node []) @=?
     cursorNode (execGo setMode $ rootCursor $ node1 [] $ node []),
 
-  testCase "modifies when at a non-root node" $
+  "modifies when at a non-root node" ~:
     node1 [ST mode] (node []) @=?
     cursorNode (cursorRoot $ execGo setMode $ child 0 $ rootCursor $ node1 [] $ node []),
 
-  testCase "leaves an unset ST unset" $
+  "leaves an unset ST unset" ~:
     assertST Nothing Nothing $ const defaultVariationMode,
 
-  testCase "leaves a default ST alone" $
+  "leaves a default ST alone" ~:
     assertST (Just defaultVariationMode) (Just defaultVariationMode) $ const defaultVariationMode,
 
-  testCase "leaves an existing ST alone" $
+  "leaves an existing ST alone" ~:
     assertST (Just mode) (Just mode) $ const mode,
 
-  testCase "adds an ST property" $
+  "adds an ST property" ~:
     assertST (Just mode) Nothing $ const mode,
 
-  testCase "removes an ST property when setting to default" $
+  "removes an ST property when setting to default" ~:
     assertST Nothing (Just mode) $ const defaultVariationMode,
 
-  testCase "modifies an existing ST property" $
+  "modifies an existing ST property" ~:
     assertST (Just mode2) (Just mode) $ const mode2
   ]
   where mode = VariationMode ShowCurrentVariations True
@@ -555,56 +553,56 @@ modifyVariationModeTests = testGroup "modifyVariationMode" [
           cursorNode (execGo (modifyVariationMode fn) $
                       rootCursor $ node $ ST <$> maybeToList maybeInitialST)
 
-getMarkTests = testGroup "getMark" [
-  testCase "returns Nothing for no mark" $ do
+getMarkTests = "getMark" ~: TestList [
+  "returns Nothing for no mark" ~: do
     Nothing @=? evalGo (getMark (0,0)) (rootCursor $ node [])
     Nothing @=? evalGo (getMark (0,0)) (rootCursor $ node [W $ Just (0,0)]),
 
-  testCase "returns Just when a mark is present" $ do
+  "returns Just when a mark is present" ~: do
     Just MarkSquare @=? evalGo (getMark (1,2)) (rootCursor $ node [SQ $ coord1 (1,2)])
     Just MarkTriangle @=? evalGo (getMark (1,1)) (rootCursor $ node [B $ Just (1,1),
                                                                      TR $ coord1 (1,1),
                                                                      SQ $ coord1 (1,2)]),
 
-  testCase "matches all marks" $ forM_ [minBound..maxBound] $ \mark ->
+  "matches all marks" ~: forM_ [minBound..maxBound] $ \mark ->
     Just mark @=?
     evalGo (getMark (0,0))
            (rootCursor $ node [propertyBuilder (markProperty mark) $ coord1 (0,0)])
   ]
 
-modifyMarkTests = testGroup "modifyMark" [
-  testCase "creates a mark where there was none" $
+modifyMarkTests = "modifyMark" ~: TestList [
+  "creates a mark where there was none" ~:
     let cursor = rootCursor $ node []
         action = do modifyMark (\Nothing -> Just MarkX) (0,0)
                     getMark (0,0)
     in Just MarkX @=? evalGo action cursor,
 
-  testCase "removes an existing mark" $
+  "removes an existing mark" ~:
     let cursor = rootCursor $ node [CR $ coord1 (0,0)]
         action = do modifyMark (\(Just MarkCircle) -> Nothing) (0,0)
                     getMark (0,0)
     in Nothing @=? evalGo action cursor,
 
-  testCase "replaces an existing mark" $
+  "replaces an existing mark" ~:
     let cursor = rootCursor $ node [CR $ coord1 (0,0)]
         action = do modifyMark (\(Just MarkCircle) -> Just MarkX) (0,0)
                     getMark (0,0)
     in Just MarkX @=? evalGo action cursor,
 
-  testCase "adds on to an existing mark property" $
+  "adds on to an existing mark property" ~:
     let cursor = rootCursor $ node [MA $ coord1 (0,0)]
         action = do modifyMark (\Nothing -> Just MarkX) (1,0)
                     mapM getMark [(0,0), (1,0)]
     in [Just MarkX, Just MarkX] @=? evalGo action cursor,
 
-  testCase "removes from an existing mark property" $
+  "removes from an existing mark property" ~:
     let cursor = rootCursor $ node [MA $ coords [(0,0), (1,0), (0,1)]]
         action = do modifyMark (\(Just MarkX) -> Nothing) (1,0)
                     modifyMark (\(Just MarkX) -> Nothing) (0,1)
                     mapM getMark [(0,0), (1,0), (0,1)]
     in [Just MarkX, Nothing, Nothing] @=? evalGo action cursor,
 
-  testCase "removes and adds at the same time" $
+  "removes and adds at the same time" ~:
     let cursor = rootCursor $ node [MA $ coords [(0,0), (1,0), (0,1)]]
         action = do modifyMark (\(Just MarkX) -> Just MarkSquare) (0,0)
                     modifyMark (\(Just MarkX) -> Nothing) (0,1)
@@ -612,18 +610,18 @@ modifyMarkTests = testGroup "modifyMark" [
     in [Just MarkSquare, Just MarkX, Nothing] @=? evalGo action cursor
   ]
 
-addChildTests = testGroup "addChild" [
-  testCase "adds an only child" $
+addChildTests = "addChild" ~: TestList [
+  "adds an only child" ~:
     cursorNode (execGo (addChild 0 $ node [B Nothing]) (rootCursor $ node []))
     @?= node' [] [node [B Nothing]],
 
-  testCase "adds a first child" $
+  "adds a first child" ~:
     cursorNode (execGo (addChild 0 $ node [B $ Just (0,0)])
                        (rootCursor $ node' [] [node [B $ Just (1,1)]]))
     @?= node' [] [node [B $ Just (0,0)],
                   node [B $ Just (1,1)]],
 
-  testCase "adds a middle child" $
+  "adds a middle child" ~:
     cursorNode (execGo (addChild 1 $ node [B $ Just (1,1)])
                        (rootCursor $ node' [] [node [B $ Just (0,0)],
                                                node [B $ Just (2,2)]]))
@@ -631,7 +629,7 @@ addChildTests = testGroup "addChild" [
                   node [B $ Just (1,1)],
                   node [B $ Just (2,2)]],
 
-  testCase "adds a last child" $
+  "adds a last child" ~:
     cursorNode (execGo (addChild 2 $ node [B $ Just (2,2)])
                        (rootCursor $ node' [] [node [B $ Just (0,0)],
                                                node [B $ Just (1,1)]]))
@@ -639,8 +637,8 @@ addChildTests = testGroup "addChild" [
                   node [B $ Just (1,1)],
                   node [B $ Just (2,2)]],
 
-  testGroup "path stack correctness" [
-    testCase "basic case just not needing updating" $
+  "path stack correctness" ~: TestList [
+    "basic case just not needing updating" ~:
       let cursor = child 0 $ rootCursor $ node' [B Nothing] [node [W Nothing]]
           action = do pushPosition
                       goUp
@@ -648,7 +646,7 @@ addChildTests = testGroup "addChild" [
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W Nothing],
 
-    testCase "basic case just needing updating" $
+    "basic case just needing updating" ~:
       let cursor = child 0 $ rootCursor $ node' [B Nothing] [node [W Nothing]]
           action = do pushPosition
                       goUp
@@ -656,7 +654,7 @@ addChildTests = testGroup "addChild" [
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W Nothing],
 
-    testCase "basic case definitely needing updating" $
+    "basic case definitely needing updating" ~:
       let cursor = rootCursor $ node' [B Nothing] [node [W $ Just (0,0)],
                                                    node [W $ Just (1,1)]]
           action = do goDown 1
@@ -666,7 +664,7 @@ addChildTests = testGroup "addChild" [
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W $ Just (1,1)],
 
-    testCase "multiple paths to update" $
+    "multiple paths to update" ~:
       let at y x = B $ Just (y,x)
           level0Node = node' [at 0 0] $ map level1Node [0..1]
           level1Node i = node' [at 1 i] $ map level2Node [0..2]
@@ -682,7 +680,7 @@ addChildTests = testGroup "addChild" [
                       popPosition
       in cursorNode (execGo action $ rootCursor level0Node) @?= node [B $ Just (3,3)],
 
-    testCase "updates paths with GoUp correctly" $
+    "updates paths with GoUp correctly" ~:
       let cursor = rootCursor $ node1 [B $ Just (0,0)] $ node [W $ Just (1,1)]
           action = do pushPosition
                       goDown 0
@@ -695,8 +693,8 @@ addChildTests = testGroup "addChild" [
     ]
   ]
 
-gameInfoChangedTests = testGroup "gameInfoChangedEvent" [
-  testCase "fires when navigating down" $
+gameInfoChangedTests = "gameInfoChangedEvent" ~: TestList [
+  "fires when navigating down" ~:
     let cursor = rootCursor $
                  node1 [B $ Just (0,0)] $
                  node [W $ Just (0,0), GN $ toSimpleText "Foo"]
@@ -704,7 +702,7 @@ gameInfoChangedTests = testGroup "gameInfoChangedEvent" [
                     goDown 0
     in execWriter (runGoT action cursor) @?= [(Nothing, Just "Foo")],
 
-  testCase "fires when navigating up" $
+  "fires when navigating up" ~:
     let cursor = child 0 $ rootCursor $
                  node1 [B $ Just (0,0)] $
                  node [W $ Just (0,0), GN $ toSimpleText "Foo"]
@@ -712,7 +710,7 @@ gameInfoChangedTests = testGroup "gameInfoChangedEvent" [
                     goUp
     in execWriter (runGoT action cursor) @?= [(Just "Foo", Nothing)],
 
-  testCase "fires from within popPosition" $
+  "fires from within popPosition" ~:
     let cursor = rootCursor $
                  node1 [B $ Just (0,0)] $
                  node [W $ Just (0,0), GN $ toSimpleText "Foo"]
@@ -724,7 +722,7 @@ gameInfoChangedTests = testGroup "gameInfoChangedEvent" [
     in execWriter (runGoT action cursor) @?=
        [(Nothing, Just "Foo"), (Just "Foo", Nothing)],
 
-  testCase "fires when modifying properties" $
+  "fires when modifying properties" ~:
     let cursor = rootCursor $ node []
         action = do on gameInfoChangedEvent onInfo
                     modifyProperties $ const $ return [GN $ toSimpleText "Foo"]

@@ -19,7 +19,7 @@
 module Game.Goatee.Sgf.TestInstances () where
 
 import Data.Function (on)
-import Game.Goatee.Sgf.Tree (Node, NodeWithDeepEquality(NodeWithDeepEquality))
+import Game.Goatee.Sgf.Tree (Node, NodeWithDeepEquality (NodeWithDeepEquality))
 
 instance Eq Node where
   (==) = (==) `on` NodeWithDeepEquality

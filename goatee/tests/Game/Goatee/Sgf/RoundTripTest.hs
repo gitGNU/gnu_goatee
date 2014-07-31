@@ -26,9 +26,7 @@ import Game.Goatee.Sgf.Renderer.Tree
 import Game.Goatee.Sgf.TestUtils
 import Game.Goatee.Sgf.Tree
 import Game.Goatee.Sgf.Types
-import Test.Framework (Test, testGroup)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@?=), Assertion, assertFailure)
+import Test.HUnit ((~:), (@?=), Assertion, Test (TestList), assertFailure)
 
 testCollection' :: Collection -> Assertion
 testCollection' collection =
@@ -50,30 +48,30 @@ testNode' = testCollection' . Collection . (:[])
 
 -- | Returns a test with the given string name that round-trips a single node.
 testNode :: String -> Node -> Test
-testNode label node = testCase label $ testNode' node
+testNode label node = label ~: testNode' node
 
-tests = testGroup "Game.Goatee.Sgf.RoundTripTest" [
+tests = "Game.Goatee.Sgf.RoundTripTest" ~: TestList [
   singleNodeGameTests,
   propertyValueTests
   ]
 
-singleNodeGameTests = testGroup "games with single nodes" [
+singleNodeGameTests = "games with single nodes" ~: TestList [
   testNode "empty game" $ node [],
   testNode "some default properties" $ node [FF 4, GM 1, ST defaultVariationMode]
   ]
 
-propertyValueTests = testGroup "property value types" [
-  testGroup "color values" [
+propertyValueTests = "property value types" ~: TestList [
+  "color values" ~: TestList [
     testNode "black" $ node [PL Black],
     testNode "white" $ node [PL White]
     ],
 
-  testGroup "double values" [
+  "double values" ~: TestList [
     testNode "1" $ node [DM Double1],
     testNode "2" $ node [DM Double2]
     ],
 
-  testGroup "label list values" [
+  "label list values" ~: TestList [
     testNode "one value" $ node [LB [((5,2), toSimpleText "Hi.")]],
     testNode "multiple value" $ node [LB [((5, 2), toSimpleText "Hi."),
                                           ((0, 1), toSimpleText "Bye.")]]
@@ -81,13 +79,13 @@ propertyValueTests = testGroup "property value types" [
 
   testNode "none value" $ node [KO],
 
-  testGroup "point-valued values" $
+  "point-valued values" ~: TestList $
     for [0..boardSizeMax-1]
     (\row -> testNode ("row " ++ show row) $ node [B $ Just (0, row)]) ++
     for [0..boardSizeMax-1]
     (\col -> testNode ("row " ++ show col) $ node [B $ Just (col, 0)]),
 
-  testGroup "real values" [
+  "real values" ~: TestList [
     testNode "1500" $ node [TM 1500],
     testNode "60.5" $ node [TM 60.5],
     testNode "10.1" $ node [TM 10.1]

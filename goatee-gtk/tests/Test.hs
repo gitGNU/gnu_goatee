@@ -18,10 +18,16 @@
 module Main (main) where
 
 import qualified Game.Goatee.Ui.Gtk.LatchTest
-import Test.Framework (defaultMain)
+import System.Exit (exitFailure, exitSuccess)
+import Test.HUnit (Counts (errors, failures), Test (TestList), runTestTT)
 
-tests = [ Game.Goatee.Ui.Gtk.LatchTest.tests
-        ]
+tests = TestList [
+  Game.Goatee.Ui.Gtk.LatchTest.tests
+  ]
 
 main :: IO ()
-main = defaultMain tests
+main = do
+  counts <- runTestTT tests
+  if errors counts > 0 || failures counts > 0
+    then exitFailure
+    else exitSuccess
