@@ -463,12 +463,14 @@ modifyGameInfoTests = "modifyGameInfo" ~: TestList [
   "creates info on the root node, starting with none" ~: TestList [
      "starting from the root node" ~:
        let cursor = rootCursor $ node []
-           action = modifyGameInfo (\info -> info { gameInfoGameName = Just "Orange" })
+           action = modifyGameInfo $ \info ->
+             info { gameInfoGameName = Just $ toSimpleText "Orange" }
        in cursorProperties (execGo action cursor) @?= [GN $ toSimpleText "Orange"],
 
      "starting from a non-root node" ~:
        let cursor = child 0 $ rootCursor $ node1 [] $ node [B Nothing]
-           action = modifyGameInfo (\info -> info { gameInfoGameName = Just "Orange" })
+           action = modifyGameInfo $ \info ->
+             info { gameInfoGameName = Just $ toSimpleText "Orange" }
            cursor' = execGo action cursor
        in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
           ([B Nothing], [GN $ toSimpleText "Orange"])
@@ -478,14 +480,16 @@ modifyGameInfoTests = "modifyGameInfo" ~: TestList [
     "starting from the root node" ~:
       let cursor = rootCursor $ node [GN $ toSimpleText "Orange"]
           action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing
-                                                 , gameInfoBlackName = Just "Peanut butter"
+                                                 , gameInfoBlackName =
+                                                   Just $ toSimpleText "Peanut butter"
                                                  })
       in cursorProperties (execGo action cursor) @?= [PB $ toSimpleText "Peanut butter"],
 
     "starting from a non-root node" ~:
       let cursor = child 0 $ rootCursor $ node1 [GN $ toSimpleText "Orange"] $ node [B Nothing]
           action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing
-                                                 , gameInfoBlackName = Just "Peanut butter"
+                                                 , gameInfoBlackName =
+                                                   Just $ toSimpleText "Peanut butter"
                                                  })
           cursor' = execGo action cursor
       in (cursorProperties cursor', cursorProperties $ fromJust $ cursorParent cursor') @?=
@@ -500,7 +504,8 @@ modifyGameInfoTests = "modifyGameInfo" ~: TestList [
                  node [B $ Just (2,2)]
         action = modifyGameInfo (\info -> info { gameInfoGameName = Nothing })
         cursor' = execGo action cursor
-        action' = modifyGameInfo (\info -> info { gameInfoBlackName = Just "Peanut butter" })
+        action' = modifyGameInfo (\info -> info { gameInfoBlackName =
+                                                  Just $ toSimpleText "Peanut butter" })
         cursor'' = execGo action' cursor'
         -- unfoldr :: (Maybe Cursor -> Maybe ([Property], Maybe Cursor))
         --         -> Maybe Cursor
@@ -700,7 +705,7 @@ gameInfoChangedTests = "gameInfoChangedEvent" ~: TestList [
                  node [W $ Just (0,0), GN $ toSimpleText "Foo"]
         action = do on gameInfoChangedEvent onInfo
                     goDown 0
-    in execWriter (runGoT action cursor) @?= [(Nothing, Just "Foo")],
+    in execWriter (runGoT action cursor) @?= [(Nothing, Just $ toSimpleText "Foo")],
 
   "fires when navigating up" ~:
     let cursor = child 0 $ rootCursor $
@@ -708,7 +713,7 @@ gameInfoChangedTests = "gameInfoChangedEvent" ~: TestList [
                  node [W $ Just (0,0), GN $ toSimpleText "Foo"]
         action = do on gameInfoChangedEvent onInfo
                     goUp
-    in execWriter (runGoT action cursor) @?= [(Just "Foo", Nothing)],
+    in execWriter (runGoT action cursor) @?= [(Just $ toSimpleText "Foo", Nothing)],
 
   "fires from within popPosition" ~:
     let cursor = rootCursor $
@@ -720,7 +725,7 @@ gameInfoChangedTests = "gameInfoChangedEvent" ~: TestList [
                     on gameInfoChangedEvent onInfo
                     popPosition
     in execWriter (runGoT action cursor) @?=
-       [(Nothing, Just "Foo"), (Just "Foo", Nothing)],
+       [(Nothing, Just $ toSimpleText "Foo"), (Just $ toSimpleText "Foo", Nothing)],
 
   "fires when modifying properties" ~:
     let cursor = rootCursor $ node []
@@ -729,6 +734,8 @@ gameInfoChangedTests = "gameInfoChangedEvent" ~: TestList [
                     modifyProperties $ const $ return [GN $ toSimpleText "Bar"]
                     modifyProperties $ const $ return []
     in execWriter (runGoT action cursor) @?=
-       [(Nothing, Just "Foo"), (Just "Foo", Just "Bar"), (Just "Bar", Nothing)]
+       [(Nothing, Just $ toSimpleText "Foo"),
+        (Just $ toSimpleText "Foo", Just $ toSimpleText "Bar"),
+        (Just $ toSimpleText "Bar", Nothing)]
   ]
   where onInfo old new = tell [(gameInfoGameName old, gameInfoGameName new)]

@@ -25,16 +25,15 @@ module Game.Goatee.Ui.Gtk.GamePropertiesPanel (
   ) where
 
 import Control.Arrow (first)
-import Control.Applicative ((<$>))
 import Control.Monad (forM_, void, when)
+import Control.Monad.Trans (liftIO)
 import Data.IORef (newIORef, readIORef, writeIORef)
-import Data.Maybe (fromMaybe)
 import qualified Game.Goatee.Common.Bigfloat as BF
 import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Monad hiding (on)
-import Game.Goatee.Sgf.Property
 import Game.Goatee.Sgf.Types
 import Game.Goatee.Ui.Gtk.Common
+import Game.Goatee.Ui.Gtk.Latch
 import Game.Goatee.Ui.Gtk.Utils
 import Graphics.UI.Gtk (
   AttachOptions (Expand, Fill),
@@ -50,11 +49,12 @@ import Graphics.UI.Gtk (
   boxPackStart,
   checkButtonNewWithLabel,
   containerAdd,
-  entryNew, entrySetText, entryWidthChars,
+  entryNew, entryText, entryWidthChars,
+  focusOutEvent,
   hBoxNew,
   hSeparatorNew,
   labelNew, labelSetMnemonicWidget, labelSetText,
-  onValueSpinned,
+  on, onValueSpinned,
   scrolledWindowAddWithViewport, scrolledWindowNew, scrolledWindowSetPolicy,
   set,
   spinButtonNewWithRange, spinButtonSetDigits, spinButtonSetValue,
@@ -65,10 +65,16 @@ import Graphics.UI.Gtk (
   widgetSetSizeRequest,
   )
 
+-- A getter for 'Stringlike' 'GameInfo' fields.
+data InfoGetter = forall a. Stringlike a => InfoGetter (GameInfo -> Maybe a)
+
 data GamePropertiesPanel ui = GamePropertiesPanel {
   myUi :: ui
   , myRegistrations :: ViewRegistrations
   , myWidget :: Widget
+  , myLatch :: Latch
+    -- ^ A latch to be held when updating the model, to prevent the
+    -- view from re-updating.
 
     -- Black's info.
   , myBlackNameEntry :: Entry
@@ -154,6 +160,8 @@ create ui = do
         set entry [entryWidthChars := 0]
         return entry
 
+  latch <- newLatch
+
   blackNameEntry <- addWidget "Black" =<< tableEntryNew
   blackRankEntry <- addWidget "Rank" =<< tableEntryNew
   blackTeamEntry <- addWidget "Team" =<< tableEntryNew
@@ -200,7 +208,7 @@ create ui = do
 
   gameCommentTextViewSetter <- textViewConfigure gameCommentTextView $ \value ->
     runUiGo ui $ void $ modifyGameInfo $ \info ->
-    info { gameInfoGameComment = if null value then Nothing else Just value }
+    info { gameInfoGameComment = if null value then Nothing else Just $ stringToSgf value }
 
   addedRowCount <- readIORef nextRowRef
   when (addedRowCount /= rows) $ fail $
@@ -211,6 +219,7 @@ create ui = do
 
   let me = GamePropertiesPanel {
         myUi = ui
+        , myLatch = latch
         , myRegistrations = registrations
         , myWidget = toWidget scroll
 
@@ -256,53 +265,72 @@ initialize me = do
 
   updateUi me =<< readCursor ui
 
-  connectEntry myBlackNameEntry $ \x info -> info { gameInfoBlackName = strToMaybe x }
-  connectEntry myBlackRankEntry $ \x info -> info { gameInfoBlackRank = strToMaybe x }
-  connectEntry myBlackTeamEntry $ \x info -> info { gameInfoBlackTeamName = strToMaybe x }
+  connectEntry myBlackNameEntry gameInfoBlackName $ \x info -> info { gameInfoBlackName = x }
+  connectEntry myBlackRankEntry gameInfoBlackRank $ \x info -> info { gameInfoBlackRank = x }
+  connectEntry myBlackTeamEntry gameInfoBlackTeamName $ \x info ->
+    info { gameInfoBlackTeamName = x }
 
-  connectEntry myWhiteNameEntry $ \x info -> info { gameInfoWhiteName = strToMaybe x }
-  connectEntry myWhiteRankEntry $ \x info -> info { gameInfoWhiteRank = strToMaybe x }
-  connectEntry myWhiteTeamEntry $ \x info -> info { gameInfoWhiteTeamName = strToMaybe x }
+  connectEntry myWhiteNameEntry gameInfoWhiteName $ \x info -> info { gameInfoWhiteName = x }
+  connectEntry myWhiteRankEntry gameInfoWhiteRank $ \x info -> info { gameInfoWhiteRank = x }
+  connectEntry myWhiteTeamEntry gameInfoWhiteTeamName $ \x info ->
+    info { gameInfoWhiteTeamName = x }
 
-  connectEntry myRulesetEntry $ \x info -> info { gameInfoRuleset = toRuleset <$> strToMaybe x }
+  connectEntry myRulesetEntry gameInfoRuleset $ \x info -> info { gameInfoRuleset = x }
   connect (onValueSpinned $ myMainTimeSpin me)
           (spinButtonGetValueAsBigfloat $ myMainTimeSpin me) $ \x info ->
     info { gameInfoBasicTimeSeconds = if x == 0 then Nothing else Just x }
-  connectEntry myOvertimeEntry $ \x info -> info { gameInfoOvertime = strToMaybe x }
+  connectEntry myOvertimeEntry gameInfoOvertime $ \x info -> info { gameInfoOvertime = x }
   -- TODO Game result display checkbox.
-  connectEntry myGameResultEntry $ \x info ->
-    info { gameInfoResult = parseGameResult . toSimpleText <$> strToMaybe x }
+  connectEntry myGameResultEntry gameInfoResult $ \x info -> info { gameInfoResult = x }
 
-  connectEntry myGameAnnotatorEntry $ \x info -> info { gameInfoAnnotatorName = strToMaybe x }
-  connectEntry myGameEntererEntry $ \x info -> info { gameInfoEntererName = strToMaybe x }
+  connectEntry myGameAnnotatorEntry gameInfoAnnotatorName $ \x info ->
+    info { gameInfoAnnotatorName = x }
+  connectEntry myGameEntererEntry gameInfoEntererName $ \x info -> info { gameInfoEntererName = x }
 
-  connectEntry myEventNameEntry $ \x info -> info { gameInfoEvent = strToMaybe x }
-  connectEntry myGamePlaceEntry $ \x info -> info { gameInfoPlace = strToMaybe x }
-  connectEntry myGameRoundEntry $ \x info -> info { gameInfoRound = strToMaybe x }
-  connectEntry myGameDatesEntry $ \x info -> info { gameInfoDatesPlayed = strToMaybe x }
-  connectEntry myGameNameEntry $ \x info -> info { gameInfoGameName = strToMaybe x }
-  connectEntry myGameSourceEntry $ \x info -> info { gameInfoSource = strToMaybe x }
-  connectEntry myGameCopyrightEntry $ \x info -> info { gameInfoCopyright = strToMaybe x }
+  connectEntry myEventNameEntry gameInfoEvent $ \x info -> info { gameInfoEvent = x }
+  connectEntry myGamePlaceEntry gameInfoPlace $ \x info -> info { gameInfoPlace = x }
+  connectEntry myGameRoundEntry gameInfoRound $ \x info -> info { gameInfoRound = x }
+  connectEntry myGameDatesEntry gameInfoDatesPlayed $ \x info -> info { gameInfoDatesPlayed = x }
+  connectEntry myGameNameEntry gameInfoGameName $ \x info -> info { gameInfoGameName = x }
+  connectEntry myGameSourceEntry gameInfoSource $ \x info -> info { gameInfoSource = x }
+  connectEntry myGameCopyrightEntry gameInfoCopyright $ \x info -> info { gameInfoCopyright = x }
 
-  connectEntry myGameOpeningEntry $ \x info -> info { gameInfoOpeningComment = strToMaybe x }
+  connectEntry myGameOpeningEntry gameInfoOpeningComment $ \x info ->
+    info { gameInfoOpeningComment = x }
+  return ()
 
   where ui = myUi me
         --connectEntry :: (ui' ~ ui)
         --             => (GamePropertiesPanel ui' -> Entry)
+        --             -> (GameInfo -> String)
         --             -> (String -> GameInfo -> GameInfo)
         --             -> IO ()
-        connectEntry entryAccessor updater =
-          onEntryChange (entryAccessor me) $ \value ->
-          runUiGo ui $ void $ modifyGameInfo $ updater value
+        connectEntry entryAccessor getter setter = do
+          -- When a text entry field is changed, immediately write the
+          -- value back to the model: we can't wait until focus out
+          -- because e.g. opening menus doesn't fire focus-out events.
+          -- Also inhibit this widget's model change handler assigning
+          -- back to the entry, because e.g. we don't want to
+          -- canonicalize "B+1.0" to "B+1" as soon as it's typed.
+          -- Instead, we do the model->view canonicalizing update on
+          -- focus-out.
+          let entry = entryAccessor me
+          onEntryChange entry $ \value ->
+            withLatchOn (myLatch me) $ runUiGo ui $ void $ modifyGameInfo $ setter $
+            if null value then Nothing else Just $ stringToSgf value
+          on entry focusOutEvent $ liftIO $ do
+            cursor <- readCursor ui
+            set entry [entryText := maybe "" sgfToString $ getter $ boardGameInfo $
+                       cursorBoard cursor]
+            return False
         --connect :: (IO () -> IO ()) -- ^ Function to install a handler.
         --        -> IO a             -- ^ Getter for the widget value.
         --        -> (a -> GameInfo -> GameInfo)
         --        -> IO ()
-        connect connectFn getter updater =
+        connect connectFn getter setter =
           connectFn $ do
             newValue <- getter
-            runUiGo ui $ void $ modifyGameInfo $ updater newValue
-        strToMaybe str = if null str then Nothing else Just str
+            runUiGo ui $ void $ modifyGameInfo $ setter newValue
 
 destroy :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
 destroy = viewUnregisterAll
@@ -311,40 +339,40 @@ updateUi :: UiCtrl ui => GamePropertiesPanel ui -> Cursor -> IO ()
 updateUi me cursor = updateUiGameInfo me $ boardGameInfo $ cursorBoard cursor
 
 updateUiGameInfo :: GamePropertiesPanel ui -> GameInfo -> IO ()
-updateUiGameInfo me info = do
-  forM_ [ (gameInfoBlackName, myBlackNameEntry)
-        , (gameInfoBlackRank, myBlackRankEntry)
-        , (gameInfoBlackTeamName, myBlackTeamEntry)
+updateUiGameInfo me info = whenLatchOff (myLatch me) $ do
+  forM_ [ (InfoGetter gameInfoBlackName, myBlackNameEntry)
+        , (InfoGetter gameInfoBlackRank, myBlackRankEntry)
+        , (InfoGetter gameInfoBlackTeamName, myBlackTeamEntry)
 
-        , (gameInfoWhiteName, myWhiteNameEntry)
-        , (gameInfoWhiteRank, myWhiteRankEntry)
-        , (gameInfoWhiteTeamName, myWhiteTeamEntry)
+        , (InfoGetter gameInfoWhiteName, myWhiteNameEntry)
+        , (InfoGetter gameInfoWhiteRank, myWhiteRankEntry)
+        , (InfoGetter gameInfoWhiteTeamName, myWhiteTeamEntry)
 
-        , (fmap fromRuleset . gameInfoRuleset, myRulesetEntry)
-        , (gameInfoOvertime, myOvertimeEntry)
-        , (fmap renderGameResultPretty' . gameInfoResult, myGameResultEntry)
+        , (InfoGetter gameInfoRuleset, myRulesetEntry)
+        , (InfoGetter gameInfoOvertime, myOvertimeEntry)
+        , (InfoGetter gameInfoResult, myGameResultEntry)
 
-        , (gameInfoAnnotatorName, myGameAnnotatorEntry)
-        , (gameInfoEntererName, myGameEntererEntry)
+        , (InfoGetter gameInfoAnnotatorName, myGameAnnotatorEntry)
+        , (InfoGetter gameInfoEntererName, myGameEntererEntry)
 
-        , (gameInfoEvent, myEventNameEntry)
-        , (gameInfoPlace, myGamePlaceEntry)
-        , (gameInfoRound, myGameRoundEntry)
-        , (gameInfoDatesPlayed, myGameDatesEntry)
-        , (gameInfoGameName, myGameNameEntry)
-        , (gameInfoSource, myGameSourceEntry)
-        , (gameInfoCopyright, myGameCopyrightEntry)
+        , (InfoGetter gameInfoEvent, myEventNameEntry)
+        , (InfoGetter gameInfoPlace, myGamePlaceEntry)
+        , (InfoGetter gameInfoRound, myGameRoundEntry)
+        , (InfoGetter gameInfoDatesPlayed, myGameDatesEntry)
+        , (InfoGetter gameInfoGameName, myGameNameEntry)
+        , (InfoGetter gameInfoSource, myGameSourceEntry)
+        , (InfoGetter gameInfoCopyright, myGameCopyrightEntry)
 
-        , (gameInfoOpeningComment, myGameOpeningEntry)
-        ] $ \(getter, entry) ->
-    entrySetText (entry me) $ fromMaybe "" $ getter info
+        , (InfoGetter gameInfoOpeningComment, myGameOpeningEntry)
+        ] $ \(InfoGetter getter, entry) ->
+    set (entry me) [entryText := maybe "" sgfToString $ getter info]
 
   spinButtonSetValue (myMainTimeSpin me) $ maybe 0 BF.toDouble $
     gameInfoBasicTimeSeconds info
   labelSetText (myMainTimeLabel me) $ maybe "" renderSeconds $
     gameInfoBasicTimeSeconds info
 
-  myGameCommentTextViewSetter me $ fromMaybe "" $ gameInfoGameComment info
+  myGameCommentTextViewSetter me $ maybe "" fromText $ gameInfoGameComment info
 
 renderSeconds :: BF.Bigfloat -> String
 renderSeconds totalSecondsFloat =

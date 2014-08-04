@@ -24,9 +24,11 @@ module Game.Goatee.Ui.Gtk.InfoLine (
   myWidget,
   ) where
 
+import Control.Applicative ((<$>))
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Monad
+import Game.Goatee.Sgf.Types
 import Game.Goatee.Ui.Gtk.Common
 import Graphics.UI.Gtk (Label, Widget, labelNew, labelSetMarkup, toWidget)
 
@@ -80,9 +82,9 @@ generateMarkup cursor =
   let board = cursorBoard cursor
       gameInfoMsg = fromMaybe "" $ do
         let info = boardGameInfo board
-        black <- gameInfoBlackName info
-        white <- gameInfoWhiteName info
-        let renderRank = maybe "" (\x -> " (" ++ x ++ ")")
+        black <- sgfToString <$> gameInfoBlackName info
+        white <- sgfToString <$> gameInfoWhiteName info
+        let renderRank = maybe "" (\x -> " (" ++ sgfToString x ++ ")")
             blackRank = renderRank $ gameInfoBlackRank info
             whiteRank = renderRank $ gameInfoWhiteRank info
         return $ white ++ whiteRank ++ " vs. " ++ black ++ blackRank ++ "\n"

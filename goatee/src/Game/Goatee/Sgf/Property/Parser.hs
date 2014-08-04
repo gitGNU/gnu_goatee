@@ -25,7 +25,6 @@ module Game.Goatee.Sgf.Property.Parser (
   coordPairListParser,
   doubleParser,
   gameResultParser,
-  parseGameResult,
   labelListParser,
   moveParser,
   noneParser,
@@ -54,8 +53,8 @@ import qualified Game.Goatee.Common.Bigfloat as BF
 import Game.Goatee.Sgf.Types
 import Text.ParserCombinators.Parsec (
   (<?>), (<|>), Parser,
-  anyChar, char, choice, digit, eof, many, many1,
-  noneOf, oneOf, option, parse, space, spaces, string,
+  anyChar, char, choice, digit, many, many1,
+  noneOf, oneOf, option, space, spaces, string,
   try, unexpected,
   )
 
@@ -151,31 +150,7 @@ doubleParser =
   "double"
 
 gameResultParser :: Parser GameResult
-gameResultParser =
-  single (parseGameResult <$> simpleText False) <?> "game result"
-
-parseGameResult :: SimpleText -> GameResult
-parseGameResult text = case fromSimpleText text of
-  "0" -> GameResultDraw
-  "Draw" -> GameResultDraw
-  "Void" -> GameResultVoid
-  "?" -> GameResultUnknown
-  rawText -> case parse gameResultWin "<game result win>" rawText of
-    Left _ -> GameResultOther text
-    Right win -> win
-
-gameResultWin :: Parser GameResult
-gameResultWin = GameResultWin <$> color <* char '+' <*> winReason <* eof
-
-winReason :: Parser WinReason
-winReason =
-  WinByScore <$> try real <|>
-  WinByResignation <$ try (string "Resign") <|>
-  WinByResignation <$ try (string "R") <|>
-  WinByTime <$ try (string "Time") <|>
-  WinByTime <$ try (string "T") <|>
-  WinByForfeit <$ try (string "Forfeit") <|>
-  WinByForfeit <$ try (string "F")
+gameResultParser = single (convertStringlike <$> simpleText False) <?> "game result"
 
 labelListParser :: Parser [(Coord, SimpleText)]
 labelListParser =
