@@ -27,19 +27,26 @@ import qualified Game.Goatee.Sgf.PropertyTest
 import qualified Game.Goatee.Sgf.RoundTripTest
 import qualified Game.Goatee.Sgf.TreeTest
 import qualified Game.Goatee.Sgf.TypesTest
-import Test.Framework (defaultMain)
+import System.Exit (exitFailure, exitSuccess)
+import Test.HUnit (Counts (errors, failures), Test (TestList), runTestTT)
 
-tests = [ Game.Goatee.Common.BigfloatTest.tests
-        , Game.Goatee.CommonTest.tests
-        , Game.Goatee.Sgf.BoardTest.tests
-        , Game.Goatee.Sgf.MonadTest.tests
-        , Game.Goatee.Sgf.ParserTest.tests
-        , Game.Goatee.Sgf.Property.ParserTest.tests
-        , Game.Goatee.Sgf.PropertyTest.tests
-        , Game.Goatee.Sgf.RoundTripTest.tests
-        , Game.Goatee.Sgf.TreeTest.tests
-        , Game.Goatee.Sgf.TypesTest.tests
-        ]
+tests :: Test
+tests = TestList [
+  Game.Goatee.Common.BigfloatTest.tests
+  , Game.Goatee.CommonTest.tests
+  , Game.Goatee.Sgf.BoardTest.tests
+  , Game.Goatee.Sgf.MonadTest.tests
+  , Game.Goatee.Sgf.ParserTest.tests
+  , Game.Goatee.Sgf.Property.ParserTest.tests
+  , Game.Goatee.Sgf.PropertyTest.tests
+  , Game.Goatee.Sgf.RoundTripTest.tests
+  , Game.Goatee.Sgf.TreeTest.tests
+  , Game.Goatee.Sgf.TypesTest.tests
+  ]
 
 main :: IO ()
-main = defaultMain tests
+main = do
+  counts <- runTestTT tests
+  if errors counts > 0 || failures counts > 0
+    then exitFailure
+    else exitSuccess

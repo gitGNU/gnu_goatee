@@ -24,11 +24,9 @@ import Game.Goatee.Sgf.TestInstances ()
 import Game.Goatee.Sgf.TestUtils
 import Game.Goatee.Sgf.Tree
 import Game.Goatee.Sgf.Types
-import Test.Framework (testGroup)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@?=))
+import Test.HUnit ((~:), (@?=), Test (TestList))
 
-tests = testGroup "Game.Goatee.Sgf.Parser" [
+tests = "Game.Goatee.Sgf.Parser" ~: TestList [
   baseCaseTests,
   whitespaceTests,
   passConversionTests,
@@ -39,34 +37,34 @@ tests = testGroup "Game.Goatee.Sgf.Parser" [
   rootPropertyTests
   ]
 
-baseCaseTests = testGroup "base cases" [
-  testCase "works with the trivial collection" $
+baseCaseTests = "base cases" ~: TestList [
+  "works with the trivial collection" ~:
     parseOrFail "(;)" (@?= emptyNode),
 
-  testCase "works with only a size property" $ do
+  "works with only a size property" ~: do
     parseOrFail "(;SZ[1])" (@?= root 1 1 [] [])
     parseOrFail "(;SZ[9])" (@?= root 9 9 [] [])
   ]
 
-whitespaceTests = testGroup "whitespace handling" [
-  testCase "parses with no extra whitespace" $
+whitespaceTests = "whitespace handling" ~: TestList [
+  "parses with no extra whitespace" ~:
     parseOrFail "(;SZ[4];AB[aa][bb]AW[cc];W[dd])"
     (@?= root 4 4 [] [node1 [AB $ coords [(0,0), (1,1)], AW $ coords [(2,2)]] $
                       node [W $ Just (3,3)]]),
 
-  testCase "parses with spaces between nodes" $
+  "parses with spaces between nodes" ~:
     parseOrFail "(;SZ[1] ;B[])" (@?= root 1 1 [] [node [B Nothing]]),
 
-  testCase "parses with spaces between properties" $
+  "parses with spaces between properties" ~:
     parseOrFail "(;SZ[1] AB[aa])" (@?= root 1 1 [AB $ coords [(0,0)]] []),
 
-  testCase "parses with spaces between a property's name and value" $
+  "parses with spaces between a property's name and value" ~:
     parseOrFail "(;SZ [1])" (@?= root 1 1 [] []),
 
-  testCase "parses with spaces between property values" $
+  "parses with spaces between property values" ~:
     parseOrFail "(;SZ[2]AB[aa] [bb])" (@?= root 2 2 [AB $ coords [(0,0), (1,1)]] []),
 
-  testCase "parses with spaces between many elements" $
+  "parses with spaces between many elements" ~:
     parseOrFail " ( ; SZ [4] ; AB [aa:ad] [bb] AW [cc] ; W [dd] ; B [] ) "
     (@?= root 4 4 [] [node1 [AB $ coords' [(1,1)] [((0,0), (0,3))],
                              AW $ coords [(2,2)]] $
@@ -77,142 +75,142 @@ whitespaceTests = testGroup "whitespace handling" [
   -- [value].
   ]
 
-passConversionTests = testGroup "B[tt]/W[tt] pass conversion" [
-  testCase "converts B[tt] for a board sizes <=19x19" $ do
+passConversionTests = "B[tt]/W[tt] pass conversion" ~: TestList [
+  "converts B[tt] for a board sizes <=19x19" ~: do
     parseOrFail "(;SZ[1];B[tt])" (@?= root 1 1 [] [node [B Nothing]])
     parseOrFail "(;SZ[9];B[tt])" (@?= root 9 9 [] [node [B Nothing]])
     parseOrFail "(;SZ[19];B[tt])" (@?= root 19 19 [] [node [B Nothing]]),
 
-  testCase "converts W[tt] for a board sizes <=19x19" $ do
+  "converts W[tt] for a board sizes <=19x19" ~: do
     parseOrFail "(;SZ[1];W[tt])" (@?= root 1 1 [] [node [W Nothing]])
     parseOrFail "(;SZ[9];W[tt])" (@?= root 9 9 [] [node [W Nothing]])
     parseOrFail "(;SZ[19];W[tt])" (@?= root 19 19 [] [node [W Nothing]]),
 
-  testCase "doesn't convert B[tt] for a board sizes >19x19" $ do
+  "doesn't convert B[tt] for a board sizes >19x19" ~: do
     parseOrFail "(;SZ[20];B[tt])" (@?= root 20 20 [] [node [B $ Just (19, 19)]])
     parseOrFail "(;SZ[21];B[tt])" (@?= root 21 21 [] [node [B $ Just (19, 19)]]),
 
-  testCase "doesn't convert W[tt] for a board sizes >19x19" $ do
+  "doesn't convert W[tt] for a board sizes >19x19" ~: do
     parseOrFail "(;SZ[20];W[tt])" (@?= root 20 20 [] [node [W $ Just (19, 19)]])
     parseOrFail "(;SZ[21];W[tt])" (@?= root 21 21 [] [node [W $ Just (19, 19)]]),
 
-  testCase "doesn't convert non-move properties" $ do
+  "doesn't convert non-move properties" ~: do
     -- TODO These should error, rather than parsing fine.
     parseOrFail "(;SZ[9];AB[tt])" (@?= root 9 9 [] [node [AB $ coords [(19, 19)]]])
     parseOrFail "(;SZ[9];TR[tt])" (@?= root 9 9 [] [node [TR $ coords [(19, 19)]]])
   ]
 
-movePropertyTests = testGroup "move properties" [
-  testGroup "B" [
-    testCase "parses moves" $ do
+movePropertyTests = "move properties" ~: TestList [
+  "B" ~: TestList [
+    "parses moves" ~: do
       parseOrFail "(;B[aa])" (@?= node [B $ Just (0, 0)])
       parseOrFail "(;B[cp])" (@?= node [B $ Just (2, 15)]),
-    testCase "parses passes" $
+    "parses passes" ~:
       parseOrFail "(;B[])" (@?= node [B Nothing])
     ],
-  testCase "KO parses" $
+  "KO parses" ~:
     parseOrFail "(;KO[])" (@?= node [KO]),
   -- TODO Test MN (assert positive).
-  testGroup "W" [
-    testCase "parses moves" $ do
+  "W" ~: TestList [
+    "parses moves" ~: do
       parseOrFail "(;W[aa])" (@?= node [W $ Just (0, 0)])
       parseOrFail "(;W[cp])" (@?= node [W $ Just (2, 15)]),
-    testCase "parses passes" $
+    "parses passes" ~:
       parseOrFail "(;W[])" (@?= node [W Nothing])
     ]
   ]
 
-setupPropertyTests = testGroup "setup properties" [
-  testCase "AB parses" $ do
+setupPropertyTests = "setup properties" ~: TestList [
+  "AB parses" ~: do
     parseOrFail "(;AB[ab])" (@?= node [AB $ coords [(0, 1)]])
     parseOrFail "(;AB[ab][cd:ef])" (@?= node [AB $ coords' [(0, 1)] [((2, 3), (4, 5))]]),
-  testCase "AE parses" $ do
+  "AE parses" ~: do
     parseOrFail "(;AE[ae])" (@?= node [AE $ coords [(0, 4)]])
     parseOrFail "(;AE[ae][ff:gg])" (@?= node [AE $ coords' [(0, 4)] [((5, 5), (6, 6))]]),
-  testCase "AW parses" $ do
+  "AW parses" ~: do
     parseOrFail "(;AW[aw])" (@?= node [AW $ coords [(0, 22)]])
     parseOrFail "(;AW[aw][xy:yz])" (@?= node [AW $ coords' [(0, 22)] [((23, 24), (24, 25))]]),
-  testCase "PL parses" $ do
+  "PL parses" ~: do
     parseOrFail "(;PL[B])" (@?= node [PL Black])
     parseOrFail "(;PL[W])" (@?= node [PL White])
   ]
 
-nodeAnnotationPropertyTests = testGroup "node annotation properties" [
-  testCase "C parses" $
+nodeAnnotationPropertyTests = "node annotation properties" ~: TestList [
+  "C parses" ~:
     parseOrFail "(;C[Me [30k\\]: What is White doing??\\\n\n:(])"
       (@?= node [C $ toText "Me [30k]: What is White doing??\n:("]),
-  testCase "DM parses" $ do
+  "DM parses" ~: do
     parseOrFail "(;DM[1])" (@?= node [DM Double1])
     parseOrFail "(;DM[2])" (@?= node [DM Double2]),
-  testCase "GB parses" $ do
+  "GB parses" ~: do
     parseOrFail "(;GB[1])" (@?= node [GB Double1])
     parseOrFail "(;GB[2])" (@?= node [GB Double2]),
-  testCase "GW parses" $ do
+  "GW parses" ~: do
     parseOrFail "(;GW[1])" (@?= node [GW Double1])
     parseOrFail "(;GW[2])" (@?= node [GW Double2]),
-  testCase "HO parses" $ do
+  "HO parses" ~: do
     parseOrFail "(;HO[1])" (@?= node [HO Double1])
     parseOrFail "(;HO[2])" (@?= node [HO Double2]),
-  testCase "N parses" $
+  "N parses" ~:
     parseOrFail "(;N[The best\\\n\nmove])" (@?= node [N $ toSimpleText "The best move"]),
-  testCase "UC parses" $ do
+  "UC parses" ~: do
     parseOrFail "(;UC[1])" (@?= node [UC Double1])
     parseOrFail "(;UC[2])" (@?= node [UC Double2]),
-  testCase "V parses" $ do
+  "V parses" ~: do
     parseOrFail "(;V[-34.5])" (@?= node [V $ read "-34.5"])
     parseOrFail "(;V[50])" (@?= node [V $ read "50"])
   ]
 
-moveAnnotationPropertyTests = testGroup "move annotation properties" [
-  testCase "BM parses" $ do
+moveAnnotationPropertyTests = "move annotation properties" ~: TestList [
+  "BM parses" ~: do
     parseOrFail "(;BM[1])" (@?= node [BM Double1])
     parseOrFail "(;BM[2])" (@?= node [BM Double2]),
-  testCase "DO parses" $
+  "DO parses" ~:
     parseOrFail "(;DO[])" (@?= node [DO]),
-  testCase "IT parses" $
+  "IT parses" ~:
     parseOrFail "(;IT[])" (@?= node [IT]),
-  testCase "TE parses" $ do
+  "TE parses" ~: do
     parseOrFail "(;TE[1])" (@?= node [TE Double1])
     parseOrFail "(;TE[2])" (@?= node [TE Double2])
   ]
 
 -- TODO Test markup properties.
 
-rootPropertyTests = testGroup "root properties" [
-  testCase "AP parses" $
+rootPropertyTests = "root properties" ~: TestList [
+  "AP parses" ~:
     parseOrFail "(;AP[GoGoGo:1.2.3])"
     (@?= node [AP (toSimpleText "GoGoGo") (toSimpleText "1.2.3")]),
-  testCase "CA parses" $ do
+  "CA parses" ~: do
     parseOrFail "(;CA[UTF-8])" (@?= node [CA $ toSimpleText "UTF-8"])
     parseOrFail "(;CA[ISO-8859-1])" (@?= node [CA $ toSimpleText "ISO-8859-1"]),
-  testGroup "FF" [
-    testCase "accepts version 4" $
+  "FF" ~: TestList [
+    "accepts version 4" ~:
       parseOrFail "(;FF[4])" (@?= node [FF 4]),
-    testCase "rejects versions 1-3" $ do
+    "rejects versions 1-3" ~: do
       parseAndFail "(;FF[1])"
       parseAndFail "(;FF[2])"
       parseAndFail "(;FF[3])"
     ],
-  testGroup "GM" [
-    testCase "parses 1 (Go)" $
+  "GM" ~: TestList [
+    "parses 1 (Go)" ~:
       parseOrFail "(;GM[1])" (@?= node [GM 1]),
-    testCase "rejects unsupported games" $
+    "rejects unsupported games" ~:
       forM_ [2..16] $ \x -> parseAndFail $ "(;GM[" ++ show x ++ "]"
     ],
-  testGroup "ST" [
-    testCase "parses valid variation modes" $ do
+  "ST" ~: TestList [
+    "parses valid variation modes" ~: do
       parseOrFail "(;ST[0])" (@?= node [ST $ VariationMode ShowChildVariations True])
       parseOrFail "(;ST[1])" (@?= node [ST $ VariationMode ShowCurrentVariations True])
       parseOrFail "(;ST[2])" (@?= node [ST $ VariationMode ShowChildVariations False])
       parseOrFail "(;ST[3])" (@?= node [ST $ VariationMode ShowCurrentVariations False]),
-    testCase "rejects invalid variation modes" $
+    "rejects invalid variation modes" ~:
       forM_ [4..10] $ \x -> parseAndFail $ "(;ST[" ++ show x ++ "]"
     ],
-  testGroup "SZ" [
-    testCase "parses square boards" $
+  "SZ" ~: TestList [
+    "parses square boards" ~:
       forM_ [1..52] $ \x ->
         parseOrFail ("(;SZ[" ++ show x ++ "])") (@?= node [SZ x x]),
-    testCase "parses nonsquare boards" $ do
+    "parses nonsquare boards" ~: do
       parseOrFail "(;SZ[1:2])" (@?= node [SZ 1 2])
       parseOrFail "(;SZ[1:9])" (@?= node [SZ 1 9])
       parseOrFail "(;SZ[1:19])" (@?= node [SZ 1 19])
@@ -221,7 +219,7 @@ rootPropertyTests = testGroup "root properties" [
       parseOrFail "(;SZ[19:1])" (@?= node [SZ 19 1])
       parseOrFail "(;SZ[19:52])" (@?= node [SZ 19 52])
       parseOrFail "(;SZ[10:16])" (@?= node [SZ 10 16]),
-    testCase "rejects invalid sizes" $ do
+    "rejects invalid sizes" ~: do
       -- Boards must have length at least 1...
       parseAndFail "(;SZ[0])"
       parseAndFail "(;SZ[-1])"
@@ -233,7 +231,7 @@ rootPropertyTests = testGroup "root properties" [
       parseAndFail "(;SZ[9:53])"
       parseAndFail "(;SZ[53:9])",
     -- This is specified by the SGF spec:
-    testCase "rejects square boards defined with two numbers" $ do
+    "rejects square boards defined with two numbers" ~: do
       parseAndFail "(;SZ[1:1])"
       parseAndFail "(;SZ[19:19])"
     ]

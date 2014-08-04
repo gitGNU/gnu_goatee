@@ -20,23 +20,21 @@ module Game.Goatee.Sgf.PropertyTest (tests) where
 import qualified Data.Set as Set
 import Game.Goatee.Sgf.Property
 import Game.Goatee.Sgf.Types
-import Test.Framework (testGroup)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@=?))
+import Test.HUnit ((~:), (@=?), Test (TestList))
 
-tests = testGroup "Game.Goatee.Sgf.Property" [
+tests = "Game.Goatee.Sgf.Property" ~: TestList $ [
   propertyMetadataTests,
   markPropertyTests
   ]
 
-propertyMetadataTests = testGroup "property metadata" [
-  testCase "game info properties" $ gameInfoProperties @=? filterTo GameInfoProperty allProperties,
-  testCase "general properties" $ generalProperties @=? filterTo GeneralProperty allProperties,
-  testCase "move properties" $ moveProperties @=? filterTo MoveProperty allProperties,
-  testCase "root properties" $ rootProperties @=? filterTo RootProperty allProperties,
-  testCase "setup properties" $ setupProperties @=? filterTo SetupProperty allProperties,
+propertyMetadataTests = "property metadata" ~: TestList $ [
+  "game info properties" ~: gameInfoProperties @=? filterTo GameInfoProperty allProperties,
+  "general properties" ~: generalProperties @=? filterTo GeneralProperty allProperties,
+  "move properties" ~: moveProperties @=? filterTo MoveProperty allProperties,
+  "root properties" ~: rootProperties @=? filterTo RootProperty allProperties,
+  "setup properties" ~: setupProperties @=? filterTo SetupProperty allProperties,
 
-  testCase "inherited properties" $ [DD cl] @=? filter propertyInherited allProperties
+  "inherited properties" ~: [DD cl] @=? filter propertyInherited allProperties
   ]
   where filterTo propType = filter ((propType ==) . propertyType)
         moveProperties = [-- Move properties.
@@ -67,8 +65,8 @@ propertyMetadataTests = testGroup "property metadata" [
         rv = 1
         vm = defaultVariationMode
 
-markPropertyTests = testGroup "markProperty" [
-  testCase "doesn't repeat properties" $
+markPropertyTests = "markProperty" ~: TestList $ [
+  "doesn't repeat properties" ~:
     let marks = [minBound..maxBound]
     in length marks @=? Set.size (Set.fromList $ map (propertyName . markProperty) marks)
   ]

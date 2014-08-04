@@ -23,11 +23,9 @@ import Game.Goatee.Sgf.TestInstances ()
 import Game.Goatee.Sgf.TestUtils
 import Game.Goatee.Sgf.Tree
 import Game.Goatee.Sgf.Types
-import Test.Framework (testGroup)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@=?), (@?=))
+import Test.HUnit ((~:), (@=?), (@?=), Test (TestList))
 
-tests = testGroup "Game.Goatee.Sgf.Board" [
+tests = "Game.Goatee.Sgf.Board" ~: TestList [
   boardCoordStateTests,
   moveNumberTests,
   markupPropertiesTests,
@@ -36,14 +34,14 @@ tests = testGroup "Game.Goatee.Sgf.Board" [
   moveToPropertyTests
   ]
 
-boardCoordStateTests = testGroup "boardCoordState" [
-  testCase "works for a 1x1 board" $ do
+boardCoordStateTests = "boardCoordState" ~: TestList [
+  "works for a 1x1 board" ~: do
     let state = boardCoordState (0,0) $ rootBoardState $
                 node [SZ 1 1, CR $ coord1 (0,0)]
     coordStone state @?= Nothing
     coordMark state @?= Just MarkCircle,
 
-  testCase "works for a 2x2 board" $ do
+  "works for a 2x2 board" ~: do
     let board = rootBoardState $
                 node [SZ 2 2, B $ Just (0,0), TR $ coord1 (0,0), MA $ coord1 (1,1)]
     coordStone (boardCoordState (0,0) board) @?= Just Black
@@ -55,11 +53,11 @@ boardCoordStateTests = testGroup "boardCoordState" [
   ]
 
 
-moveNumberTests = testGroup "move number" [
-  testCase "starts at zero" $
+moveNumberTests = "move number" ~: TestList [
+  "starts at zero" ~:
     0 @=? boardMoveNumber (cursorBoard $ rootCursor $ node1 [] $ node [B Nothing]),
 
-  testCase "advances for nodes with moves" $ do
+  "advances for nodes with moves" ~: do
     1 @=? boardMoveNumber (cursorBoard $ child 0 $ rootCursor $ node1 [] $ node [B Nothing])
     1 @=? boardMoveNumber (cursorBoard $ rootCursor $ node1 [B Nothing] $ node [])
     1 @=? boardMoveNumber (cursorBoard $ child 0 $ rootCursor $ node1 [B Nothing] $ node [])
@@ -70,7 +68,7 @@ moveNumberTests = testGroup "move number" [
     3 @=? boardMoveNumber (cursorBoard $ child 0 $ child 0 $ rootCursor $
                            node1 [B Nothing] $ node1 [W Nothing] $ node [B Nothing]),
 
-  testCase "doesn't advance for non-move nodes" $ do
+  "doesn't advance for non-move nodes" ~: do
     0 @=? boardMoveNumber (cursorBoard $ child 0 $ rootCursor $
                            node1 [] $ node [])
     0 @=? boardMoveNumber (cursorBoard $ child 0 $ rootCursor $
@@ -81,14 +79,14 @@ moveNumberTests = testGroup "move number" [
                            node1 [IT, TE Double2, GN $ toSimpleText "Title"] $ node [])
   ]
 
-markupPropertiesTests = testGroup "markup properties" [
-  testGroup "adds marks to a BoardState" [
-    testCase "CR" $ Just MarkCircle @=? getMark 0 0 (rootCursor $ node [CR $ coords [(0,0)]]),
-    testCase "MA" $ Just MarkX @=? getMark 0 0 (rootCursor $ node [MA $ coords [(0,0)]]),
-    testCase "SL" $ Just MarkSelected @=? getMark 0 0 (rootCursor $ node [SL $ coords [(0,0)]]),
-    testCase "SQ" $ Just MarkSquare @=? getMark 0 0 (rootCursor $ node [SQ $ coords [(0,0)]]),
-    testCase "TR" $ Just MarkTriangle @=? getMark 0 0 (rootCursor $ node [TR $ coords [(0,0)]]),
-    testCase "multiple at once" $ do
+markupPropertiesTests = "markup properties" ~: TestList [
+  "adds marks to a BoardState" ~: TestList [
+    "CR" ~: Just MarkCircle @=? getMark 0 0 (rootCursor $ node [CR $ coords [(0,0)]]),
+    "MA" ~: Just MarkX @=? getMark 0 0 (rootCursor $ node [MA $ coords [(0,0)]]),
+    "SL" ~: Just MarkSelected @=? getMark 0 0 (rootCursor $ node [SL $ coords [(0,0)]]),
+    "SQ" ~: Just MarkSquare @=? getMark 0 0 (rootCursor $ node [SQ $ coords [(0,0)]]),
+    "TR" ~: Just MarkTriangle @=? getMark 0 0 (rootCursor $ node [TR $ coords [(0,0)]]),
+    "multiple at once" ~: do
       let cursor = rootCursor $ node [SZ 2 2,
                                       CR $ coords [(0,0), (1,1)],
                                       TR $ coords [(1,0)]]
@@ -97,13 +95,13 @@ markupPropertiesTests = testGroup "markup properties" [
         @=? map (map coordMark) (boardCoordStates $ cursorBoard cursor)
     ],
 
-  testGroup "adds more complex annotations to a BoardState" [
-    testCase "AR" $ [((0,0), (1,1))] @=? boardArrows (rootCoord $ node [AR [((0,0), (1,1))]]),
-    testCase "LB" $ [((0,0), st "Hi")] @=? boardLabels (rootCoord $ node [LB [((0,0), st "Hi")]]),
-    testCase "LN" $ [((0,0), (1,1))] @=? boardLines (rootCoord $ node [LN [((0,0), (1,1))]])
+  "adds more complex annotations to a BoardState" ~: TestList [
+    "AR" ~: [((0,0), (1,1))] @=? boardArrows (rootCoord $ node [AR [((0,0), (1,1))]]),
+    "LB" ~: [((0,0), st "Hi")] @=? boardLabels (rootCoord $ node [LB [((0,0), st "Hi")]]),
+    "LN" ~: [((0,0), (1,1))] @=? boardLines (rootCoord $ node [LN [((0,0), (1,1))]])
     ],
 
-  testCase "clears annotations when moving to a child node" $ do
+  "clears annotations when moving to a child node" ~: do
     let root = node1 [SZ 3 2,
                       CR $ coords [(0,0)],
                       MA $ coords [(1,0)],
@@ -126,52 +124,52 @@ markupPropertiesTests = testGroup "markup properties" [
         getMark :: Int -> Int -> Cursor -> Maybe Mark
         getMark x y cursor = coordMark $ boardCoordStates (cursorBoard cursor) !! y !! x
 
-visibilityPropertyTests = testGroup "visibility properties" [
-  testCase "boards start with all points undimmed" $
+visibilityPropertyTests = "visibility properties" ~: TestList [
+  "boards start with all points undimmed" ~:
     replicate 9 (replicate 9 False) @=?
     map (map coordDimmed) (boardCoordStates $ cursorBoard $ rootCursor $ node [SZ 9 9]),
 
-  testCase "DD selectively dims points" $
+  "DD selectively dims points" ~:
     let root = node [SZ 5 2, DD $ coords' [(3,0)] [((0,0), (1,1))]]
     in [[True, True, False, True, False],
         [True, True, False, False, False]] @=?
        map (map coordDimmed) (boardCoordStates $ cursorBoard $ rootCursor root),
 
-  testCase "dimming is inherited" $
+  "dimming is inherited" ~:
     let root = node1 [SZ 5 2, DD $ coords' [(3,0)] [((0,0), (1,1))]] $ node []
     in [[True, True, False, True, False],
         [True, True, False, False, False]] @=?
        map (map coordDimmed) (boardCoordStates $ cursorBoard $ child 0 $ rootCursor root),
 
-  testCase "DD[] clears dimming" $
+  "DD[] clears dimming" ~:
     let root = node1 [SZ 2 1, DD $ coords [(0,0)]] $ node [DD $ coords []]
     in [[False, False]] @=?
        map (map coordDimmed) (boardCoordStates $ cursorBoard $ child 0 $ rootCursor root),
 
-  testCase "boards start with all points visible" $
+  "boards start with all points visible" ~:
     replicate 9 (replicate 9 True) @=?
     map (map coordVisible) (boardCoordStates $ cursorBoard $ rootCursor $ node [SZ 9 9]),
 
-  testCase "VW selectively makes points visible" $
+  "VW selectively makes points visible" ~:
     let root = node [SZ 5 2, VW $ coords' [(1,0), (0,1)] [((2,0), (4,1))]]
     in [[False, True, True, True, True],
         [True, False, True, True, True]] @=?
        map (map coordVisible) (boardCoordStates $ cursorBoard $ rootCursor root),
 
-  testCase "visibility is inherited" $
+  "visibility is inherited" ~:
     let root = node1 [SZ 5 2, VW $ coords' [(1,0), (0,1)] [((2,0), (4,1))]] $ node []
     in [[False, True, True, True, True],
         [True, False, True, True, True]] @=?
        map (map coordVisible) (boardCoordStates $ cursorBoard $ child 0 $ rootCursor root),
 
-  testCase "VW[] clears dimming" $
+  "VW[] clears dimming" ~:
     let root = node1 [SZ 2 1, VW $ coords [(0,0)]] $ node [VW $ coords []]
     in [[True, True]] @=?
        map (map coordVisible) (boardCoordStates $ cursorBoard $ child 0 $ rootCursor root)
   ]
 
-cursorModifyNodeTests = testGroup "cursorModifyNode" [
-  testCase "updates the BoardState" $
+cursorModifyNodeTests = "cursorModifyNode" ~: TestList [
+  "updates the BoardState" ~:
     let cursor = child 0 $ rootCursor $
                  node1 [SZ 3 1, B $ Just (0,0)] $
                  node [W $ Just (1,0)]
@@ -184,13 +182,13 @@ cursorModifyNodeTests = testGroup "cursorModifyNode" [
        [[Just Black, Nothing, Just White]]
   ]
 
-moveToPropertyTests = testGroup "moveToProperty" [
-  testCase "creates Black moves" $ do
+moveToPropertyTests = "moveToProperty" ~: TestList [
+  "creates Black moves" ~: do
     B Nothing @=? moveToProperty Black Nothing
     B (Just (3,2)) @=? moveToProperty Black (Just (3,2))
     B (Just (0,0)) @=? moveToProperty Black (Just (0,0)),
 
-  testCase "creates White moves" $ do
+  "creates White moves" ~: do
     W Nothing @=? moveToProperty White Nothing
     W (Just (18,18)) @=? moveToProperty White (Just (18,18))
     W (Just (15,16)) @=? moveToProperty White (Just (15,16))

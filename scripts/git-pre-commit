@@ -96,10 +96,11 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-precommitBuildOpts="-Werror -fno-warn-warnings-deprecations"
-projectDir="$(dirname "$(realpath "$(git rev-parse --git-dir)")")"
-scriptsDir="$(dirname "$(realpath "$0")")"
-unstagedDiff="$(mktemp)"
+declare -r precommitBuildOpts="-Werror -fno-warn-warnings-deprecations"
+declare -r projectDir="$(dirname "$(realpath "$(git rev-parse --git-dir)")")"
+declare -r scriptsDir="$(dirname "$(realpath "$0")")"
+declare -r unstagedDiff="$(mktemp)"
+declare -r allowUnsandboxedInstallFile="$projectDir/allow-unsandboxed-install"
 
 #### Messaging functions
 
@@ -126,12 +127,51 @@ alias err='echo "$msgPrefix${FUNCNAME:+ $FUNCNAME:} Error:"'
 
 #### Cabal sandbox functions
 
+# Usage: sandboxSupported
+#
+# Returns 0 if cabal-install supports sandboxes, and non-zero otherwise.
+sandboxSupported() {
+    cabal help sandbox &>/dev/null
+}
+
+# Usage: cabal install $(sandboxInstallFlags) ...
+#
+# Returns sandbox-appropriate flags that should be used for "cabal
+# install"s.
+sandboxInstallFlags() {
+    if ! sandboxSupported; then
+        echo --user
+    fi
+}
+
 # Usage: sandboxInit
 #
 # Initializes a precommit sandbox for the current package.  Puts aside an
 # existing sandbox, if one exists.  Returns 0 on success, 1 on error.
 sandboxInit() {
     msgIncDepth
+
+    if ! sandboxSupported; then
+        if [[ -e $allowUnsandboxedInstallFile ]]; then
+            msg "Cabal <1.18 is too old to support sandboxes:"
+            cabal --version
+            msg "Proceeding, as user installs are permitted."
+            msgDecDepth
+            return 0
+        else
+            err "The pre-commit script needs to install the Goatee library to verify"
+            err "other packages, but Cabal <1.18 is too old to support sandboxes:"
+            cabal --version
+            err "The pre-commit script can proceed by a user install of the library,"
+            err "but won't do so unless you agree to doing a user install by creating"
+            err "the following file:"
+            err
+            err "    $allowUnsandboxedInstallFile"
+            msgDecDepth
+            return 1
+        fi
+    fi
+
     if [[ -e .precommit-sandbox ]]; then
         msg "Old precommit sandbox exists; removing:"
         msg "    $(realpath .precommit-sandbox)"
@@ -146,6 +186,7 @@ sandboxInit() {
         mv cabal.sandbox.config{,.non-precommit} || { msgDecDepth; return 1; }
     fi
     cabal sandbox --sandbox=.precommit-sandbox init || { msgDecDepth; return 1; }
+
     msgDecDepth
 }
 
@@ -154,7 +195,7 @@ sandboxInit() {
 # Cleans the precommit sandbox for the current package (if one exists), and
 # restores a set-aside sandbox (if one exists).
 sandboxClean() {
-    if ! [[ -e cabal.sandbox.config ]]; then
+    if ! sandboxSupported || ! [[ -e cabal.sandbox.config ]]; then
         return 0
     fi
     msgIncDepth
@@ -185,7 +226,7 @@ sandboxClean() {
 # Returns 0 on success, 1 on error.
 verifyPackage() {
     msgIncDepth
-    local packageName=$1
+    local -r packageName=$1
     local doInstallLib
     local doTest
     local result
@@ -199,7 +240,6 @@ verifyPackage() {
         no-test) doTest=;;
         *) err "Don't know this doTest: \"$3\""; msgDecDepth; return 1;;
     esac
-
     echo
     msg "Verifying $packageName."
     cd "$projectDir/$packageName" || { msgDecDepth; return 1; }
@@ -207,7 +247,7 @@ verifyPackage() {
     if [[ -n $doInstallLib ]]; then
         msg "Installing goatee library."
         sandboxInit \
-            && cabal install ../goatee; fi \
+            && cabal install $(sandboxInstallFlags) ../goatee; fi \
             && { msg "Cleaning."; cabal clean; } \
             && { msg "Configuring."; cabal configure ${doTest:+--enable-tests}; } \
             && { msg "Building."; cabal build --ghc-options="$precommitBuildOpts"; } \
@@ -287,20 +327,31 @@ determineTargets
 
 # Verify the affected targets!
 if [[ $verifyLib -eq 0 ]]; then
-    verifyPackage goatee no-install-lib test; resultGoatee=$?
+    verifyPackage goatee no-install-lib test
+    resultGoatee=$?
 else
     msg "Target goatee is unchanged, skipping verification."
     resultGoatee=0
 fi
 if [[ $resultGoatee -eq 0 ]]; then
     if [[ $verifyGtk -eq 0 ]]; then
-        verifyPackage goatee-gtk install-lib test; resultGtk=$?
+        verifyPackage goatee-gtk install-lib test
+        resultGtk=$?
     else
         msg "Target goatee-gtk is unchanged, skipping verification."
         resultGtk=0
     fi
     if [[ $verifyWx -eq 0 ]]; then
-        verifyPackage goatee-wx install-lib no-test; resultWx=$?
+        # Verifying the wxWidgets UI is optional and is skipped if wx
+        # not installed.  Shouldn't have to install wx to work on
+        # Goatee.
+        if ghc-pkg latest wx &>/dev/null; then
+            verifyPackage goatee-wx install-lib no-test
+            resultWx=$?
+        else
+            msg "Target goatee-wx is missing wx, skipping verification."
+            resultWx=0
+        fi
     else
         msg "Target goatee-wx is unchanged, skipping verification."
         resultWx=0
@@ -336,9 +387,9 @@ else
 fi
 
 showResult() {
-    local packageName=$1
-    local verificationRun=$2
-    local verificationResult=$3
+    local -r packageName=$1
+    local -r verificationRun=$2
+    local -r verificationResult=$3
     local label
     if [[ $verificationRun -ne 0 ]]; then
         label=skip

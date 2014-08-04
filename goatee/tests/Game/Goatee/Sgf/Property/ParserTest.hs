@@ -26,12 +26,10 @@ import Game.Goatee.Sgf.Property
 import Game.Goatee.Sgf.TestInstances ()
 import Game.Goatee.Sgf.TestUtils
 import Game.Goatee.Sgf.Types
-import Test.Framework (Test, testGroup)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@?=))
+import Test.HUnit ((~:), (@?=), Test (TestList))
 import Text.ParserCombinators.Parsec (Parser)
 
-tests = testGroup "Game.Goatee.Sgf.Property.ParserTest" [
+tests = "Game.Goatee.Sgf.Property.ParserTest" ~: TestList [
   -- Tests for public parsers.
   parserColorTests,
   parserDoubleTests,
@@ -52,62 +50,62 @@ tests = testGroup "Game.Goatee.Sgf.Property.ParserTest" [
   propertyValueArityTests
   ]
 
-parserColorTests = testGroup "colorParser" [
-  testCase "parses B" $ assertParse colorParser "[B]" (@?= Black),
-  testCase "parses W" $ assertParse colorParser "[W]" (@?= White)
+parserColorTests = "colorParser" ~: TestList [
+  "parses B" ~: assertParse colorParser "[B]" (@?= Black),
+  "parses W" ~: assertParse colorParser "[W]" (@?= White)
   ]
 
-parserDoubleTests = testGroup "doubleParser" [
-  testCase "parses 1" $ assertParse doubleParser "[1]" (@?= Double1),
-  testCase "parses 2" $ assertParse doubleParser "[2]" (@?= Double2)
+parserDoubleTests = "doubleParser" ~: TestList [
+  "parses 1" ~: assertParse doubleParser "[1]" (@?= Double1),
+  "parses 2" ~: assertParse doubleParser "[2]" (@?= Double2)
   ]
 
-parserGameResultTests = testGroup "gameResultParser" [
-  testCase "draw" $ do
+parserGameResultTests = "gameResultParser" ~: TestList [
+  "draw" ~: do
     assertParse gameResultParser "[0]" (@?= GameResultDraw)
     assertParse gameResultParser "[Draw]" (@?= GameResultDraw),
 
-  testCase "void" $
+  "void" ~:
     assertParse gameResultParser "[Void]" (@?= GameResultVoid),
 
-  testCase "unknown" $
+  "unknown" ~:
     assertParse gameResultParser "[?]" (@?= GameResultUnknown),
 
-  testCase "Black wins by points" $ do
+  "Black wins by points" ~: do
     assertParse gameResultParser "[B+0.5]" (@?= GameResultWin Black (WinByScore $ read "0.5"))
     assertParse gameResultParser "[B+11]" (@?= GameResultWin Black (WinByScore $ read "11"))
     assertParse gameResultParser "[B+354.5]" (@?= GameResultWin Black (WinByScore $ read "354.5")),
 
-  testCase "Black wins by resignation" $ do
+  "Black wins by resignation" ~: do
     assertParse gameResultParser "[B+R]" (@?= GameResultWin Black WinByResignation)
     assertParse gameResultParser "[B+Resign]" (@?= GameResultWin Black WinByResignation),
 
-  testCase "Black wins on time" $ do
+  "Black wins on time" ~: do
     assertParse gameResultParser "[B+T]" (@?= GameResultWin Black WinByTime)
     assertParse gameResultParser "[B+Time]" (@?= GameResultWin Black WinByTime),
 
-  testCase "Black wins by forfeit" $ do
+  "Black wins by forfeit" ~: do
     assertParse gameResultParser "[B+F]" (@?= GameResultWin Black WinByForfeit)
     assertParse gameResultParser "[B+Forfeit]" (@?= GameResultWin Black WinByForfeit),
 
-  testCase "White wins by points" $ do
+  "White wins by points" ~: do
     assertParse gameResultParser "[W+0.5]" (@?= GameResultWin White (WinByScore $ read "0.5"))
     assertParse gameResultParser "[W+11]" (@?= GameResultWin White (WinByScore $ read "11"))
     assertParse gameResultParser "[W+354.5]" (@?= GameResultWin White (WinByScore $ read "354.5")),
 
-  testCase "White wins by resignation" $ do
+  "White wins by resignation" ~: do
     assertParse gameResultParser "[W+R]" (@?= GameResultWin White WinByResignation)
     assertParse gameResultParser "[W+Resign]" (@?= GameResultWin White WinByResignation),
 
-  testCase "White wins on time" $ do
+  "White wins on time" ~: do
     assertParse gameResultParser "[W+T]" (@?= GameResultWin White WinByTime)
     assertParse gameResultParser "[W+Time]" (@?= GameResultWin White WinByTime),
 
-  testCase "White wins by forfeit" $ do
+  "White wins by forfeit" ~: do
     assertParse gameResultParser "[W+F]" (@?= GameResultWin White WinByForfeit)
     assertParse gameResultParser "[W+Forfeit]" (@?= GameResultWin White WinByForfeit),
 
-  testCase "custom game results" $ do
+  "custom game results" ~: do
     assertParseToOther ""
     assertParseToOther "Everyone wins."
     assertParseToOther "W+Nuclear tesuji"
@@ -117,152 +115,152 @@ parserGameResultTests = testGroup "gameResultParser" [
           assertParse gameResultParser ('[' : input ++ "]")
           (@?= GameResultOther (toSimpleText input))
 
-parserIntegralTests = testGroup "integralParser" $ integerTestsFor integralParser
+parserIntegralTests = "integralParser" ~: TestList $ integerTestsFor integralParser
 
-parserMoveTests = testGroup "moveParser" $ coordTestsFor moveParser Just ++ [
-  testCase "parses an empty move as a pass" $ assertParse moveParser "[]" (@?= Nothing)
+parserMoveTests = "moveParser" ~: TestList $ coordTestsFor moveParser Just ++ [
+  "parses an empty move as a pass" ~: assertParse moveParser "[]" (@?= Nothing)
   ]
 
-parserRealTests = testGroup "realParser" $ integerTestsFor realParser ++ [
-  testCase "parses a decimal zero" $ assertParse realParser "[0.0]" (@?= 0),
+parserRealTests = "realParser" ~: TestList $ integerTestsFor realParser ++ [
+  "parses a decimal zero" ~: assertParse realParser "[0.0]" (@?= 0),
 
-  testCase "parses fractional positive numbers" $ do
+  "parses fractional positive numbers" ~: do
     assertParse realParser "[0.5]" (@?= read "0.5")
     assertParse realParser "[00.001250]" (@?= read "0.00125")
     assertParse realParser "[3.14]" (@?= read "3.14")
     assertParse realParser "[10.0]" (@?= read "10"),
 
-  testCase "parses fractional negative numbers" $ do
+  "parses fractional negative numbers" ~: do
     assertParse realParser "[-0.5]" (@?= read "-0.5")
     assertParse realParser "[-00.001250]" (@?= read "-0.00125")
     assertParse realParser "[-3.14]" (@?= read "-3.14")
     assertParse realParser "[-10.0]" (@?= read "-10")
   ]
 
-parserRulesetTests = testGroup "rulesetParser" [
-  testCase "parses known rules" $ do
+parserRulesetTests = "rulesetParser" ~: TestList [
+  "parses known rules" ~: do
     assertParse rulesetParser "[AGA]" (@?= KnownRuleset RulesetAga)
     assertParse rulesetParser "[Goe]" (@?= KnownRuleset RulesetIng)
     assertParse rulesetParser "[Japanese]" (@?= KnownRuleset RulesetJapanese)
     assertParse rulesetParser "[NZ]" (@?= KnownRuleset RulesetNewZealand),
 
-  testCase "parses unknown rules" $ do
+  "parses unknown rules" ~: do
     assertParse rulesetParser "[Foo]" (@?= UnknownRuleset "Foo")
     assertParse rulesetParser "[First capture]" (@?= UnknownRuleset "First capture")
   ]
 
-parserSizeTests = testGroup "size" [
-  testCase "parses square boards" $ do
+parserSizeTests = "size" ~: TestList [
+  "parses square boards" ~: do
     assertParse sizeParser "[1]" (@?= (1, 1))
     assertParse sizeParser "[4]" (@?= (4, 4))
     assertParse sizeParser "[9]" (@?= (9, 9))
     assertParse sizeParser "[19]" (@?= (19, 19))
     assertParse sizeParser "[52]" (@?= (52, 52)),
 
-  testCase "parses rectangular boards" $ do
+  "parses rectangular boards" ~: do
     assertParse sizeParser "[1:2]" (@?= (1, 2))
     assertParse sizeParser "[9:5]" (@?= (9, 5))
     assertParse sizeParser "[19:9]" (@?= (19, 9)),
 
-  testCase "rejects boards of non-positive size" $ do
+  "rejects boards of non-positive size" ~: do
     assertNoParse sizeParser "[0]"
     assertNoParse sizeParser "[-1]"
     assertNoParse sizeParser "[0:5]"
     assertNoParse sizeParser "[5:0]"
     assertNoParse sizeParser "[0:-2]",
 
-  testCase "rejects square boards given in rectangular format" $ do
+  "rejects square boards given in rectangular format" ~: do
     assertNoParse sizeParser "[1:1]"
     assertNoParse sizeParser "[13:13]"
   ]
 
-parserVariationModeTests = testGroup "variationModeParser" [
-  testCase "mode 0" $
+parserVariationModeTests = "variationModeParser" ~: TestList [
+  "mode 0" ~:
     assertParse variationModeParser "[0]" (@?= VariationMode ShowChildVariations True),
 
-  testCase "mode 1" $
+  "mode 1" ~:
     assertParse variationModeParser "[1]" (@?= VariationMode ShowCurrentVariations True),
 
-  testCase "mode 2" $
+  "mode 2" ~:
     assertParse variationModeParser "[2]" (@?= VariationMode ShowChildVariations False),
 
-  testCase "mode 3" $
+  "mode 3" ~:
     assertParse variationModeParser "[3]" (@?= VariationMode ShowCurrentVariations False)
   ]
 
-lineTests = testGroup "line" [
-  testCase "parses all valid values" $ do
+lineTests = "line" ~: TestList [
+  "parses all valid values" ~: do
      let cases = zip (['a'..'z'] ++ ['A'..'Z']) [0..]
      forM_ cases $ \(char, expected) ->
        assertParse line [char] (@?= expected)
   ]
 
-simpleTextTests = testGroup "simpleText" $
+simpleTextTests = "simpleText" ~: TestList $
   textTestsFor simpleText fromSimpleText False ++
   textUnescapedNewlineConvertingTests (fromSimpleText <$> simpleText False)
 
-simpleTextComposedTests = testGroup "simpleText composed" $
+simpleTextComposedTests = "simpleText composed" ~: TestList $
   textTestsFor simpleText fromSimpleText True ++
   textUnescapedNewlineConvertingTests (fromSimpleText <$> simpleText True)
 
-textTests = testGroup "text" $
+textTests = "text" ~: TestList $
   textTestsFor text id False ++
   textUnescapedNewlinePreservingTests (text False)
 
-textComposedTests = testGroup "text composed" $
+textComposedTests = "text composed" ~: TestList $
   textTestsFor text id True ++
   textUnescapedNewlinePreservingTests (text True)
 
-propertyValueArityTests = testGroup "property value arities" [
-  testGroup "single values (single)" [
-    testCase "accepts a property that requires a single number" $
+propertyValueArityTests = "property value arities" ~: TestList [
+  "single values (single)" ~: TestList [
+    "accepts a property that requires a single number" ~:
       parseOrFail "(;SZ[1])" (@?= node [SZ 1 1]),
 
-    testCase "accepts a property that requires a single point" $
+    "accepts a property that requires a single point" ~:
       parseOrFail "(;B[dd])" (@?= node [B $ Just (3, 3)])
     ],
 
-  testGroup "lists (listOf)" [
-    testCase "doesn't accept an empty list" $
+  "lists (listOf)" ~: TestList [
+    "doesn't accept an empty list" ~:
       parseAndFail "(;AR[])",
 
-    testCase "accepts a single value" $
+    "accepts a single value" ~:
       parseOrFail "(;AR[aa:bb])" (@?= node [AR [((0, 0), (1, 1))]]),
 
-    testCase "accepts two values" $
+    "accepts two values" ~:
       parseOrFail "(;AR[aa:bb][cc:de])" (@?= node [AR [((0, 0), (1, 1)),
                                                        ((2, 2), (3, 4))]])
     ],
 
-  testGroup "point lists (listOfPoint)" [
-    testCase "doesn't accept an empty list" $
+  "point lists (listOfPoint)" ~: TestList [
+    "doesn't accept an empty list" ~:
       parseAndFail "(;AB[])",
 
-    testCase "accepts a single point" $
+    "accepts a single point" ~:
       parseOrFail "(;AB[aa])" (@?= node [AB $ coords [(0, 0)]]),
 
-    testCase "accepts two points" $
+    "accepts two points" ~:
       parseOrFail "(;AB[aa][bb])" (@?= node [AB $ coords [(0, 0), (1, 1)]]),
 
-    testCase "accepts a rectangle" $
+    "accepts a rectangle" ~:
       parseOrFail "(;AB[aa:bb])" (@?= node [AB $ coords' [] [((0, 0), (1, 1))]]),
 
-    testCase "accepts two rectangles" $
+    "accepts two rectangles" ~:
       parseOrFail "(;AB[aa:bb][cd:de])" (@?= node [AB $ coords' [] [((0, 0), (1, 1)),
                                                                     ((2, 3), (3, 4))]])
     ],
 
-  testGroup "point elists (elistOfPoint)" [
-    testCase "accepts an empty list" $
+  "point elists (elistOfPoint)" ~: TestList [
+    "accepts an empty list" ~:
       parseOrFail "(;VW[])" (@?= node [VW $ coords []]),
 
-    testCase "accepts single points" $
+    "accepts single points" ~:
       parseOrFail "(;VW[aa][bb])" (@?= node [VW $ coords [(0, 0), (1, 1)]]),
 
-    testCase "accepts a rectangle" $
+    "accepts a rectangle" ~:
       parseOrFail "(;VW[aa:bb])" (@?= node [VW $ coords' [] [((0, 0), (1, 1))]]),
 
-    testCase "accepts two rectangles" $
+    "accepts two rectangles" ~:
       parseOrFail "(;VW[aa:bb][cc:dd])" (@?= node [VW $ coords' [] [((0, 0), (1, 1)),
                                                                     ((2, 2), (3, 3))]])
     ]
@@ -273,24 +271,24 @@ propertyValueArityTests = testGroup "property value arities" [
 
 integerTestsFor :: (Eq a, Num a, Show a) => Parser a -> [Test]
 integerTestsFor parser = [
-  testCase "parses 0" $ do
+  "parses 0" ~: do
     assertParse parser "[0]" (@?= 0)
     assertParse parser "[+0]" (@?= 0)
     assertParse parser "[-0]" (@?= 0),
 
-  testCase "parses positive integers" $ do
+  "parses positive integers" ~: do
     assertParse parser "[1]" (@?= 1)
     assertParse parser "[20]" (@?= 20)
     assertParse parser "[4294967296]" (@?= (2 ^ 32))
     assertParse parser "[18446744073709551616]" (@?= (2 ^ 64)),
 
-  testCase "parses positive integers with the plus sign" $ do
+  "parses positive integers with the plus sign" ~: do
     assertParse parser "[+1]" (@?= 1)
     assertParse parser "[+20]" (@?= 20)
     assertParse parser "[+4294967296]" (@?= (2 ^ 32))
     assertParse parser "[+18446744073709551616]" (@?= (2 ^ 64)),
 
-  testCase "parses negative integers" $ do
+  "parses negative integers" ~: do
     assertParse parser "[-1]" (@?= (-1))
     assertParse parser "[-20]" (@?= (-20))
     assertParse parser "[-4294967296]" (@?= (- (2 ^ 32)))
@@ -299,17 +297,17 @@ integerTestsFor parser = [
 
 coordTestsFor :: (Eq a, Show a) => Parser a -> (Coord -> a) -> [Test]
 coordTestsFor parser f = [
-  testCase "parses boundary points" $ do
+  "parses boundary points" ~: do
     assertParse parser "[aa]" (@?= f (0, 0))
     assertParse parser "[zz]" (@?= f (25, 25))
     assertParse parser "[AA]" (@?= f (26, 26))
     assertParse parser "[ZZ]" (@?= f (51, 51)),
 
-  testCase "parses coordinate order correctly" $ do
+  "parses coordinate order correctly" ~: do
     assertParse parser "[ab]" (@?= f (0, 1))
     assertParse parser "[ba]" (@?= f (1, 0)),
 
-  testCase "doesn't parse a partial point" $
+  "doesn't parse a partial point" ~:
     assertNoParse parser "[a]"
   ]
 
@@ -319,31 +317,31 @@ textTestsFor makeParser toString testComposed =
       parser = toString <$> rawParser
       composedParser = mapTuple toString <$> compose rawParser rawParser
   in catMaybes [
-    Just $ testCase "parses an empty string" $
+    Just $ "parses an empty string" ~:
       assertParse parser "" (@?= ""),
 
-    Just $ testCase "parses a short string" $
+    Just $ "parses a short string" ~:
       assertParse parser "Hello, world." (@?= "Hello, world."),
 
-    Just $ testCase "preserves leading and trailing whitespace" $
+    Just $ "preserves leading and trailing whitespace" ~:
       assertParse parser " \tHi. \t" (@?= "  Hi.  "),
 
-    Just $ testCase "parses escaped backslashes" $ do
+    Just $ "parses escaped backslashes" ~: do
       assertParse parser "\\\\" (@?= "\\")
       assertParse parser "\\\\\\\\" (@?= "\\\\")
       assertNoParse parser "\\"
       assertNoParse parser "\\\\\\",
 
-    Just $ testCase "parses escaped ']'s" $ do
+    Just $ "parses escaped ']'s" ~: do
       assertParse parser "\\]" (@?= "]")
       assertParse parser "\\]\\\\\\]" (@?= "]\\]"),
 
     Just $ if testComposed
-           then testCase "parses escaped ':'s" $ do
+           then "parses escaped ':'s" ~: do
              assertParse parser "\\:" (@?= ":")
              assertParse parser "\\:\\\\\\:" (@?= ":\\:")
              assertNoParse parser ":"
-           else testCase "parses unescaped ':'s" $ do
+           else "parses unescaped ':'s" ~: do
              assertParse parser ":" (@?= ":")
              assertParse parser "::" (@?= "::")
              -- An escaped colon should parse just the same.
@@ -351,7 +349,7 @@ textTestsFor makeParser toString testComposed =
 
     if not testComposed
       then Nothing
-      else Just $ testCase "supports composed values" $ do
+      else Just $ "supports composed values" ~: do
         assertParse composedParser ":" (@?= ("", ""))
         assertParse composedParser "a:" (@?= ("a", ""))
         assertParse composedParser ":z" (@?= ("", "z"))
@@ -362,10 +360,10 @@ textTestsFor makeParser toString testComposed =
 
     -- Tests non-newline whitespace replacement.  Newline handling is
     -- specific to individual parsers.
-    Just $ testCase "replaces whitespace with spaces" $
+    Just $ "replaces whitespace with spaces" ~:
       assertParse parser "\t\r\f\v" (@?= "    "),
 
-    Just $ testCase "removes escaped newlines" $ do
+    Just $ "removes escaped newlines" ~: do
       assertParse parser "\\\n" (@?= "")
       assertParse parser "foo\\\nbar" (@?= "foobar")
       assertParse parser "foo \\\n bar" (@?= "foo  bar")
@@ -373,7 +371,7 @@ textTestsFor makeParser toString testComposed =
 
 textUnescapedNewlinePreservingTests :: Parser String -> [Test]
 textUnescapedNewlinePreservingTests parser = [
-  testCase "preserves unescaped newlines" $ do
+  "preserves unescaped newlines" ~: do
     assertParse parser "\n" (@?= "\n")
     assertParse parser "\n\n" (@?= "\n\n")
     assertParse parser "foo\nbar" (@?= "foo\nbar")
@@ -382,7 +380,7 @@ textUnescapedNewlinePreservingTests parser = [
 
 textUnescapedNewlineConvertingTests :: Parser String -> [Test]
 textUnescapedNewlineConvertingTests parser = [
-  testCase "converts unescaped newlines to spaces" $ do
+  "converts unescaped newlines to spaces" ~: do
     assertParse parser "\n" (@?= " ")
     assertParse parser "\n\n" (@?= "  ")
     assertParse parser "foo\nbar" (@?= "foo bar")
