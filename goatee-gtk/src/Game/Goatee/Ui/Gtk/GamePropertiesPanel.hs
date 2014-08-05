@@ -259,78 +259,101 @@ create ui = do
 
 initialize :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
 initialize me = do
+  let ui = myUi me
+
   -- Watch for game info changes.
   viewRegister me gameInfoChangedEvent $ \_ newInfo ->
     afterGo $ updateUiGameInfo me newInfo
 
   updateUi me =<< readCursor ui
 
-  connectEntry myBlackNameEntry gameInfoBlackName $ \x info -> info { gameInfoBlackName = x }
-  connectEntry myBlackRankEntry gameInfoBlackRank $ \x info -> info { gameInfoBlackRank = x }
-  connectEntry myBlackTeamEntry gameInfoBlackTeamName $ \x info ->
+  connectEntry me (myBlackNameEntry me) gameInfoBlackName $ \x info ->
+    info { gameInfoBlackName = x }
+  connectEntry me (myBlackRankEntry me) gameInfoBlackRank $ \x info ->
+    info { gameInfoBlackRank = x }
+  connectEntry me (myBlackTeamEntry me) gameInfoBlackTeamName $ \x info ->
     info { gameInfoBlackTeamName = x }
 
-  connectEntry myWhiteNameEntry gameInfoWhiteName $ \x info -> info { gameInfoWhiteName = x }
-  connectEntry myWhiteRankEntry gameInfoWhiteRank $ \x info -> info { gameInfoWhiteRank = x }
-  connectEntry myWhiteTeamEntry gameInfoWhiteTeamName $ \x info ->
+  connectEntry me (myWhiteNameEntry me) gameInfoWhiteName $ \x info ->
+    info { gameInfoWhiteName = x }
+  connectEntry me (myWhiteRankEntry me) gameInfoWhiteRank $ \x info ->
+    info { gameInfoWhiteRank = x }
+  connectEntry me (myWhiteTeamEntry me) gameInfoWhiteTeamName $ \x info ->
     info { gameInfoWhiteTeamName = x }
 
-  connectEntry myRulesetEntry gameInfoRuleset $ \x info -> info { gameInfoRuleset = x }
-  connect (onValueSpinned $ myMainTimeSpin me)
+  connectEntry me (myRulesetEntry me) gameInfoRuleset $ \x info -> info { gameInfoRuleset = x }
+  connect me
+          (void . onValueSpinned (myMainTimeSpin me))
           (spinButtonGetValueAsBigfloat $ myMainTimeSpin me) $ \x info ->
     info { gameInfoBasicTimeSeconds = if x == 0 then Nothing else Just x }
-  connectEntry myOvertimeEntry gameInfoOvertime $ \x info -> info { gameInfoOvertime = x }
+  connectEntry me (myOvertimeEntry me) gameInfoOvertime $ \x info -> info { gameInfoOvertime = x }
   -- TODO Game result display checkbox.
-  connectEntry myGameResultEntry gameInfoResult $ \x info -> info { gameInfoResult = x }
+  connectEntry me (myGameResultEntry me) gameInfoResult $ \x info -> info { gameInfoResult = x }
 
-  connectEntry myGameAnnotatorEntry gameInfoAnnotatorName $ \x info ->
+  connectEntry me (myGameAnnotatorEntry me) gameInfoAnnotatorName $ \x info ->
     info { gameInfoAnnotatorName = x }
-  connectEntry myGameEntererEntry gameInfoEntererName $ \x info -> info { gameInfoEntererName = x }
+  connectEntry me (myGameEntererEntry me) gameInfoEntererName $ \x info ->
+    info { gameInfoEntererName = x }
 
-  connectEntry myEventNameEntry gameInfoEvent $ \x info -> info { gameInfoEvent = x }
-  connectEntry myGamePlaceEntry gameInfoPlace $ \x info -> info { gameInfoPlace = x }
-  connectEntry myGameRoundEntry gameInfoRound $ \x info -> info { gameInfoRound = x }
-  connectEntry myGameDatesEntry gameInfoDatesPlayed $ \x info -> info { gameInfoDatesPlayed = x }
-  connectEntry myGameNameEntry gameInfoGameName $ \x info -> info { gameInfoGameName = x }
-  connectEntry myGameSourceEntry gameInfoSource $ \x info -> info { gameInfoSource = x }
-  connectEntry myGameCopyrightEntry gameInfoCopyright $ \x info -> info { gameInfoCopyright = x }
+  connectEntry me (myEventNameEntry me) gameInfoEvent $ \x info -> info { gameInfoEvent = x }
+  connectEntry me (myGamePlaceEntry me) gameInfoPlace $ \x info -> info { gameInfoPlace = x }
+  connectEntry me (myGameRoundEntry me) gameInfoRound $ \x info -> info { gameInfoRound = x }
+  connectEntry me (myGameDatesEntry me) gameInfoDatesPlayed $ \x info ->
+    info { gameInfoDatesPlayed = x }
+  connectEntry me (myGameNameEntry me) gameInfoGameName $ \x info -> info { gameInfoGameName = x }
+  connectEntry me (myGameSourceEntry me) gameInfoSource $ \x info -> info { gameInfoSource = x }
+  connectEntry me (myGameCopyrightEntry me) gameInfoCopyright $ \x info ->
+    info { gameInfoCopyright = x }
 
-  connectEntry myGameOpeningEntry gameInfoOpeningComment $ \x info ->
+  connectEntry me (myGameOpeningEntry me) gameInfoOpeningComment $ \x info ->
     info { gameInfoOpeningComment = x }
+
+-- | @connectEntry me entry getter setter@ binds an 'Entry' to a field
+-- in the current 'GameInfo' so that changes in one affect the other.
+-- Empty strings are coerced to 'Nothing' and vice versa.
+--
+-- When an 'Entry' is changed, we immediately write the value back to
+-- the model: we can't wait until focus out because e.g. opening menus
+-- doesn't fire focus-out events.  We also inhibit this widget's model
+-- change handler assigning back to the entry, because e.g. we don't
+-- want to canonicalize "B+1.0" to "B+1" as soon as it's typed.
+-- Instead, we do the model-to-view canonicalizing update on
+-- focus-out.
+connectEntry :: (UiCtrl ui, Stringlike a)
+             => GamePropertiesPanel ui
+             -> Entry
+             -> (GameInfo -> Maybe a)
+             -> (Maybe a -> GameInfo -> GameInfo)
+             -> IO ()
+connectEntry me entry getter setter = do
+  let ui = myUi me
+  onEntryChange entry $ \value ->
+    withLatchOn (myLatch me) $ runUiGo ui $ void $ modifyGameInfo $ setter $
+    if null value then Nothing else Just $ stringToSgf value
+  on entry focusOutEvent $ liftIO $ do
+    cursor <- readCursor ui
+    set entry [entryText := maybe "" sgfToString $ getter $ boardGameInfo $
+               cursorBoard cursor]
+    return False
   return ()
 
-  where ui = myUi me
-        --connectEntry :: (ui' ~ ui)
-        --             => (GamePropertiesPanel ui' -> Entry)
-        --             -> (GameInfo -> String)
-        --             -> (String -> GameInfo -> GameInfo)
-        --             -> IO ()
-        connectEntry entryAccessor getter setter = do
-          -- When a text entry field is changed, immediately write the
-          -- value back to the model: we can't wait until focus out
-          -- because e.g. opening menus doesn't fire focus-out events.
-          -- Also inhibit this widget's model change handler assigning
-          -- back to the entry, because e.g. we don't want to
-          -- canonicalize "B+1.0" to "B+1" as soon as it's typed.
-          -- Instead, we do the model->view canonicalizing update on
-          -- focus-out.
-          let entry = entryAccessor me
-          onEntryChange entry $ \value ->
-            withLatchOn (myLatch me) $ runUiGo ui $ void $ modifyGameInfo $ setter $
-            if null value then Nothing else Just $ stringToSgf value
-          on entry focusOutEvent $ liftIO $ do
-            cursor <- readCursor ui
-            set entry [entryText := maybe "" sgfToString $ getter $ boardGameInfo $
-                       cursorBoard cursor]
-            return False
-        --connect :: (IO () -> IO ()) -- ^ Function to install a handler.
-        --        -> IO a             -- ^ Getter for the widget value.
-        --        -> (a -> GameInfo -> GameInfo)
-        --        -> IO ()
-        connect connectFn getter setter =
-          connectFn $ do
-            newValue <- getter
-            runUiGo ui $ void $ modifyGameInfo $ setter newValue
+-- | @connect me connectFn getter setter@ binds a widget to a field in
+-- the current 'GameInfo' so that changes in one affect the other.
+-- @connect@ constructs an @IO ()@ handler for changes to the widget's
+-- state, and immediately gives it to @connectFn@, which is in charge
+-- of registering the handler.  @getter@ should read the current value
+-- from the view.  @setter@ should update the value in a 'GameInfo'.
+connect :: UiCtrl ui
+        => GamePropertiesPanel ui
+        -> (IO () -> IO ()) -- ^ Function to install a handler.
+        -> IO a             -- ^ Getter for the widget value.
+        -> (a -> GameInfo -> GameInfo)
+        -> IO ()
+connect me connectFn getter setter =
+  let ui = myUi me
+  in connectFn $ do
+    newValue <- getter
+    runUiGo ui $ void $ modifyGameInfo $ setter newValue
 
 destroy :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
 destroy = viewUnregisterAll
