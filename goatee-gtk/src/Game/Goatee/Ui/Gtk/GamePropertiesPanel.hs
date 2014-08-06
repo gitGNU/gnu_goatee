@@ -51,6 +51,7 @@ import Graphics.UI.Gtk (
   containerAdd,
   entryNew, entryText, entryWidthChars,
   focusOutEvent,
+  get,
   hBoxNew,
   hSeparatorNew,
   labelNew, labelSetMnemonicWidget, labelSetText,
@@ -60,9 +61,10 @@ import Graphics.UI.Gtk (
   spinButtonNewWithRange, spinButtonSetDigits, spinButtonSetValue,
   tableAttach, tableAttachDefaults, tableNew, tableSetRowSpacing,
   textViewNew,
+  toggleButtonActive, toggled,
   toWidget,
   vBoxNew,
-  widgetSetSizeRequest,
+  widgetSetSensitive, widgetSetSizeRequest,
   )
 
 -- A getter for 'Stringlike' 'GameInfo' fields.
@@ -259,13 +261,11 @@ create ui = do
 
 initialize :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
 initialize me = do
-  let ui = myUi me
-
   -- Watch for game info changes.
   viewRegister me gameInfoChangedEvent $ \_ newInfo ->
     afterGo $ updateUiGameInfo me newInfo
 
-  updateUi me =<< readCursor ui
+  updateUi me
 
   connectEntry me (myBlackNameEntry me) gameInfoBlackName $ \x info ->
     info { gameInfoBlackName = x }
@@ -287,8 +287,10 @@ initialize me = do
           (spinButtonGetValueAsBigfloat $ myMainTimeSpin me) $ \x info ->
     info { gameInfoBasicTimeSeconds = if x == 0 then Nothing else Just x }
   connectEntry me (myOvertimeEntry me) gameInfoOvertime $ \x info -> info { gameInfoOvertime = x }
-  -- TODO Game result display checkbox.
-  connectEntry me (myGameResultEntry me) gameInfoResult $ \x info -> info { gameInfoResult = x }
+  let gameResultCheck = myGameResultDisplayCheck me
+  on gameResultCheck toggled $ updateUi me
+  connectEntry' me (myGameResultEntry me) (get gameResultCheck toggleButtonActive) gameInfoResult $
+    \x info -> info { gameInfoResult = x }
 
   connectEntry me (myGameAnnotatorEntry me) gameInfoAnnotatorName $ \x info ->
     info { gameInfoAnnotatorName = x }
@@ -325,14 +327,27 @@ connectEntry :: (UiCtrl ui, Stringlike a)
              -> (GameInfo -> Maybe a)
              -> (Maybe a -> GameInfo -> GameInfo)
              -> IO ()
-connectEntry me entry getter setter = do
+connectEntry me entry = connectEntry' me entry (return True)
+
+-- | This is like 'connectEntry'.  The additional @IO Bool@ can return false to
+-- indicate that a change in the entry should not be written to the model;
+-- returning true writes the change.
+connectEntry' :: (UiCtrl ui, Stringlike a)
+              => GamePropertiesPanel ui
+              -> Entry
+              -> IO Bool
+              -> (GameInfo -> Maybe a)
+              -> (Maybe a -> GameInfo -> GameInfo)
+              -> IO ()
+connectEntry' me entry propagateChangesToModel modelGetter modelSetter = do
   let ui = myUi me
-  onEntryChange entry $ \value ->
-    withLatchOn (myLatch me) $ runUiGo ui $ void $ modifyGameInfo $ setter $
-    if null value then Nothing else Just $ stringToSgf value
+  onEntryChange entry $ \value -> withLatchOn (myLatch me) $ do
+    propagate <- propagateChangesToModel
+    when propagate $ runUiGo ui $ void $ modifyGameInfo $ modelSetter $
+      if null value then Nothing else Just $ stringToSgf value
   on entry focusOutEvent $ liftIO $ do
     cursor <- readCursor ui
-    set entry [entryText := maybe "" sgfToString $ getter $ boardGameInfo $
+    set entry [entryText := maybe "" sgfToString $ modelGetter $ boardGameInfo $
                cursorBoard cursor]
     return False
   return ()
@@ -349,17 +364,17 @@ connect :: UiCtrl ui
         -> IO a             -- ^ Getter for the widget value.
         -> (a -> GameInfo -> GameInfo)
         -> IO ()
-connect me connectFn getter setter =
+connect me connectFn viewGetter modelSetter =
   let ui = myUi me
   in connectFn $ do
-    newValue <- getter
-    runUiGo ui $ void $ modifyGameInfo $ setter newValue
+    newValue <- viewGetter
+    runUiGo ui $ void $ modifyGameInfo $ modelSetter newValue
 
 destroy :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
 destroy = viewUnregisterAll
 
-updateUi :: UiCtrl ui => GamePropertiesPanel ui -> Cursor -> IO ()
-updateUi me cursor = updateUiGameInfo me $ boardGameInfo $ cursorBoard cursor
+updateUi :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
+updateUi me = updateUiGameInfo me . boardGameInfo . cursorBoard =<< readCursor (myUi me)
 
 updateUiGameInfo :: GamePropertiesPanel ui -> GameInfo -> IO ()
 updateUiGameInfo me info = whenLatchOff (myLatch me) $ do
@@ -373,7 +388,6 @@ updateUiGameInfo me info = whenLatchOff (myLatch me) $ do
 
         , (InfoGetter gameInfoRuleset, myRulesetEntry)
         , (InfoGetter gameInfoOvertime, myOvertimeEntry)
-        , (InfoGetter gameInfoResult, myGameResultEntry)
 
         , (InfoGetter gameInfoAnnotatorName, myGameAnnotatorEntry)
         , (InfoGetter gameInfoEntererName, myGameEntererEntry)
@@ -388,14 +402,27 @@ updateUiGameInfo me info = whenLatchOff (myLatch me) $ do
 
         , (InfoGetter gameInfoOpeningComment, myGameOpeningEntry)
         ] $ \(InfoGetter getter, entry) ->
-    set (entry me) [entryText := maybe "" sgfToString $ getter info]
+    set (entry me) [entryText := extractStringlike $ getter info]
 
+  -- Update the "main time" spinner.
   spinButtonSetValue (myMainTimeSpin me) $ maybe 0 BF.toDouble $
     gameInfoBasicTimeSeconds info
   labelSetText (myMainTimeLabel me) $ maybe "" renderSeconds $
     gameInfoBasicTimeSeconds info
 
+  -- Update the game result entry.
+  let gameResultEntry = myGameResultEntry me
+  displayGameResult <- get (myGameResultDisplayCheck me) toggleButtonActive
+  widgetSetSensitive gameResultEntry displayGameResult
+  set gameResultEntry [entryText := if displayGameResult
+                                    then extractStringlike $ gameInfoResult info
+                                    else "(hidden)"]
+
+  -- Update the game comment TextView.
   myGameCommentTextViewSetter me $ maybe "" fromText $ gameInfoGameComment info
+
+extractStringlike :: Stringlike a => Maybe a -> String
+extractStringlike = maybe "" sgfToString
 
 renderSeconds :: BF.Bigfloat -> String
 renderSeconds totalSecondsFloat =
