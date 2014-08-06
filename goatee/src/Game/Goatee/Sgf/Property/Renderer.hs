@@ -33,6 +33,7 @@ module Game.Goatee.Sgf.Property.Renderer (
   renderDoublePretty,
   renderGameResultBracketed,
   renderGameResultPretty,
+  renderGameResultPretty',
   renderIntegralBracketed,
   renderIntegralPretty,
   renderLabelListBracketed,
@@ -59,7 +60,7 @@ module Game.Goatee.Sgf.Property.Renderer (
   renderVariationModePretty,
   ) where
 
-import Control.Monad (forM_, when)
+import Control.Monad (forM_, void, when)
 #if MIN_VERSION_mtl(2,2,1)
 import Control.Monad.Except (throwError)
 #else
@@ -68,6 +69,7 @@ import Control.Monad.Error (throwError)
 import Control.Monad.Writer (tell)
 import Data.Char (chr, ord)
 import Data.List (intersperse)
+import qualified Game.Goatee.Common.Bigfloat as BF
 import Game.Goatee.Sgf.Renderer
 import Game.Goatee.Sgf.Types
 
@@ -209,19 +211,22 @@ renderGameResultBracketed = fmap bracketed $ rendererOf "game result" $ \result 
   GameResultOther text -> renderStringlike False text
 
 renderGameResultPretty :: GameResult -> Render ()
-renderGameResultPretty = rendererOf "game result pretty" $ \result -> case result of
+renderGameResultPretty =
+  rendererOf "game result pretty" $ void . tell . renderGameResultPretty'
+
+renderGameResultPretty' :: GameResult -> String
+renderGameResultPretty' result = case result of
   GameResultWin color reason ->
-    tell $
     (case color of { Black -> 'B'; White -> 'W' }) : '+' :
     (case reason of
         WinByScore diff -> show diff
         WinByResignation -> "Resign"
         WinByTime -> "Time"
         WinByForfeit -> "Forfeit")
-  GameResultDraw -> tell "Draw"
-  GameResultVoid -> tell "Void"
-  GameResultUnknown -> tell "Unknown"
-  GameResultOther text -> renderStringlikePretty text
+  GameResultDraw -> "Draw"
+  GameResultVoid -> "Void"
+  GameResultUnknown -> "Unknown"
+  GameResultOther text -> sgfToString text
 
 renderIntegralBracketed :: (Integral a, Show a) => a -> Render ()
 renderIntegralBracketed = bracketed . rendererOf "integral" renderShowable
@@ -262,10 +267,11 @@ renderNonePretty :: () -> Render ()
 renderNonePretty = rendererOf "none pretty" $ tell . const ""
 
 renderRealBracketed :: RealValue -> Render ()
-renderRealBracketed = fmap bracketed $ rendererOf "real" $ renderShowable . fromRational
+renderRealBracketed =
+  fmap bracketed $ rendererOf "real" (renderShowable :: BF.Bigfloat -> Render ())
 
 renderRealPretty :: RealValue -> Render ()
-renderRealPretty = rendererOf "real pretty" renderShowable
+renderRealPretty = rendererOf "real pretty" (renderShowable :: BF.Bigfloat -> Render ())
 
 renderRulesetBracketed :: Ruleset -> Render ()
 renderRulesetBracketed = fmap bracketed $ rendererOf "ruleset" $ tell . fromRuleset

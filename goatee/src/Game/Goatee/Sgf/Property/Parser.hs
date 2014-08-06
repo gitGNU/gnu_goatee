@@ -49,11 +49,12 @@ import Control.Monad (when)
 import Data.Char (isUpper, ord)
 import Data.Maybe (catMaybes)
 import Data.Monoid (Monoid, mappend, mconcat, mempty)
+import qualified Game.Goatee.Common.Bigfloat as BF
 import Game.Goatee.Sgf.Types
 import Text.ParserCombinators.Parsec (
   (<?>), (<|>), Parser,
-  anyChar, char, choice, digit, eof, many, many1,
-  noneOf, oneOf, option, parse, space, spaces, string,
+  anyChar, char, choice, digit, many, many1,
+  noneOf, oneOf, option, space, spaces, string,
   try, unexpected,
   )
 
@@ -94,13 +95,12 @@ line = toLine <$> line' <?> "line"
 listOf :: Parser a -> Parser [a]
 listOf valueParser = many1 (single valueParser <* spaces)
 
-number :: Parser (String, Bool)
+number :: Parser String
 number = do
-  sign <- "-" <$ char '-' <|>
-          "" <$ char '+' <|>
-          return ""
-  digits <- many1 digit
-  return (sign ++ digits, not $ null sign)
+  addSign <- ('-':) <$ char '-' <|>
+             id <$ char '+' <|>
+             return id
+  addSign <$> many1 digit
 
 -- Public parsers.
 
@@ -150,28 +150,7 @@ doubleParser =
   "double"
 
 gameResultParser :: Parser GameResult
-gameResultParser = single (parseGameResult <$> simpleText False) <?> "game result"
-  where parseGameResult text = case fromSimpleText text of
-          "0" -> GameResultDraw
-          "Draw" -> GameResultDraw
-          "Void" -> GameResultVoid
-          "?" -> GameResultUnknown
-          rawText -> case parse gameResultWin "<game result win>" rawText of
-            Left _ -> GameResultOther text
-            Right win -> win
-
-gameResultWin :: Parser GameResult
-gameResultWin = GameResultWin <$> color <* char '+' <*> winReason <* eof
-
-winReason :: Parser WinReason
-winReason =
-  WinByScore <$> try real <|>
-  WinByResignation <$ try (string "Resign") <|>
-  WinByResignation <$ try (string "R") <|>
-  WinByTime <$ try (string "Time") <|>
-  WinByTime <$ try (string "T") <|>
-  WinByForfeit <$ try (string "Forfeit") <|>
-  WinByForfeit <$ try (string "F")
+gameResultParser = single (convertStringlike <$> simpleText False) <?> "game result"
 
 labelListParser :: Parser [(Coord, SimpleText)]
 labelListParser =
@@ -190,21 +169,19 @@ integralParser :: (Integral a, Read a) => Parser a
 integralParser = single integral <?> "integer"
 
 integral :: (Integral a, Read a) => Parser a
-integral = read . fst <$> number
+integral = read <$> number
 
 realParser :: Parser RealValue
 realParser = single real <?> "real"
 
 real :: Parser RealValue
 real = do
-  (whole, isNegative) <- number
-  let wholePart = toRational (read whole :: Integer)
+  whole <- number
   -- Try to read a fractional part of the number.
   -- If we fail, just return the whole part.
-  option wholePart $ try $ do
-    fractionalStr <- char '.' *> many1 digit
-    let fractionalPart = toRational (read fractionalStr) / 10 ^ length fractionalStr
-    return $ (if isNegative then (-) else (+)) wholePart fractionalPart
+  option (fromInteger $ read whole) $ try $ do
+    fractional <- char '.' *> many1 digit
+    return $ BF.encode (read $ whole ++ fractional) (-length fractional)
 
 rulesetParser :: Parser Ruleset
 rulesetParser =

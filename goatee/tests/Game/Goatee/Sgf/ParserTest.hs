@@ -157,8 +157,8 @@ nodeAnnotationPropertyTests = "node annotation properties" ~: TestList [
     parseOrFail "(;UC[1])" (@?= node [UC Double1])
     parseOrFail "(;UC[2])" (@?= node [UC Double2]),
   "V parses" ~: do
-    parseOrFail "(;V[-34.5])" (@?= node [V (-34.5)])
-    parseOrFail "(;V[50])" (@?= node [V 50])
+    parseOrFail "(;V[-34.5])" (@?= node [V $ read "-34.5"])
+    parseOrFail "(;V[50])" (@?= node [V $ read "50"])
   ]
 
 moveAnnotationPropertyTests = "move annotation properties" ~: TestList [

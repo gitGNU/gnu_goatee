@@ -38,6 +38,7 @@ library
     exposed-modules:
         Game.Goatee.App
         Game.Goatee.Common
+        Game.Goatee.Common.Bigfloat
         Game.Goatee.Sgf.Board
         Game.Goatee.Sgf.Monad
         Game.Goatee.Sgf.Parser
@@ -75,6 +76,7 @@ test-suite test-goatee
     hs-source-dirs: tests
     main-is: Test.hs
     other-modules:
+        Game.Goatee.Common.BigfloatTest
         Game.Goatee.CommonTest
         Game.Goatee.Sgf.BoardTest
         Game.Goatee.Sgf.MonadTest

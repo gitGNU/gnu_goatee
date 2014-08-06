@@ -28,11 +28,13 @@ module Game.Goatee.Sgf.Types (
   isStarPoint,
   handicapStones,
   -- * Property values
-  RealValue,
-  Stringlike (..),
+  -- ** Text values
+  Stringlike (..), convertStringlike,
   Text, fromText, toText,
   SimpleText, fromSimpleText, toSimpleText,
+  -- ** Other values
   UnknownPropertyValue, fromUnknownPropertyValue, toUnknownPropertyValue,
+  RealValue,
   DoubleValue (..),
   Color (..), cnot,
   VariationMode (..), VariationModeSource (..), defaultVariationMode,
@@ -49,6 +51,7 @@ import Data.Function (on)
 import Data.List (delete, groupBy, partition, sort)
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Common
+import qualified Game.Goatee.Common.Bigfloat as BF
 
 -- | The FF versions supported by Goatee.  Currently only 4.
 supportedFormatVersions :: [Int]
@@ -261,9 +264,6 @@ handicapStones width height handicap =
   else do positions <- starLines width height
           return $ map (mapTuple (positions !!)) (handicapStoneIndices !! handicap)
 
--- | An SGF real value.
-type RealValue = Rational
-
 -- | A class for SGF data types that are coercable to and from strings.
 --
 -- The construction of an SGF value with 'stringToSgf' may process the input,
@@ -272,15 +272,31 @@ type RealValue = Rational
 --
 -- > sgfToString . stringToSgf = id   (does not necessarily hold!)
 --
--- The following does hold, however:
+-- The following does hold, however, for a single stringlike type:
 --
 -- > stringToSgf . sgfToString = id
+--
+-- The 'String' instance is defined with @sgfToString = stringToSgf =
+-- id@.  For other types, the string returned by 'sgfToString' is in a
+-- raw, user-editable format: characters that need to be escaped in
+-- serialized SGF aren't escaped, but the returned value is otherwise
+-- similar to SGF format.
 class Stringlike a where
   -- | Extracts the string value from an SGF value.
   sgfToString :: a -> String
 
   -- | Creates an SGF value from a string value.
   stringToSgf :: String -> a
+
+instance Stringlike String where
+  sgfToString = id
+  stringToSgf = id
+
+-- | Converts between 'Stringlike' types via a string.
+--
+-- > convertStringlike = stringToSgf . sgfToString
+convertStringlike :: (Stringlike a, Stringlike b) => a -> b
+convertStringlike = stringToSgf . sgfToString
 
 -- | An SGF text value.
 newtype Text = Text { fromText :: String
@@ -329,6 +345,9 @@ instance Stringlike UnknownPropertyValue where
 -- | Constructs a value for a 'UnknownProperty'.
 toUnknownPropertyValue :: String -> UnknownPropertyValue
 toUnknownPropertyValue = UnknownPropertyValue
+
+-- | An SGF real value is a decimal number of unspecified precision.
+type RealValue = BF.Bigfloat
 
 -- | An SGF double value: either 1 or 2, nothing else.
 data DoubleValue = Double1
@@ -407,6 +426,43 @@ data GameResult = GameResultWin Color WinReason
                 | GameResultOther SimpleText
                 deriving (Eq, Show)
 
+instance Stringlike GameResult where
+  sgfToString result = case result of
+    GameResultWin color reason ->
+      (case color of { Black -> 'B'; White -> 'W' }) : '+' :
+      (case reason of
+          WinByScore diff -> show diff
+          WinByResignation -> "R"
+          WinByTime -> "T"
+          WinByForfeit -> "F")
+    GameResultDraw -> "0"
+    GameResultVoid -> "Void"
+    GameResultUnknown -> "?"
+    GameResultOther text -> sgfToString text
+
+  stringToSgf str = case str of
+    "0" -> GameResultDraw
+    "Draw" -> GameResultDraw
+    "Void" -> GameResultVoid
+    "?" -> GameResultUnknown
+    _ ->
+      let result = case str of
+            'B':'+':winReasonStr -> parseWin (GameResultWin Black) winReasonStr
+            'W':'+':winReasonStr -> parseWin (GameResultWin White) winReasonStr
+            _ -> unknownResult
+          parseWin builder winReasonStr = case winReasonStr of
+            "R" -> builder WinByResignation
+            "Resign" -> builder WinByResignation
+            "T" -> builder WinByTime
+            "Time" -> builder WinByTime
+            "F" -> builder WinByForfeit
+            "Forfeit" -> builder WinByForfeit
+            _ -> case reads winReasonStr of
+              (score, ""):_ -> builder $ WinByScore score
+              _ -> unknownResult
+          unknownResult = GameResultOther $ toSimpleText str
+      in result
+
 data WinReason = WinByScore RealValue
                | WinByResignation
                | WinByTime
@@ -418,6 +474,10 @@ data WinReason = WinByScore RealValue
 data Ruleset = KnownRuleset RulesetType
              | UnknownRuleset String
              deriving (Eq, Show)
+
+instance Stringlike Ruleset where
+  sgfToString = fromRuleset
+  stringToSgf = toRuleset
 
 -- | The rulesets defined by the SGF specification, for use with 'Ruleset'.
 data RulesetType = RulesetAga

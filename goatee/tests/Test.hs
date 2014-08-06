@@ -17,6 +17,7 @@
 
 module Main (main) where
 
+import qualified Game.Goatee.Common.BigfloatTest
 import qualified Game.Goatee.CommonTest
 import qualified Game.Goatee.Sgf.BoardTest
 import qualified Game.Goatee.Sgf.MonadTest
@@ -31,7 +32,8 @@ import Test.HUnit (Counts (errors, failures), Test (TestList), runTestTT)
 
 tests :: Test
 tests = TestList [
-  Game.Goatee.CommonTest.tests
+  Game.Goatee.Common.BigfloatTest.tests
+  , Game.Goatee.CommonTest.tests
   , Game.Goatee.Sgf.BoardTest.tests
   , Game.Goatee.Sgf.MonadTest.tests
   , Game.Goatee.Sgf.ParserTest.tests

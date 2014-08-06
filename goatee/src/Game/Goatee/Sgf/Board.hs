@@ -52,32 +52,32 @@ data RootInfo = RootInfo { rootInfoWidth :: Int
 -- | Properties that are specified in game info nodes.
 data GameInfo = GameInfo { gameInfoRootInfo :: RootInfo
 
-                         , gameInfoBlackName :: Maybe String
-                         , gameInfoBlackTeamName :: Maybe String
-                         , gameInfoBlackRank :: Maybe String
+                         , gameInfoBlackName :: Maybe SimpleText
+                         , gameInfoBlackTeamName :: Maybe SimpleText
+                         , gameInfoBlackRank :: Maybe SimpleText
 
-                         , gameInfoWhiteName :: Maybe String
-                         , gameInfoWhiteTeamName :: Maybe String
-                         , gameInfoWhiteRank :: Maybe String
+                         , gameInfoWhiteName :: Maybe SimpleText
+                         , gameInfoWhiteTeamName :: Maybe SimpleText
+                         , gameInfoWhiteRank :: Maybe SimpleText
 
                          , gameInfoRuleset :: Maybe Ruleset
-                         , gameInfoBasicTimeSeconds :: Maybe Rational
-                         , gameInfoOvertime :: Maybe String
+                         , gameInfoBasicTimeSeconds :: Maybe RealValue
+                         , gameInfoOvertime :: Maybe SimpleText
                          , gameInfoResult :: Maybe GameResult
 
-                         , gameInfoGameName :: Maybe String
-                         , gameInfoGameComment :: Maybe String
-                         , gameInfoOpeningComment :: Maybe String
+                         , gameInfoGameName :: Maybe SimpleText
+                         , gameInfoGameComment :: Maybe Text
+                         , gameInfoOpeningComment :: Maybe SimpleText
 
-                         , gameInfoEvent :: Maybe String
-                         , gameInfoRound :: Maybe String
-                         , gameInfoPlace :: Maybe String
-                         , gameInfoDatesPlayed :: Maybe String
-                         , gameInfoSource :: Maybe String
-                         , gameInfoCopyright :: Maybe String
+                         , gameInfoEvent :: Maybe SimpleText
+                         , gameInfoRound :: Maybe SimpleText
+                         , gameInfoPlace :: Maybe SimpleText
+                         , gameInfoDatesPlayed :: Maybe SimpleText
+                         , gameInfoSource :: Maybe SimpleText
+                         , gameInfoCopyright :: Maybe SimpleText
 
-                         , gameInfoAnnotatorName :: Maybe String
-                         , gameInfoEntererName :: Maybe String
+                         , gameInfoAnnotatorName :: Maybe SimpleText
+                         , gameInfoEntererName :: Maybe SimpleText
                          } deriving (Show)
 
 -- | Builds a 'GameInfo' with the given 'RootInfo' and no extra data.
@@ -121,32 +121,32 @@ internalIsGameInfoNode = any ((GameInfoProperty ==) . propertyType) . nodeProper
 -- reconstruct the 'GameInfo'.
 gameInfoToProperties :: GameInfo -> [Property]
 gameInfoToProperties info = execWriter $ do
-  copy (PB . toSimpleText) gameInfoBlackName
-  copy (BT . toSimpleText) gameInfoBlackTeamName
-  copy (BR . toSimpleText) gameInfoBlackRank
+  copy PB gameInfoBlackName
+  copy BT gameInfoBlackTeamName
+  copy BR gameInfoBlackRank
 
-  copy (PW . toSimpleText) gameInfoWhiteName
-  copy (WT . toSimpleText) gameInfoWhiteTeamName
-  copy (WR . toSimpleText) gameInfoWhiteRank
+  copy PW gameInfoWhiteName
+  copy WT gameInfoWhiteTeamName
+  copy WR gameInfoWhiteRank
 
   copy RU gameInfoRuleset
   copy TM gameInfoBasicTimeSeconds
-  copy (OT . toSimpleText) gameInfoOvertime
+  copy OT gameInfoOvertime
   copy RE gameInfoResult
 
-  copy (GN . toSimpleText) gameInfoGameName
-  copy (GC . toSimpleText) gameInfoGameComment
-  copy (ON . toSimpleText) gameInfoOpeningComment
+  copy GN gameInfoGameName
+  copy GC gameInfoGameComment
+  copy ON gameInfoOpeningComment
 
-  copy (EV . toSimpleText) gameInfoEvent
-  copy (RO . toSimpleText) gameInfoRound
-  copy (PC . toSimpleText) gameInfoPlace
-  copy (DT . toSimpleText) gameInfoDatesPlayed
-  copy (SO . toSimpleText) gameInfoSource
-  copy (CP . toSimpleText) gameInfoCopyright
+  copy EV gameInfoEvent
+  copy RO gameInfoRound
+  copy PC gameInfoPlace
+  copy DT gameInfoDatesPlayed
+  copy SO gameInfoSource
+  copy CP gameInfoCopyright
 
-  copy (AN . toSimpleText) gameInfoAnnotatorName
-  copy (US . toSimpleText) gameInfoEntererName
+  copy AN gameInfoAnnotatorName
+  copy US gameInfoEntererName
   where copy ctor accessor = whenMaybe (accessor info) $ \x -> tell [ctor x]
 
 -- | An object that corresponds to a node in some game tree, and represents the
@@ -391,68 +391,47 @@ applyProperty (ST variationMode) board =
 applyProperty (SZ {}) board = board
 
 applyProperty (AN str) board =
-  updateBoardInfo (\info -> info { gameInfoAnnotatorName = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoAnnotatorName = Just str }) board
 applyProperty (BR str) board =
-  updateBoardInfo (\info -> info { gameInfoBlackRank = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoBlackRank = Just str }) board
 applyProperty (BT str) board =
-  updateBoardInfo (\info -> info { gameInfoBlackTeamName = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoBlackTeamName = Just str }) board
 applyProperty (CP str) board =
-  updateBoardInfo (\info -> info { gameInfoCopyright = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoCopyright = Just str }) board
 applyProperty (DT str) board =
-  updateBoardInfo (\info -> info { gameInfoDatesPlayed = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoDatesPlayed = Just str }) board
 applyProperty (EV str) board =
-  updateBoardInfo (\info -> info { gameInfoEvent = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoEvent = Just str }) board
 applyProperty (GC str) board =
-  updateBoardInfo (\info -> info { gameInfoGameComment = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoGameComment = Just str }) board
 applyProperty (GN str) board =
-  updateBoardInfo (\info -> info { gameInfoGameName = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoGameName = Just str }) board
 applyProperty (ON str) board =
-  updateBoardInfo (\info -> info { gameInfoOpeningComment = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoOpeningComment = Just str }) board
 applyProperty (OT str) board =
-  updateBoardInfo (\info -> info { gameInfoOvertime = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoOvertime = Just str }) board
 applyProperty (PB str) board =
-  updateBoardInfo (\info -> info { gameInfoBlackName = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoBlackName = Just str }) board
 applyProperty (PC str) board =
-  updateBoardInfo (\info -> info { gameInfoPlace = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoPlace = Just str }) board
 applyProperty (PW str) board =
-  updateBoardInfo (\info -> info { gameInfoWhiteName = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoWhiteName = Just str }) board
 applyProperty (RE result) board =
-  updateBoardInfo (\info -> info { gameInfoResult = Just result })
-                  board
+  updateBoardInfo (\info -> info { gameInfoResult = Just result }) board
 applyProperty (RO str) board =
-  updateBoardInfo (\info -> info { gameInfoRound = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoRound = Just str }) board
 applyProperty (RU ruleset) board =
-  updateBoardInfo (\info -> info { gameInfoRuleset = Just ruleset })
-                  board
+  updateBoardInfo (\info -> info { gameInfoRuleset = Just ruleset }) board
 applyProperty (SO str) board =
-  updateBoardInfo (\info -> info { gameInfoSource = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoSource = Just str }) board
 applyProperty (TM seconds) board =
-  updateBoardInfo (\info -> info { gameInfoBasicTimeSeconds = Just seconds })
-                  board
+  updateBoardInfo (\info -> info { gameInfoBasicTimeSeconds = Just seconds }) board
 applyProperty (US str) board =
-  updateBoardInfo (\info -> info { gameInfoEntererName = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoEntererName = Just str }) board
 applyProperty (WR str) board =
-  updateBoardInfo (\info -> info { gameInfoWhiteRank = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoWhiteRank = Just str }) board
 applyProperty (WT str) board =
-  updateBoardInfo (\info -> info { gameInfoWhiteTeamName = Just $ fromSimpleText str })
-                  board
+  updateBoardInfo (\info -> info { gameInfoWhiteTeamName = Just str }) board
 
 applyProperty (BL {}) board = board
 applyProperty (OB {}) board = board

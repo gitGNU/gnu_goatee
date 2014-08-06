@@ -86,9 +86,17 @@ propertyValueTests = "property value types" ~: TestList [
     (\col -> testNode ("row " ++ show col) $ node [B $ Just (col, 0)]),
 
   "real values" ~: TestList [
-    testNode "1500" $ node [TM 1500],
-    testNode "60.5" $ node [TM 60.5],
-    testNode "10.1" $ node [TM 10.1]
+    testNode "0" $ node [TM $ read "0"],
+    testNode "0.0" $ node [TM $ read "0.0"],
+    testNode "1500" $ node [TM $ read "1500"],
+    testNode "150" $ node [TM $ read "150"],
+    testNode "15" $ node [TM $ read "15"],
+    testNode "1.5" $ node [TM $ read "1.5"],
+    testNode "0.15" $ node [TM $ read "0.15"],
+    testNode "0.015" $ node [TM $ read "0.015"],
+    testNode "0.0015" $ node [TM $ read "0.0015"],
+    testNode "60.5" $ node [TM $ read "60.5"],
+    testNode "10.1" $ node [TM $ read "10.1"]
     ]
   ]
 
