@@ -23,9 +23,11 @@ module Game.Goatee.Ui.Gtk (
   startFile,
   ) where
 
+import Control.Applicative ((<$>))
 import Control.Concurrent.MVar (MVar, newMVar, takeMVar, readMVar, putMVar, modifyMVar, modifyMVar_)
 import Control.Exception (IOException, catch, finally)
-import Control.Monad (forM_, join, liftM, unless, when)
+import Control.Monad (forM_, join, liftM, unless, void, when)
+import Data.Char (isSpace)
 import Data.Foldable (foldl')
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
@@ -35,33 +37,41 @@ import Data.Unique (Unique, newUnique)
 import Game.Goatee.App
 import Game.Goatee.Common
 import Game.Goatee.Sgf.Board
+import Game.Goatee.Sgf.Parser
 import Game.Goatee.Sgf.Renderer
 import Game.Goatee.Sgf.Renderer.Tree
 import Game.Goatee.Sgf.Tree
 import qualified Game.Goatee.Sgf.Monad as Monad
-import Game.Goatee.Sgf.Monad (Event, on, childAddedEvent, propertiesModifiedEvent)
+import Game.Goatee.Sgf.Monad (
+  Event, on, childAddedEvent, childDeletedEvent, propertiesModifiedEvent,
+  )
 import Game.Goatee.Ui.Gtk.Common
 import qualified Game.Goatee.Ui.Gtk.MainWindow as MainWindow
 import Game.Goatee.Ui.Gtk.MainWindow (MainWindow)
 import Graphics.UI.Gtk (
   AttrOp ((:=)),
   ButtonsType (ButtonsNone, ButtonsOk, ButtonsYesNo),
+  Clipboard,
   DialogFlags (DialogDestroyWithParent, DialogModal),
   FileChooserAction (FileChooserActionOpen, FileChooserActionSave),
   MessageType (MessageError, MessageQuestion),
   ResponseId (ResponseCancel, ResponseNo, ResponseOk, ResponseYes),
   aboutDialogAuthors, aboutDialogCopyright, aboutDialogLicense, aboutDialogNew,
   aboutDialogProgramName, aboutDialogWebsite,
+  clipboardGet, clipboardRequestText, clipboardSetText,
   dialogAddButton, dialogRun,
   fileChooserAddFilter, fileChooserDialogNew, fileChooserGetFilename,
   mainQuit,
   messageDialogNew,
+  selectionClipboard,
   stockCancel, stockOpen, stockSave, stockSaveAs,
   widgetDestroy, widgetHide,
   set,
   )
 import qualified Paths_goatee_gtk as Paths
 import System.Directory (doesFileExist)
+
+{-# ANN module "HLint: ignore Reduce duplication" #-}
 
 -- | A structure for holding global application information about all open
 -- boards.
@@ -141,7 +151,7 @@ instance UiCtrl UiCtrlImpl where
   modifyModes ui f = do
     oldModes <- readModes ui
     newModes <- f oldModes
-    unless (newModes == oldModes) $ do
+    when (newModes /= oldModes) $ do
       writeIORef (uiModes ui) newModes
       fireModesChangedHandlers ui oldModes newModes
 
@@ -162,7 +172,8 @@ instance UiCtrl UiCtrlImpl where
           Just coord -> isCurrentValidMove (cursorBoard cursor) coord
     if not valid
       then do
-        dialog <- messageDialogNew Nothing
+        mainWindow <- getMainWindow ui
+        dialog <- messageDialogNew (Just mainWindow)
                                    [DialogModal, DialogDestroyWithParent]
                                    MessageError
                                    ButtonsOk
@@ -177,7 +188,7 @@ instance UiCtrl UiCtrlImpl where
               player = boardPlayerTurn board
               index = length $ cursorChildren cursor
               child = emptyNode { nodeProperties = [moveToProperty player move] }
-          in runUiGo' ui (Monad.addChild index child >> Monad.goDown index) cursor
+          in runUiGo' ui (Monad.addChildAt index child >> Monad.goDown index) cursor
 
   goUp ui = runUiGo ui $ do
     cursor <- Monad.getCursor
@@ -374,6 +385,45 @@ instance UiCtrl UiCtrlImpl where
     when okayToClose $ mapM_ closeBoard ctrls
     return okayToClose
 
+  editCutNode ui = do
+    initialCursor <- readCursor ui
+    case cursorParent initialCursor of
+      Nothing ->
+        -- TODO Common internal warning reporting.
+        putStrLn "WARNING: UiCtrlImpl.editCutNode: Can't cut the root node."
+      Just _ -> do
+        success <- editCopyNode' ui
+        when success $ runUiGo ui $ do
+          cursor <- Monad.getCursor
+          when (isJust $ cursorParent cursor) $ do
+            let index = cursorChildIndex cursor
+            Monad.goUp
+            Monad.deleteChildAt index
+            return ()
+
+  editCopyNode = void . editCopyNode'
+
+  editPasteNode ui = do
+    clipboard <- getClipboard
+    clipboardRequestText clipboard $ \maybeText -> case maybeText of
+      Nothing -> return ()
+      Just text -> unless (null text || all isSpace text) $ do
+        rootInfo <- gameInfoRootInfo . boardGameInfo . cursorBoard <$> readCursor ui
+        case parseSubtree rootInfo text of
+          Left error -> do
+            let (textBeginning, textRest) = splitAt 500 text
+            mainWindow <- getMainWindow ui
+            dialog <- messageDialogNew (Just mainWindow)
+                      [DialogModal, DialogDestroyWithParent]
+                      MessageError
+                      ButtonsOk
+                      ("Unable to parse the clipboard as an SGF game tree.\n\nError: " ++
+                       error ++ "\n\nInput:\n" ++ textBeginning ++
+                       if not $ null textRest then "\n(truncated)" else "")
+            dialogRun dialog
+            widgetDestroy dialog
+          Right node -> runUiGo ui $ Monad.addChild node
+
   helpAbout _ = do
     about <- aboutDialogNew
     license <- fmap (fromMaybe fallbackLicense) readLicense
@@ -422,7 +472,7 @@ instance UiCtrl UiCtrlImpl where
 
   setDirty ui newDirty = do
     oldDirty <- readIORef $ uiDirty ui
-    unless (oldDirty == newDirty) $ do
+    when (newDirty /= oldDirty) $ do
       writeIORef (uiDirty ui) newDirty
       handlers <- readIORef $ uiDirtyChangedHandlers ui
       forM_ (map dirtyChangedHandlerFn $ Map.elems handlers) ($ newDirty)
@@ -481,8 +531,9 @@ rebuildBaseAction ui =
           -- TODO This really calls for some sort of event hierarchy, so
           -- that we can listen for all mutating events here, rather than
           -- making it easy to forget to add new events here.
-          on childAddedEvent $ \_ _ -> setDirtyTrue
-          on propertiesModifiedEvent $ \_ _ -> setDirtyTrue
+          on childAddedEvent $ const setDirtyTrue
+          on childDeletedEvent $ const setDirtyTrue
+          on propertiesModifiedEvent $ const $ const setDirtyTrue
         setDirtyTrue = afterGo $ setDirty ui True
 
 fireModesChangedHandlers :: UiCtrlImpl -> UiModes -> UiModes -> IO ()
@@ -552,6 +603,32 @@ closeBoard :: UiCtrlImpl -> IO ()
 closeBoard ui = do
   MainWindow.destroy =<< getMainWindow' ui
   appStateUnregister (uiAppState ui) ui
+
+-- | Attempts to copy the current node to the clipboard.  Returns true if
+-- successful.  If not, this presents a model dialog describing the error, waits
+-- for the user to click through, then returns false.
+editCopyNode' :: UiCtrlImpl -> IO Bool
+editCopyNode' ui = do
+  clipboard <- getClipboard
+  cursor <- readCursor ui
+  case runRender $ renderGameTree $ cursorNode cursor of
+    Right sgf -> do
+      clipboardSetText clipboard sgf
+      return True
+    Left error -> do
+      mainWindow <- getMainWindow ui
+      dialog <- messageDialogNew (Just mainWindow)
+                                 [DialogModal, DialogDestroyWithParent]
+                                 MessageError
+                                 ButtonsOk
+                                 ("Error rendering node for copy:\n\n" ++ error)
+      dialogRun dialog
+      widgetDestroy dialog
+      return False
+
+-- | Returns the clipboard we'll use for explicit cut/copy/paste actions.
+getClipboard :: IO Clipboard
+getClipboard = clipboardGet selectionClipboard
 
 -- | Attempts to read the project's license file.  If successful, the license is
 -- returend, otherwise a fallback message is returned instead.

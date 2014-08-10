@@ -19,6 +19,7 @@
 module Game.Goatee.Sgf.Parser (
   parseString,
   parseFile,
+  parseSubtree,
   propertyParser,
   ) where
 
@@ -26,6 +27,7 @@ import Control.Arrow ((+++))
 import Control.Applicative ((<*), (*>))
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Common
+import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Property
 import Game.Goatee.Sgf.Tree
 import Game.Goatee.Sgf.Types
@@ -41,44 +43,10 @@ parseString str = case parse collectionParser "<collection>" str of
                               andEithers $
                               map processRoot roots
   where processRoot :: Node -> Either String Node
-        processRoot = checkFormatVersion . ttToPass
-
-        -- Ensures that we are parsing an SGF version that we understand.
-        -- TODO Try to proceed, if it makes sense.
-        checkFormatVersion :: Node -> Either String Node
-        checkFormatVersion root =
-          let version = case findProperty propertyFF root of
-                Nothing -> defaultFormatVersion
-                Just (FF x) -> x
-                x -> error $ "Expected FF or nothing, received " ++ show x ++ "."
-          in if version `elem` supportedFormatVersions
-             then Right root
-             else Left $
-                  "Unsupported SGF version " ++ show version ++ ".  Only versions " ++
-                  show supportedFormatVersions ++ " are supported."
-
-        -- SGF allows B[tt] and W[tt] to represent passes on boards <=19x19.
-        -- Convert any passes from this format to B[] and W[] in a root node and
-        -- its descendents.
-        ttToPass :: Node -> Node
-        ttToPass root =
+        processRoot = checkFormatVersion . \root ->
           let SZ width height = fromMaybe (SZ boardSizeDefault boardSizeDefault) $
                                 findProperty propertySZ root
-          in if width <= 19 && height <= 19
-             then ttToPass' width height root
-             else root
-
-        -- Convert a node and its descendents.
-        ttToPass' width height node =
-          node { nodeProperties = map ttToPass'' $ nodeProperties node
-               , nodeChildren = map (ttToPass' width height) $ nodeChildren node
-               }
-
-        -- Convert a property.
-        ttToPass'' prop = case prop of
-          B (Just (19, 19)) -> B Nothing
-          W (Just (19, 19)) -> W Nothing
-          _ -> prop
+          in postProcessTree width height root
 
         concatErrors errs = "The following errors occurred while parsing:" ++
                             concatMap ("\n-> " ++) errs
@@ -86,6 +54,51 @@ parseString str = case parse collectionParser "<collection>" str of
 -- | Parses a file in SGF format.  Returns an error string if parsing fails.
 parseFile :: String -> IO (Either String Collection)
 parseFile = fmap parseString . readFile
+
+-- | Parses a node as part of an existing game tree, from textual SGF
+-- \"GameTree\" syntax.  The 'RootInfo' is needed to supply necessary
+-- information from the existing game tree.
+parseSubtree :: RootInfo -> String -> Either String Node
+parseSubtree rootInfo str =
+  case parse (spaces *> gameTreeParser <* spaces) "<gameTree>" str of
+    Left err -> Left $ show err
+    Right node ->
+      let width = rootInfoWidth rootInfo
+          height = rootInfoHeight rootInfo
+      in Right $ postProcessTree width height node
+
+-- Ensures that we are parsing an SGF version that we understand.
+-- TODO Try to proceed, if it makes sense.
+checkFormatVersion :: Node -> Either String Node
+checkFormatVersion root =
+  let version = case findProperty propertyFF root of
+        Nothing -> defaultFormatVersion
+        Just (FF x) -> x
+        x -> error $ "Expected FF or nothing, received " ++ show x ++ "."
+  in if version `elem` supportedFormatVersions
+     then Right root
+     else Left $
+          "Unsupported SGF version " ++ show version ++ ".  Only versions " ++
+          show supportedFormatVersions ++ " are supported."
+
+postProcessTree :: Int -> Int -> Node -> Node
+postProcessTree width height node =
+  -- SGF allows B[tt] and W[tt] to represent passes on boards <=19x19.
+  -- Convert any passes from this format to B[] and W[] in a root node and
+  -- its descendents.
+  if width <= 19 && height <= 19 then convertNodeTtToPass node else node
+
+convertNodeTtToPass :: Node -> Node
+convertNodeTtToPass node =
+  node { nodeProperties = map convertPropertyTtToPass $ nodeProperties node
+       , nodeChildren = map convertNodeTtToPass $ nodeChildren node
+       }
+
+convertPropertyTtToPass :: Property -> Property
+convertPropertyTtToPass prop = case prop of
+  B (Just (19, 19)) -> B Nothing
+  W (Just (19, 19)) -> W Nothing
+  _ -> prop
 
 collectionParser :: Parser Collection
 collectionParser =

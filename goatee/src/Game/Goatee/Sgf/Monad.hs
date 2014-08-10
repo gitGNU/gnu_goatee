@@ -24,10 +24,12 @@ module Game.Goatee.Sgf.Monad (
   evalGoT, evalGo,
   execGoT, execGo,
   Step (..),
+  NodeDeleteResult (..),
   -- * Event handling
   Event, fire,
   -- * Events
   childAddedEvent, ChildAddedHandler,
+  childDeletedEvent, ChildDeletedHandler,
   gameInfoChangedEvent, GameInfoChangedHandler,
   navigationEvent, NavigationHandler,
   propertiesModifiedEvent, PropertiesModifiedHandler,
@@ -46,7 +48,8 @@ import Data.Maybe (fromMaybe, isJust, isNothing)
 import Game.Goatee.Common
 import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Tree hiding (addChild)
+import qualified Game.Goatee.Sgf.Tree as Tree
+import Game.Goatee.Sgf.Tree hiding (addChild, addChildAt)
 import Game.Goatee.Sgf.Types
 
 -- | The internal state of a Go monad transformer.  @go@ is the type of
@@ -59,6 +62,8 @@ data GoState go = GoState { stateCursor :: Cursor
                           -- Event handlers.
                           , stateChildAddedHandlers :: [ChildAddedHandler go]
                             -- ^ Handlers for 'childAddedEvent'.
+                          , stateChildDeletedHandlers :: [ChildDeletedHandler go]
+                            -- ^ Handlers for 'childDeletedEvent'.
                           , stateGameInfoChangedHandlers :: [GameInfoChangedHandler go]
                             -- ^ Handlers for 'gameInfoChangedEvent'.
                           , stateNavigationHandlers :: [NavigationHandler go]
@@ -83,6 +88,7 @@ initialState :: Cursor -> GoState m
 initialState cursor = GoState { stateCursor = cursor
                               , statePathStack = []
                               , stateChildAddedHandlers = []
+                              , stateChildDeletedHandlers = []
                               , stateGameInfoChangedHandlers = []
                               , stateNavigationHandlers = []
                               , statePropertiesModifiedHandlers = []
@@ -272,14 +278,36 @@ class Monad go => MonadGo go where
     where remove mark = modifyPropertyCoords (markProperty mark) (delete coord)
           add mark = modifyPropertyCoords (markProperty mark) (coord:)
 
+  -- | Adds a child node to the current node at the end of the current node's
+  -- child list.  Fires a 'childAddedEvent' after the child is added.
+  addChild :: Node -> go ()
+  addChild node = do
+    childCount <- liftM (length . cursorChildren) getCursor
+    addChildAt childCount node
+
   -- | Adds a child node to the current node at the given index, shifting all
-  -- existing children at and after the index to the right.  The index must in
-  -- the range @[0, numberOfChildren]@.  Fires a 'childAddedEvent' after the
+  -- existing children at and after the index to the right.  The index must be
+  -- in the range @[0, numberOfChildren]@.  Fires a 'childAddedEvent' after the
   -- child is added.
-  addChild :: Int -> Node -> go ()
+  addChildAt :: Int -> Node -> go ()
+
+  -- | Tries to remove the child node at the given index below the current node.
+  -- Returns a status code indicating whether the deletion succeeded, or why
+  -- not.
+  deleteChildAt :: Int -> go NodeDeleteResult
 
   -- | Registers a new event handler for a given event type.
   on :: Event go h -> h -> go ()
+
+-- | The result of deleting a node.
+data NodeDeleteResult =
+  NodeDeleteOk
+  -- ^ The node was deleted successfully.
+  | NodeDeleteBadIndex
+    -- ^ The node couldn't be deleted, because an invalid index was given.
+  | NodeDeleteOnPathStack
+    -- ^ The node couldn't be deleted, because it is on the path stack.
+  deriving (Bounded, Enum, Eq, Show)
 
 -- | The standard monad transformer for 'MonadGo'.
 newtype GoT m a = GoT { goState :: StateT (GoState (GoT m)) m a }
@@ -352,6 +380,9 @@ modifyState = GoT . State.modify
 instance Monad m => MonadGo (GoT m) where
   getCursor = liftM stateCursor getState
 
+  -- TODO For goUp and goDown, optimize by seeing checking if (head $ head
+  -- pathStack) is the step we're taking, and if so, dropping it from the list
+  -- rather than pushing a fresh step.
   goUp = do
     index <- liftM cursorChildIndex getCursor
     goUp' $ \pathStack -> case pathStack of
@@ -478,25 +509,56 @@ instance Monad m => MonadGo (GoT m) where
               else Just new
     popPosition
 
-  addChild index node = do
+  addChildAt index node = do
     cursor <- getCursor
     let childCount = cursorChildCount cursor
     when (index < 0 || index > childCount) $ fail $
-      "Monad.addChild: Index " ++ show index ++ " is not in [0, " ++ show childCount ++ "]."
-    let cursor' = cursorModifyNode (addChildAt index node) cursor
+      "Monad.addChildAt: Index " ++ show index ++ " is not in [0, " ++ show childCount ++ "]."
+    let cursor' = cursorModifyNode (Tree.addChildAt index node) cursor
     modifyState $ \state ->
       state { stateCursor = cursor'
-            , statePathStack = updatePathStackCurrentNode
+            , statePathStack = foldPathStack
                                (\step -> case step of
                                    GoUp n -> GoUp $ if n < index then n else n + 1
                                    down@(GoDown _) -> down)
                                (\step -> case step of
                                    up@(GoUp _) -> up
                                    GoDown n -> GoDown $ if n < index then n else n + 1)
+                               id
                                cursor'
                                (statePathStack state)
             }
-    fire childAddedEvent (\f -> f index (cursorChild cursor' index))
+    fire childAddedEvent ($ index)
+
+  deleteChildAt index = do
+    childCount <- cursorChildCount <$> getCursor
+    if index < 0 || index >= childCount
+      then return NodeDeleteBadIndex
+      else do goDown index
+              childCursor <- getCursor
+              deletingNodeOnPath <- doesPathStackEnterCurrentNode <$>
+                                    pure childCursor <*> getPathStack
+              goUp
+              if deletingNodeOnPath
+                then return NodeDeleteOnPathStack
+                else do cursor <- getCursor
+                        let cursor' = cursorModifyNode (Tree.deleteChildAt index) cursor
+                        modifyState $ \state ->
+                          state { stateCursor = cursor'
+                                , statePathStack =
+                                  foldPathStack
+                                  (\step -> case step of
+                                      GoUp n -> GoUp $ if n < index then n else n - 1
+                                      down@(GoDown _) -> down)
+                                  (\step -> case step of
+                                      up@(GoUp _) -> up
+                                      GoDown n -> GoDown $ if n < index then n else n - 1)
+                                  id
+                                  cursor'
+                                  (statePathStack state)
+                                }
+                        fire childDeletedEvent ($ childCursor)
+                        return NodeDeleteOk
 
   on event handler = modifyState $ addHandler event handler
 
@@ -509,7 +571,7 @@ goUp' pathStackFn = do
                  , statePathStack = pathStack
                  }) <- getState
   case cursorParent cursor of
-    Nothing -> fail $ "goUp': Can't go up from a root cursor: " ++ show cursor
+    Nothing -> error $ "goUp': Can't go up from a root cursor: " ++ show cursor
     Just parent -> do
       let index = cursorChildIndex cursor
       putState state { stateCursor = parent
@@ -532,7 +594,7 @@ goDown' index pathStackFn = do
                  , statePathStack = pathStack
                  }) <- getState
   case drop index $ cursorChildren cursor of
-    [] -> fail $ "goDown': Cursor does not have a child #" ++ show index ++ ": " ++ show cursor
+    [] -> error $ "goDown': Cursor does not have a child #" ++ show index ++ ": " ++ show cursor
     child:_ -> do
       putState state { stateCursor = child
                      , statePathStack = pathStackFn pathStack
@@ -549,26 +611,31 @@ goDown' index pathStackFn = do
 getPathStack :: Monad m => GoT m PathStack
 getPathStack = liftM statePathStack getState
 
+doesPathStackEnterCurrentNode :: Cursor -> PathStack -> Bool
+doesPathStackEnterCurrentNode cursor pathStack =
+  or $ or <$> foldPathStack (const True) (const False) (const False) cursor pathStack
+
 -- | Maps over a path stack, updating with the given functions all steps that
 -- enter and leave the cursor's current node.
-updatePathStackCurrentNode :: (Step -> Step)
-                           -> (Step -> Step)
-                           -> Cursor
-                           -> PathStack
-                           -> PathStack
-updatePathStackCurrentNode _ _ _ [] = []
-updatePathStackCurrentNode onEnter onExit cursor0 paths =
+foldPathStack :: (Step -> a)
+              -> (Step -> a)
+              -> (Step -> a)
+              -> Cursor
+              -> PathStack
+              -> [[a]]
+foldPathStack _ _ _ _ [] = []
+foldPathStack onEnter onExit onOther cursor0 paths =
   snd $ mapAccumL updatePath (cursor0, []) paths
-  where updatePath :: (Cursor, [Step]) -> [Step] -> ((Cursor, [Step]), [Step])
+  where -- updatePath :: (Cursor, [Step]) -> [Step] -> ((Cursor, [Step]), [a])
         updatePath = mapAccumL updateStep
-        updateStep :: (Cursor, [Step]) -> Step -> ((Cursor, [Step]), Step)
+        -- updateStep :: (Cursor, [Step]) -> Step -> ((Cursor, [Step]), a)
         updateStep (cursor, []) step = ((takeStep step cursor, [reverseStep step]), onExit step)
         updateStep (cursor, pathToInitial@(stepToInitial:restToInitial)) step =
           let pathToInitial' = if stepToInitial == step
                                then restToInitial
                                else reverseStep step:pathToInitial
           in ((takeStep step cursor, pathToInitial'),
-              if null pathToInitial' then onEnter step else step)
+              if null pathToInitial' then onEnter step else onOther step)
 
 -- | Fires all of the handlers for the given event, using the given function to
 -- create a Go action from each of the handlers (normally themselves functions
@@ -605,8 +672,22 @@ childAddedEvent = Event {
   , eventStateSetter = \handlers state -> state { stateChildAddedHandlers = handlers }
   }
 
--- | A handler for 'childAddedEvent's.
-type ChildAddedHandler go = Int -> Cursor -> go ()
+-- | A handler for 'childAddedEvent's.  Called with the index of the child added
+-- to the current node.
+type ChildAddedHandler go = Int -> go ()
+
+-- | An event corresponding to the deletion of one of the current node's
+-- children.
+childDeletedEvent :: Event go (ChildDeletedHandler go)
+childDeletedEvent = Event {
+  eventName = "childDeletedEvent"
+  , eventStateGetter = stateChildDeletedHandlers
+  , eventStateSetter = \handlers state -> state { stateChildDeletedHandlers = handlers }
+  }
+
+-- | A handler for 'childDeletedEvent's.  It is called with a cursor at the
+-- child that was deleted (this cursor is now out of date).
+type ChildDeletedHandler go = Cursor -> go ()
 
 -- | An event that is fired when the current game info changes, either by
 -- navigating past a node with game info properties, or by modifying the current

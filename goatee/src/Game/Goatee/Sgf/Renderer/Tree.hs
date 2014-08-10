@@ -18,6 +18,7 @@
 -- | Functions for serializing SGF trees.
 module Game.Goatee.Sgf.Renderer.Tree (
   renderCollection,
+  renderGameTree,
   renderProperty,
   ) where
 

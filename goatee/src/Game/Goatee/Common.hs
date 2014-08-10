@@ -17,7 +17,8 @@
 
 -- | Common utilities used throughout the project.
 module Game.Goatee.Common (
-  listDeleteIndex,
+  listDeleteAt,
+  listInsertAt,
   listReplace,
   listUpdate,
   andEithers,
@@ -41,8 +42,16 @@ import Data.Monoid (Monoid, mempty, mappend)
 
 -- | Drops the element at an index from a list.  If the index is out of bounds
 -- then the list is returned unmodified.
-listDeleteIndex :: Int -> [a] -> [a]
-listDeleteIndex index list = take index list ++ drop (index + 1) list
+listDeleteAt :: Int -> [a] -> [a]
+listDeleteAt index list = take index list ++ drop (index + 1) list
+
+-- | Inserts the element into the list before the given position.  If the
+-- position is less than 0 or greater than the length of the list, then the
+-- index is clamped to this range.
+listInsertAt :: Int -> a -> [a] -> [a]
+listInsertAt index x xs =
+  let (before, after) = splitAt index xs
+  in before ++ x : after
 
 -- | @listReplace old new list@ replaces all occurrences of @old@ with @new@ in
 -- @list@.

@@ -19,8 +19,10 @@ module Game.Goatee.Sgf.TreeTest (tests) where
 
 import Data.Version (showVersion)
 import Game.Goatee.App (applicationName)
+import Game.Goatee.Common
 import Game.Goatee.Sgf.Property
 import Game.Goatee.Sgf.TestInstances ()
+import Game.Goatee.Sgf.TestUtils
 import Game.Goatee.Sgf.Tree
 import Game.Goatee.Sgf.Types
 import Game.Goatee.Test.Common
@@ -32,7 +34,9 @@ tests = "Game.Goatee.Sgf.Tree" ~: TestList [
   rootNodeTests,
   findPropertyTests,
   addPropertyTests,
-  addChildTests
+  addChildTests,
+  addChildAtTests,
+  deleteChildAtTests
   ]
 
 emptyNodeTests = "emptyNode" ~: TestList [
@@ -108,5 +112,73 @@ addChildTests = "addChild" ~: TestList [
   where mk properties children = emptyNode { nodeProperties = properties
                                            , nodeChildren = children
                                            }
+
+addChildAtTests = "addChildAt" ~: TestList [
+  "adds to a childless node" ~:
+    let parent = node [B Nothing]
+        child = node [W Nothing]
+    in node1 [B Nothing] (node [W Nothing]) @=? addChildAt 0 child parent,
+
+  "adds as a first child" ~: do
+    let expected = base { nodeChildren = newNode : baseChildren }
+    expected @=? addChildAt 0 newNode base
+    expected @=? addChildAt (-1) newNode base
+    expected @=? addChildAt (-2) newNode base,
+
+  "adds as a middle child" ~: do
+    base { nodeChildren = listInsertAt 1 newNode baseChildren } @=?
+      addChildAt 1 newNode base
+    base { nodeChildren = listInsertAt 2 newNode baseChildren } @=?
+      addChildAt 2 newNode base,
+
+  "adds as a last child" ~: do
+    let expected = base { nodeChildren = baseChildren ++ [newNode] }
+    expected @=? addChildAt baseChildCount newNode base
+    expected @=? addChildAt (baseChildCount + 1) newNode base
+    expected @=? addChildAt (baseChildCount + 2) newNode base
+  ]
+  where base = node' [B $ Just (0,0)] baseChildren
+        baseChildren = [node [W Nothing],
+                        node [W $ Just (1,1)],
+                        node [W $ Just (9,9)]]
+        baseChildCount = length $ nodeChildren base
+        newNode = node [B $ Just (1,1)]
+
+deleteChildAtTests = "deleteChildAt" ~: TestList [
+  "deletes nothing from an empty list" ~: do
+    emptyNode @=? deleteChildAt (-1) emptyNode
+    emptyNode @=? deleteChildAt 0 emptyNode
+    emptyNode @=? deleteChildAt 1 emptyNode,
+
+  "deletes an only child" ~:
+    node [B Nothing] @=? deleteChildAt 0 (node1 [B Nothing] $ node [W Nothing]),
+
+  "deletes a first child" ~:
+    base { nodeChildren = listDeleteAt 0 baseChildren } @=?
+    deleteChildAt 0 base,
+
+  "deletes middle children" ~: do
+    base { nodeChildren = listDeleteAt 1 baseChildren } @=?
+      deleteChildAt 1 base
+    base { nodeChildren = listDeleteAt 2 baseChildren } @=?
+      deleteChildAt 2 base,
+
+  "delete a last child" ~:
+    base { nodeChildren = init baseChildren } @=?
+    deleteChildAt (baseChildCount - 1) base,
+
+  "has no effect for invalid indices" ~: do
+    base @=? deleteChildAt (-1) base
+    base @=? deleteChildAt (-2) base
+    base @=? deleteChildAt baseChildCount base
+    base @=? deleteChildAt (baseChildCount + 1) base
+    base @=? deleteChildAt (baseChildCount + 2) base
+  ]
+  where base = node' [B $ Just (0,0)] baseChildren
+        baseChildren = [node [W Nothing],
+                        node [W $ Just (1,1)],
+                        node [W $ Just (2,2)],
+                        node [W $ Just (9,9)]]
+        baseChildCount = length $ nodeChildren base
 
 -- TODO Test validateNode.

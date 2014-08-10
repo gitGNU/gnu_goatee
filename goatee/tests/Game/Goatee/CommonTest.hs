@@ -29,7 +29,8 @@ import Test.HUnit ((~:), (@=?), Test (TestList), assertFailure)
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
 tests = "Game.Goatee.Common" ~: TestList [
-  listDeleteIndexTests,
+  listDeleteAtTests,
+  listInsertAtTests,
   listReplaceTests,
   andEithersTests,
   forTests,
@@ -45,32 +46,53 @@ tests = "Game.Goatee.Common" ~: TestList [
   seqTests
   ]
 
-listDeleteIndexTests = "listDeleteIndex" ~: TestList [
+listDeleteAtTests = "listDeleteAt" ~: TestList [
   "deletes nothing from an empty list" ~: do
-    [] @=? listDeleteIndex (-1) ([] :: [()])
-    [] @=? listDeleteIndex 0 ([] :: [()])
-    [] @=? listDeleteIndex 1 ([] :: [()]),
+    [] @=? listDeleteAt (-1) ([] :: [()])
+    [] @=? listDeleteAt 0 ([] :: [()])
+    [] @=? listDeleteAt 1 ([] :: [()]),
 
   "deletes the only item from a singleton list" ~:
-    [] @=? listDeleteIndex 0 [()],
+    [] @=? listDeleteAt 0 [()],
 
   "deletes the head of a list" ~:
-    [False] @=? listDeleteIndex 0 [True, False],
+    [False] @=? listDeleteAt 0 [True, False],
 
   "deletes the tail of a list" ~:
-    [Just 0, Nothing] @=? listDeleteIndex 2 [Just 0, Nothing, Just 1],
+    [Just 0, Nothing] @=? listDeleteAt 2 [Just 0, Nothing, Just 1],
 
   "deletes an inner item from a list" ~:
-    [Just 0, Just 1] @=? listDeleteIndex 1 [Just 0, Nothing, Just 1],
+    [Just 0, Just 1] @=? listDeleteAt 1 [Just 0, Nothing, Just 1],
 
   "ignores a negative index" ~: do
-    [1, 2, 3] @=? listDeleteIndex (-1) [1, 2, 3]
-    [1, 2, 3] @=? listDeleteIndex (-2) [1, 2, 3],
+    [1, 2, 3] @=? listDeleteAt (-1) [1, 2, 3]
+    [1, 2, 3] @=? listDeleteAt (-2) [1, 2, 3],
 
   "ignores an index too large" ~: do
-    [1, 2, 3] @=? listDeleteIndex 3 [1, 2, 3]
-    [1, 2, 3] @=? listDeleteIndex 4 [1, 2, 3]
+    [1, 2, 3] @=? listDeleteAt 3 [1, 2, 3]
+    [1, 2, 3] @=? listDeleteAt 4 [1, 2, 3]
   ]
+
+listInsertAtTests = "listInsertAt" ~: TestList [
+  "adds at the beginning of a list" ~: do
+    let expected = [10, 3, 1, 5, 2]
+    expected @=? listInsertAt 0 elt base
+    expected @=? listInsertAt (-1) elt base
+    expected @=? listInsertAt (-2) elt base,
+
+  "adds in the middle of a list" ~: do
+    [3, 10, 1, 5, 2] @=? listInsertAt 1 elt base
+    [3, 1, 10, 5, 2] @=? listInsertAt 2 elt base
+    [3, 1, 5, 10, 2] @=? listInsertAt 3 elt base,
+
+  "adds at the end of a list" ~: do
+    let expected = [3, 1, 5, 2, 10]
+    expected @=? listInsertAt (length base) elt base
+    expected @=? listInsertAt (length base + 1) elt base
+    expected @=? listInsertAt (length base + 2) elt base
+  ]
+  where base = [3, 1, 5, 2]
+        elt = 10
 
 listReplaceTests = "listReplace" ~: TestList [
   "accepts an empty list" ~:

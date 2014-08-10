@@ -60,7 +60,8 @@ create ui = do
 initialize :: UiCtrl ui => InfoLine ui -> IO ()
 initialize me = do
   let updateAfter = afterGo . updateWithCursor me =<< getCursor
-  viewRegister me childAddedEvent $ const $ const updateAfter
+  viewRegister me childAddedEvent $ const updateAfter
+  viewRegister me childDeletedEvent $ const updateAfter
   viewRegister me navigationEvent $ const updateAfter
   viewRegister me propertiesModifiedEvent $ const $ const updateAfter
   update me

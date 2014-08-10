@@ -34,7 +34,7 @@ import Data.Tree (drawTree, unfoldTree)
 import Game.Goatee.Common
 import Game.Goatee.Sgf.Board hiding (isValidMove)
 import Game.Goatee.Sgf.Monad (
-  childAddedEvent, modifyMark, navigationEvent, propertiesModifiedEvent,
+  childAddedEvent, childDeletedEvent, modifyMark, navigationEvent, propertiesModifiedEvent,
   )
 import Game.Goatee.Sgf.Property
 import Game.Goatee.Sgf.Tree
@@ -281,7 +281,8 @@ initialize :: UiCtrl ui => Goban ui -> IO ()
 initialize me = do
   let ui = myUi me
       onChange = afterGo $ update me
-  viewRegister me childAddedEvent $ const $ const onChange
+  viewRegister me childAddedEvent $ const onChange
+  viewRegister me childDeletedEvent $ const onChange
   viewRegister me navigationEvent $ const onChange
   viewRegister me propertiesModifiedEvent $ const $ const onChange
   writeIORef (myModesChangedHandler me) =<<

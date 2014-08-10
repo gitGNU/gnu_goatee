@@ -191,6 +191,20 @@ class UiCtrl a where
   -- point then shutdown is cancelled and no games are closed.
   fileQuit :: a -> IO Bool
 
+  -- | Performs a copy a la 'editCopyNode'.  If this copy succeeds, then we
+  -- navigate to the parent of the current node, and delete the node we were
+  -- just on from the tree.
+  editCutNode :: a -> IO ()
+
+  -- | Copies an SGF representation of the subtree rooted at the current node
+  -- onto the system clipboard.  If the node fails to render, then an error
+  -- dialog is displayed and the clipboard is left untouched.
+  editCopyNode :: a -> IO ()
+
+  -- | Attempts to parse text on the system clipboard as an SGF subtree and
+  -- insert the parsed node below the current node.
+  editPasteNode :: a -> IO ()
+
   -- | Presents the user with an about dialog that shows general information
   -- about the application to the user (authorship, license, etc.).
   helpAbout :: a -> IO ()

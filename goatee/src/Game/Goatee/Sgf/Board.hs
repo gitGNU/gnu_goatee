@@ -745,7 +745,7 @@ cursorVariations source cursor =
     ShowCurrentVariations ->
       case cursorParent cursor of
         Nothing -> []
-        Just parent -> collectPlays $ listDeleteIndex (cursorChildIndex cursor) $
+        Just parent -> collectPlays $ listDeleteAt (cursorChildIndex cursor) $
                        nodeChildren $ cursorNode parent
   where collectPlays :: [Node] -> [(Coord, Color)]
         collectPlays = concatMap collectPlays'

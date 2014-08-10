@@ -29,6 +29,9 @@ module Game.Goatee.Ui.Gtk.Actions (
   myFileSaveAsAction,
   myFileCloseAction,
   myFileQuitAction,
+  myEditCutNodeAction,
+  myEditCopyNodeAction,
+  myEditPasteNodeAction,
   myGamePassAction,
   myGameVariationsChildAction,
   myGameVariationsCurrentAction,
@@ -41,7 +44,7 @@ module Game.Goatee.Ui.Gtk.Actions (
 
 import Control.Applicative ((<$>))
 import Control.Monad (unless, void, when)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Game.Goatee.Ui.Gtk.Common
 import Game.Goatee.Ui.Gtk.Utils
 import Game.Goatee.Sgf.Board
@@ -63,7 +66,7 @@ import Graphics.UI.Gtk (
   SpinButtonUpdatePolicy (UpdateIfValid),
   ToggleAction,
   actionActivate, actionActivated, actionGroupAddActionWithAccel, actionGroupAddRadioActions,
-  actionGroupGetAction, actionGroupNew, actionNew, actionToggled,
+  actionGroupGetAction, actionGroupNew, actionNew, actionSensitive, actionToggled,
   boxPackStart,
   dialogAddButton, dialogGetUpper, dialogNew, dialogRun, dialogSetDefaultResponse,
   get,
@@ -92,6 +95,9 @@ data Actions ui = Actions {
   , myFileSaveAsAction :: Action
   , myFileCloseAction :: Action
   , myFileQuitAction :: Action
+  , myEditCutNodeAction :: Action
+  , myEditCopyNodeAction :: Action
+  , myEditPasteNodeAction :: Action
   , myGamePassAction :: Action
   , myGameVariationsChildAction :: RadioAction
   , myGameVariationsCurrentAction :: RadioAction
@@ -231,6 +237,16 @@ create ui = do
   actionGroupAddActionWithAccel fileActions fileQuitAction $ Just "<Control>q"
   on fileQuitAction actionActivated $ void $ fileQuit ui
 
+  -- Edit actions.
+  editCutNodeAction <- actionNew "EditCutNode" "Cut current node" Nothing Nothing
+  on editCutNodeAction actionActivated $ editCutNode ui
+
+  editCopyNodeAction <- actionNew "EditCopyNode" "Copy current node" Nothing Nothing
+  on editCopyNodeAction actionActivated $ editCopyNode ui
+
+  editPasteNodeAction <- actionNew "EditPasteNode" "Paste node as child" Nothing Nothing
+  on editPasteNodeAction actionActivated $ editPasteNode ui
+
   -- Game actions.
   gamePassAction <- actionNew "GamePass" "_Pass" Nothing Nothing
   on gamePassAction actionActivated $ playAt ui Nothing
@@ -321,6 +337,9 @@ create ui = do
         , myFileSaveAsAction = fileSaveAsAction
         , myFileCloseAction = fileCloseAction
         , myFileQuitAction = fileQuitAction
+        , myEditCutNodeAction = editCutNodeAction
+        , myEditCopyNodeAction = editCopyNodeAction
+        , myEditPasteNodeAction = editPasteNodeAction
         , myGamePassAction = gamePassAction
         , myGameVariationsChildAction = gameVariationsChildAction
         , myGameVariationsCurrentAction = gameVariationsCurrentAction
@@ -335,7 +354,15 @@ create ui = do
   return me
 
 initialize :: UiCtrl ui => Actions ui -> IO ()
-initialize me =
+initialize me = do
+  let ui = myUi me
+      updateEditCutNodeEnabled = do
+        cursor <- readCursor ui
+        set (myEditCutNodeAction me) [actionSensitive := isJust $ cursorParent cursor]
+
+  updateEditCutNodeEnabled
+  viewRegister me navigationEvent $ \_ -> afterGo updateEditCutNodeEnabled
+
   viewRegister me variationModeChangedEvent $ \_ new -> afterGo $ do
     let newSource = fromEnum $ variationModeSource new
         newBoardMarkup = fromEnum $ variationModeBoardMarkup new

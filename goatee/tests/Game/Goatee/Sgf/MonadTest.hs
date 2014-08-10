@@ -18,16 +18,18 @@
 module Game.Goatee.Sgf.MonadTest (tests) where
 
 import Control.Applicative ((<$>))
-import Control.Arrow ((&&&))
+import Control.Arrow ((&&&), second)
 import Control.Monad (forM_, liftM, replicateM_, void)
 import Control.Monad.Writer (Writer, execWriter, runWriter, tell)
 import Data.List (unfoldr)
 import Data.Maybe (fromJust, maybeToList)
+import Game.Goatee.Common
 import Game.Goatee.Sgf.Board
 import Game.Goatee.Sgf.Monad
 import Game.Goatee.Sgf.Property
 import Game.Goatee.Sgf.TestInstances ()
 import Game.Goatee.Sgf.TestUtils
+import Game.Goatee.Sgf.Tree (emptyNode, nodeChildren)
 import Game.Goatee.Sgf.Types
 import Game.Goatee.Test.Common
 import Test.HUnit ((~:), (@=?), (@?=), Test (TestList))
@@ -59,6 +61,8 @@ tests = "Game.Goatee.Sgf.Monad" ~: TestList [
   getMarkTests,
   modifyMarkTests,
   addChildTests,
+  addChildAtTests,
+  deleteChildAtTests,
   gameInfoChangedTests
   ]
 
@@ -616,38 +620,69 @@ modifyMarkTests = "modifyMark" ~: TestList [
   ]
 
 addChildTests = "addChild" ~: TestList [
+  "adds a first child" ~: do
+    cursorNode (execGo (addChild emptyNode) $ rootCursor emptyNode) @?= node1 [] emptyNode
+    cursorNode (execGo (addChild $ node1 [W $ Just (1,1)] $ node [B $ Just (2,2)]) $ rootCursor $
+                node [B $ Just (0,0)]) @?=
+      node1 [B $ Just (0,0)] (node1 [W $ Just (1,1)] $ node [B $ Just (2,2)]),
+
+  "adds a child to the end of the parent's child list" ~:
+    cursorNode (execGo (addChild $ node [MN 4]) $ rootCursor $
+                node' [B Nothing] [node [MN 2], node [MN 3]]) @?=
+    node' [B Nothing] [node [MN 2], node [MN 3], node [MN 4]],
+
+  "fires childAddedEvent after adding a child" ~:
+    let cursor = rootCursor $ node' [B Nothing] [node [MN 2], node [MN 3]]
+        action = do on childAddedEvent $ \index -> do
+                      cursor <- getCursor
+                      tell [(index, cursorNode cursor)]
+                    addChild $ node [MN 4]
+      in execWriter (runGoT action cursor) @?=
+         [(2, node' [B Nothing] [node [MN 2], node [MN 3], node [MN 4]])]
+  ]
+
+addChildAtTests = "addChildAt" ~: TestList [
   "adds an only child" ~:
-    cursorNode (execGo (addChild 0 $ node [B Nothing]) (rootCursor $ node []))
-    @?= node' [] [node [B Nothing]],
+    cursorNode (execGo (addChildAt 0 $ node [B Nothing]) (rootCursor $ node [])) @?=
+    node' [] [node [B Nothing]],
 
   "adds a first child" ~:
-    cursorNode (execGo (addChild 0 $ node [B $ Just (0,0)])
-                       (rootCursor $ node' [] [node [B $ Just (1,1)]]))
-    @?= node' [] [node [B $ Just (0,0)],
-                  node [B $ Just (1,1)]],
+    cursorNode (execGo (addChildAt 0 $ node [B $ Just (0,0)])
+                       (rootCursor $ node' [] [node [B $ Just (1,1)]])) @?=
+     node' [] [node [B $ Just (0,0)],
+               node [B $ Just (1,1)]],
 
   "adds a middle child" ~:
-    cursorNode (execGo (addChild 1 $ node [B $ Just (1,1)])
+    cursorNode (execGo (addChildAt 1 $ node [B $ Just (1,1)])
                        (rootCursor $ node' [] [node [B $ Just (0,0)],
-                                               node [B $ Just (2,2)]]))
-    @?= node' [] [node [B $ Just (0,0)],
-                  node [B $ Just (1,1)],
-                  node [B $ Just (2,2)]],
+                                               node [B $ Just (2,2)]])) @?=
+    node' [] [node [B $ Just (0,0)],
+              node [B $ Just (1,1)],
+              node [B $ Just (2,2)]],
 
   "adds a last child" ~:
-    cursorNode (execGo (addChild 2 $ node [B $ Just (2,2)])
+    cursorNode (execGo (addChildAt 2 $ node [B $ Just (2,2)])
                        (rootCursor $ node' [] [node [B $ Just (0,0)],
-                                               node [B $ Just (1,1)]]))
-    @?= node' [] [node [B $ Just (0,0)],
-                  node [B $ Just (1,1)],
-                  node [B $ Just (2,2)]],
+                                               node [B $ Just (1,1)]])) @?=
+    node' [] [node [B $ Just (0,0)],
+              node [B $ Just (1,1)],
+              node [B $ Just (2,2)]],
+
+  "fires childAddedEvent after adding a child" ~:
+    let cursor = rootCursor $ node' [B Nothing] [node [MN 2], node [MN 4]]
+        action = do on childAddedEvent $ \index -> do
+                      cursor <- getCursor
+                      tell [(index, cursorNode cursor)]
+                    addChildAt 1 $ node [MN 3]
+    in execWriter (runGoT action cursor) @?=
+       [(1, node' [B Nothing] [node [MN 2], node [MN 3], node [MN 4]])],
 
   "path stack correctness" ~: TestList [
     "basic case just not needing updating" ~:
       let cursor = child 0 $ rootCursor $ node' [B Nothing] [node [W Nothing]]
           action = do pushPosition
                       goUp
-                      addChild 1 $ node [W $ Just (0,0)]
+                      addChildAt 1 $ node [W $ Just (0,0)]
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W Nothing],
 
@@ -655,7 +690,7 @@ addChildTests = "addChild" ~: TestList [
       let cursor = child 0 $ rootCursor $ node' [B Nothing] [node [W Nothing]]
           action = do pushPosition
                       goUp
-                      addChild 0 $ node [W $ Just (0,0)]
+                      addChildAt 0 $ node [W $ Just (0,0)]
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W Nothing],
 
@@ -665,7 +700,7 @@ addChildTests = "addChild" ~: TestList [
           action = do goDown 1
                       pushPosition
                       goUp
-                      addChild 0 $ node [W Nothing]
+                      addChildAt 0 $ node [W Nothing]
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W $ Just (1,1)],
 
@@ -677,11 +712,13 @@ addChildTests = "addChild" ~: TestList [
           level3Node i = node [at 3 i]
           action = do goDown 1 >> goDown 2 >> goDown 3
                       pushPosition
-                      replicateM_ 4 goUp
+                      replicateM_ 3 goUp
+                      pushPosition
                       goDown 1 >> goDown 2 >> goDown 2 >> goUp >> goDown 1
-                      addChild 0 $ node' [] [node []]
+                      addChildAt 0 $ node1 [] $ node []
                       goDown 0 >> goDown 0
                       goToRoot
+                      popPosition
                       popPosition
       in cursorNode (execGo action $ rootCursor level0Node) @?= node [B $ Just (3,3)],
 
@@ -690,11 +727,119 @@ addChildTests = "addChild" ~: TestList [
           action = do pushPosition
                       goDown 0
                       goUp
-                      addChild 0 $ node [B $ Just (2,2)]
+                      addChildAt 0 $ node [B $ Just (2,2)]
                       on navigationEvent $ \step -> tell [step]
                       popPosition
-          (_, log) = runWriter (runGoT action cursor)
+          log = execWriter (runGoT action cursor)
       in log @?= [GoDown 1, GoUp 1]
+    ]
+  ]
+
+deleteChildAtTests = "deleteChildAt" ~: TestList [
+  "ignores invalid indices" ~: do
+    second cursorNode (runGo (deleteChildAt 0) $ rootCursor $ node []) @?=
+      (NodeDeleteBadIndex, node [])
+    let base = node' [] [node [MN 0]]
+    second cursorNode (runGo (deleteChildAt (-2)) $ rootCursor base) @?= (NodeDeleteBadIndex, base)
+    second cursorNode (runGo (deleteChildAt (-1)) $ rootCursor base) @?= (NodeDeleteBadIndex, base)
+    second cursorNode (runGo (deleteChildAt 1) $ rootCursor base) @?= (NodeDeleteBadIndex, base)
+    second cursorNode (runGo (deleteChildAt 2) $ rootCursor base) @?= (NodeDeleteBadIndex, base),
+
+  "deletes an only child" ~:
+    let cursor = rootCursor $ node1 [MN 0] $ node [MN 1]
+        action = deleteChildAt 0
+    in second cursorNode (runGo action cursor) @?= (NodeDeleteOk, node [MN 0]),
+
+  "deletes a first child" ~:
+    let cursor = rootCursor $ node' [MN 0] [node [MN 1], node [MN 2]]
+        action = deleteChildAt 0
+    in second cursorNode (runGo action cursor) @?= (NodeDeleteOk, node1 [MN 0] $ node [MN 2]),
+
+  "deletes middle children" ~: do
+    let base = node' [MN 0] [node [MN 1], node [MN 2], node [MN 3], node [MN 4]]
+        cursor = rootCursor base
+    second cursorNode (runGo (deleteChildAt 1) cursor) @?=
+      (NodeDeleteOk, base { nodeChildren = listDeleteAt 1 $ nodeChildren base })
+    second cursorNode (runGo (deleteChildAt 2) cursor) @?=
+      (NodeDeleteOk, base { nodeChildren = listDeleteAt 2 $ nodeChildren base }),
+
+  "deletes a final child" ~: do
+    let base = node' [MN 0] [node [MN 1], node [MN 2], node [MN 3], node [MN 4]]
+        cursor = rootCursor base
+    second cursorNode (runGo (deleteChildAt 1) cursor) @?=
+      (NodeDeleteOk, base { nodeChildren = listDeleteAt 1 $ nodeChildren base })
+    second cursorNode (runGo (deleteChildAt 2) cursor) @?=
+      (NodeDeleteOk, base { nodeChildren = listDeleteAt 2 $ nodeChildren base }),
+
+  "fires childDeletedEvent after deleting a child" ~:
+    let cursor = rootCursor $ node' [MN 0] [node [MN 1], node [MN 2]]
+        action = do on childDeletedEvent $ tell . (:[]) . (cursorChildIndex &&& cursorNode)
+                    deleteChildAt 1
+    in execWriter (runGoT action cursor) @?= [(1, cursorNode $ child 1 cursor)],
+
+  "path stack correctness" ~: TestList [
+    "basic case just not needing updating" ~:
+      let cursor = rootCursor $ node' [B Nothing] [node [W Nothing], node [W $ Just (0,0)]]
+          action = do goDown 0
+                      pushPosition
+                      goUp
+                      deleteChildAt 1
+                      popPosition
+      in cursorNode (execGo action cursor) @?= node [W Nothing],
+
+    "basic case just needing updating" ~:
+      let cursor = rootCursor $ node' [B Nothing] [node [W Nothing], node [W $ Just (0,0)]]
+          action = do goDown 1
+                      pushPosition
+                      goUp
+                      deleteChildAt 0
+                      popPosition
+      in cursorNode (execGo action cursor) @?= node [W $ Just (0,0)],
+
+    "basic case definitely needing updating" ~:
+      let cursor = rootCursor $ node' [B Nothing] [node [W $ Just (0,0)],
+                                                   node [W $ Just (1,1)],
+                                                   node [W $ Just (2,2)]]
+          action = do goDown 2
+                      pushPosition
+                      goUp
+                      deleteChildAt 0
+                      popPosition
+      in cursorNode (execGo action cursor) @?= node [W $ Just (2,2)],
+
+    "multiple paths to update" ~:
+      let at y x = B $ Just (y,x)
+          level0Node = node' [at 0 0] $ map level1Node [0..1]
+          level1Node i = node' [at 1 i] $ map level2Node [0..2]
+          level2Node i = node' [at 2 i] $ map level3Node [0..3]
+          level3Node i = node [at 3 i]
+          action = do goDown 1 >> goDown 2 >> goDown 3
+                      pushPosition
+                      goUp
+                      deleteChildAt 1
+                      pushPosition
+                      goToRoot >> goDown 0 >> goDown 2
+                      pushPosition
+                      goUp
+                      deleteChildAt 0
+                      goToRoot >> goDown 1 >> goDown 2
+                      deleteChildAt 1
+                      replicateM_ 3 popPosition
+      in cursorNode (execGo action $ rootCursor level0Node) @?= node [B $ Just (3,3)],
+
+    "returns an error if a node to delete is on the path stack" ~:
+      let base = node' [B $ Just (0,0)] [node [W $ Just (1,1)],
+                                         node [W $ Just (2,2)]]
+          action = do goDown 1
+                      pushPosition
+                      goUp
+                      pushPosition
+                      goDown 0
+                      pushPosition
+                      goUp
+                      deleteChildAt 1
+      in second cursorNode (runGo action $ rootCursor base) @?=
+         (NodeDeleteOnPathStack, base)
     ]
   ]
 

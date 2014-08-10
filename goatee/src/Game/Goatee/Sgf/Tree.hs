@@ -21,7 +21,7 @@ module Game.Goatee.Sgf.Tree (
   Node(..), NodeWithDeepEquality(..),
   emptyNode, rootNode,
   findProperty, findProperty', findPropertyValue, findPropertyValue',
-  addProperty, addChild, addChildAt,
+  addProperty, addChild, addChildAt, deleteChildAt,
   validateNode,
   ) where
 
@@ -32,6 +32,7 @@ import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sortBy)
 import Data.Version (showVersion)
 import Game.Goatee.App (applicationName)
+import Game.Goatee.Common
 import Game.Goatee.Sgf.Property
 import Game.Goatee.Sgf.Types
 import Paths_goatee (version)
@@ -118,11 +119,21 @@ addChild child node = node { nodeChildren = nodeChildren node ++ [child] }
 
 -- | @addChildAt index child parent@ inserts a child node into a node's child
 -- list at the given index, shifting all nodes at or after the given index to
--- the right.  The index must be in the range @[0, numberOfChildren]@.
+-- the right.  If the position is less than 0 or greater than the length of the
+-- list, then the index is clamped to this range.
 addChildAt :: Int -> Node -> Node -> Node
 addChildAt index child node =
   let (before, after) = splitAt index $ nodeChildren node
   in node { nodeChildren = before ++ child:after }
+
+-- | @deleteChildAt index node@ deletes the child at the given index from the
+-- node.  If the index is invalid, @node@ is returned.
+deleteChildAt :: Int -> Node -> Node
+deleteChildAt index node =
+  let children = nodeChildren node
+  in if index < 0 || index > length children
+     then node
+     else node { nodeChildren = listDeleteAt index children }
 
 -- | Returns a list of validation errors for the current node, an
 -- empty list if no errors are detected.

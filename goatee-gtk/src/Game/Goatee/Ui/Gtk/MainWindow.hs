@@ -118,6 +118,16 @@ create ui = do
     , Actions.myFileQuitAction
     ]
 
+  menuEdit <- menuItemNewWithMnemonic "_Edit"
+  menuEditMenu <- menuNew
+  menuShellAppend menuBar menuEdit
+  menuItemSetSubmenu menuEdit menuEditMenu
+  addActionsToMenu menuEditMenu actions
+    [ Actions.myEditCutNodeAction
+    , Actions.myEditCopyNodeAction
+    , Actions.myEditPasteNodeAction
+    ]
+
   menuGame <- menuItemNewWithMnemonic "_Game"
   menuGameMenu <- menuNew
   menuShellAppend menuBar menuGame
