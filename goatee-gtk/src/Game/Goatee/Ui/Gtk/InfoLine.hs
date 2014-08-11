@@ -26,9 +26,9 @@ module Game.Goatee.Ui.Gtk.InfoLine (
 
 import Control.Applicative ((<$>))
 import Data.Maybe (fromMaybe)
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Monad
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Monad
+import Game.Goatee.Lib.Types
 import Game.Goatee.Ui.Gtk.Common
 import Graphics.UI.Gtk (Label, Widget, labelNew, labelSetMarkup, toWidget)
 

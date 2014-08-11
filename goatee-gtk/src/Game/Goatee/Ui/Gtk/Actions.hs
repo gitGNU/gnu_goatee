@@ -47,10 +47,10 @@ import Control.Monad (unless, void, when)
 import Data.Maybe (fromMaybe, isJust)
 import Game.Goatee.Ui.Gtk.Common
 import Game.Goatee.Ui.Gtk.Utils
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Monad hiding (on)
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Monad hiding (on)
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Types
 import Graphics.UI.Gtk (
   Action,
   ActionGroup,

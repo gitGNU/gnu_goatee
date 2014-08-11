@@ -15,14 +15,14 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Game.Goatee.Sgf.PropertyTest (tests) where
+module Game.Goatee.Lib.PropertyTest (tests) where
 
 import qualified Data.Set as Set
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Types
 import Test.HUnit ((~:), (@=?), Test (TestList))
 
-tests = "Game.Goatee.Sgf.Property" ~: TestList $ [
+tests = "Game.Goatee.Lib.Property" ~: TestList $ [
   propertyMetadataTests,
   markPropertyTests
   ]

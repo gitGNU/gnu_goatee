@@ -16,7 +16,7 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | Constants and data types for property values used in SGF game trees.
-module Game.Goatee.Sgf.Types (
+module Game.Goatee.Lib.Types (
   -- * Constants
   supportedFormatVersions, defaultFormatVersion, supportedGameTypes,
   boardSizeDefault, boardSizeMin, boardSizeMax,

@@ -18,7 +18,7 @@
 -- | Data structures that wrap and provide a higher-level interface to the SGF
 -- game tree, including a zipper that navigates the tree and provides the
 -- current board state.
-module Game.Goatee.Sgf.Board (
+module Game.Goatee.Lib.Board (
   RootInfo(..), GameInfo(..), emptyGameInfo, internalIsGameInfoNode,
   gameInfoToProperties,
   BoardState(..), boardWidth, boardHeight,
@@ -37,9 +37,9 @@ import Data.List (find, intercalate, nub)
 import Data.Maybe (fromMaybe, isJust, isNothing)
 import qualified Data.Set as Set
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Tree
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Tree
+import Game.Goatee.Lib.Types
 
 -- TODO Stop using errors everywhere, they're not testable.
 

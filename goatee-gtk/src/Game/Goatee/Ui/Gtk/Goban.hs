@@ -32,13 +32,13 @@ import Data.Map (Map)
 import Data.Maybe (fromJust, isJust)
 import Data.Tree (drawTree, unfoldTree)
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Board hiding (isValidMove)
-import Game.Goatee.Sgf.Monad (
+import Game.Goatee.Lib.Board hiding (isValidMove)
+import Game.Goatee.Lib.Monad (
   childAddedEvent, childDeletedEvent, modifyMark, navigationEvent, propertiesModifiedEvent,
   )
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Tree
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Tree
+import Game.Goatee.Lib.Types
 import Game.Goatee.Ui.Gtk.Common
 import Graphics.Rendering.Cairo (
   Antialias (AntialiasDefault, AntialiasNone),

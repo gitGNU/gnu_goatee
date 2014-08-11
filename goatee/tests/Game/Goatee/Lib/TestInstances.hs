@@ -16,10 +16,10 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | Test utilities for working with the SGF modules.
-module Game.Goatee.Sgf.TestInstances () where
+module Game.Goatee.Lib.TestInstances () where
 
 import Data.Function (on)
-import Game.Goatee.Sgf.Tree (Node, NodeWithDeepEquality (NodeWithDeepEquality))
+import Game.Goatee.Lib.Tree (Node, NodeWithDeepEquality (NodeWithDeepEquality))
 
 instance Eq Node where
   (==) = (==) `on` NodeWithDeepEquality

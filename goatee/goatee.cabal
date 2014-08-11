@@ -39,15 +39,15 @@ library
         Game.Goatee.App
         Game.Goatee.Common
         Game.Goatee.Common.Bigfloat
-        Game.Goatee.Sgf.Board
-        Game.Goatee.Sgf.Monad
-        Game.Goatee.Sgf.Parser
-        Game.Goatee.Sgf.Property
-        Game.Goatee.Sgf.Property.Parser
-        Game.Goatee.Sgf.Renderer
-        Game.Goatee.Sgf.Renderer.Tree
-        Game.Goatee.Sgf.Tree
-        Game.Goatee.Sgf.Types
+        Game.Goatee.Lib.Board
+        Game.Goatee.Lib.Monad
+        Game.Goatee.Lib.Parser
+        Game.Goatee.Lib.Property
+        Game.Goatee.Lib.Property.Parser
+        Game.Goatee.Lib.Renderer
+        Game.Goatee.Lib.Renderer.Tree
+        Game.Goatee.Lib.Tree
+        Game.Goatee.Lib.Types
     extensions:
         ExistentialQuantification
         FlexibleContexts
@@ -58,10 +58,10 @@ library
     ghc-options: -W -fwarn-incomplete-patterns
     hs-source-dirs: src
     other-modules:
-        Game.Goatee.Sgf.Property.Base
-        Game.Goatee.Sgf.Property.Info
-        Game.Goatee.Sgf.Property.Renderer
-        Game.Goatee.Sgf.Property.Value
+        Game.Goatee.Lib.Property.Base
+        Game.Goatee.Lib.Property.Info
+        Game.Goatee.Lib.Property.Renderer
+        Game.Goatee.Lib.Property.Value
         Paths_goatee
 
 test-suite test-goatee
@@ -78,17 +78,17 @@ test-suite test-goatee
     other-modules:
         Game.Goatee.Common.BigfloatTest
         Game.Goatee.CommonTest
-        Game.Goatee.Sgf.BoardTest
-        Game.Goatee.Sgf.MonadTest
-        Game.Goatee.Sgf.ParserTest
-        Game.Goatee.Sgf.ParserTestUtils
-        Game.Goatee.Sgf.Property.ParserTest
-        Game.Goatee.Sgf.PropertyTest
-        Game.Goatee.Sgf.RoundTripTest
-        Game.Goatee.Sgf.TestInstances
-        Game.Goatee.Sgf.TestUtils
-        Game.Goatee.Sgf.TreeTest
-        Game.Goatee.Sgf.TypesTest
+        Game.Goatee.Lib.BoardTest
+        Game.Goatee.Lib.MonadTest
+        Game.Goatee.Lib.ParserTest
+        Game.Goatee.Lib.ParserTestUtils
+        Game.Goatee.Lib.Property.ParserTest
+        Game.Goatee.Lib.PropertyTest
+        Game.Goatee.Lib.RoundTripTest
+        Game.Goatee.Lib.TestInstances
+        Game.Goatee.Lib.TestUtils
+        Game.Goatee.Lib.TreeTest
+        Game.Goatee.Lib.TypesTest
         Game.Goatee.Test.Common
         Test
     type: exitcode-stdio-1.0

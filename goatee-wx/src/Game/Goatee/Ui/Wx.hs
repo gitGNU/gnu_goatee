@@ -21,9 +21,9 @@ module Game.Goatee.Ui.Wx where
 import Control.Concurrent.MVar (MVar, newMVar, modifyMVar, modifyMVar_, readMVar)
 import Control.Monad (join, void, when)
 import Data.Maybe (fromMaybe, isJust)
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Tree
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Tree
+import Game.Goatee.Lib.Types
 import qualified Graphics.UI.WX as WX
 import Graphics.UI.WX (
   BrushKind (BrushHatch, BrushSolid),

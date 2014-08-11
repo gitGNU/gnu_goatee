@@ -17,8 +17,8 @@
 
 -- | Metadata about the types of property values.
 --
--- Import "Game.Goatee.Sgf.Property" rather than importing this module.
-module Game.Goatee.Sgf.Property.Value (
+-- Import "Game.Goatee.Lib.Property" rather than importing this module.
+module Game.Goatee.Lib.Property.Value (
   PropertyValueType, pvtParser, pvtRenderer, pvtRendererPretty,
   colorPvt,
   coordElistPvt,
@@ -40,10 +40,10 @@ module Game.Goatee.Sgf.Property.Value (
   variationModePvt,
   ) where
 
-import qualified Game.Goatee.Sgf.Property.Parser as P
-import qualified Game.Goatee.Sgf.Property.Renderer as R
-import Game.Goatee.Sgf.Renderer
-import Game.Goatee.Sgf.Types
+import qualified Game.Goatee.Lib.Property.Parser as P
+import qualified Game.Goatee.Lib.Property.Renderer as R
+import Game.Goatee.Lib.Renderer
+import Game.Goatee.Lib.Types
 import Text.ParserCombinators.Parsec (Parser)
 
 data PropertyValueType a = PropertyValueType {

@@ -15,14 +15,14 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Game.Goatee.Sgf.TypesTest (tests) where
+module Game.Goatee.Lib.TypesTest (tests) where
 
 import Data.List (sort)
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Types
 import Game.Goatee.Test.Common
 import Test.HUnit ((~:), (@=?), (@?=), Assertion, Test (TestList))
 
-tests = "Game.Goatee.Sgf.Types" ~: TestList [
+tests = "Game.Goatee.Lib.Types" ~: TestList [
   expandCoordListTests,
   buildCoordListTests,
   starLinesTests,

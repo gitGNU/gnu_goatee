@@ -15,21 +15,21 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Game.Goatee.Sgf.TreeTest (tests) where
+module Game.Goatee.Lib.TreeTest (tests) where
 
 import Data.Version (showVersion)
 import Game.Goatee.App (applicationName)
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.TestInstances ()
-import Game.Goatee.Sgf.TestUtils
-import Game.Goatee.Sgf.Tree
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.TestInstances ()
+import Game.Goatee.Lib.TestUtils
+import Game.Goatee.Lib.Tree
+import Game.Goatee.Lib.Types
 import Game.Goatee.Test.Common
 import Paths_goatee (version)
 import Test.HUnit ((~:), (@=?), (@?=), Test (TestList))
 
-tests = "Game.Goatee.Sgf.Tree" ~: TestList [
+tests = "Game.Goatee.Lib.Tree" ~: TestList [
   emptyNodeTests,
   rootNodeTests,
   findPropertyTests,

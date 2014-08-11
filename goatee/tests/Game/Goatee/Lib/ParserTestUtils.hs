@@ -15,7 +15,7 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Game.Goatee.Sgf.ParserTestUtils (
+module Game.Goatee.Lib.ParserTestUtils (
   parseOrFail,
   parseAndFail,
   assertParse,
@@ -23,8 +23,8 @@ module Game.Goatee.Sgf.ParserTestUtils (
   ) where
 
 import Control.Applicative ((<*))
-import Game.Goatee.Sgf.Parser
-import Game.Goatee.Sgf.Tree
+import Game.Goatee.Lib.Parser
+import Game.Goatee.Lib.Tree
 import Test.HUnit (assertFailure)
 import Text.ParserCombinators.Parsec (Parser, eof, parse)
 

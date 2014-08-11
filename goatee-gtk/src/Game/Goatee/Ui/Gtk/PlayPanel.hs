@@ -22,11 +22,11 @@ module Game.Goatee.Ui.Gtk.PlayPanel (
   myWidget,
   ) where
 
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Monad hiding (on)
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Tree
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Monad hiding (on)
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Tree
+import Game.Goatee.Lib.Types
 import qualified Game.Goatee.Ui.Gtk.Actions as Actions
 import Game.Goatee.Ui.Gtk.Actions (Actions)
 import Game.Goatee.Ui.Gtk.Common

@@ -19,8 +19,8 @@
 
 -- | Renderers of property values.
 --
--- Import "Game.Goatee.Sgf.Property" rather than importing this module.
-module Game.Goatee.Sgf.Property.Renderer (
+-- Import "Game.Goatee.Lib.Property" rather than importing this module.
+module Game.Goatee.Lib.Property.Renderer (
   renderColorBracketed,
   renderColorPretty,
   renderCoordElistBracketed,
@@ -70,8 +70,8 @@ import Control.Monad.Writer (tell)
 import Data.Char (chr, ord)
 import Data.List (intersperse)
 import qualified Game.Goatee.Common.Bigfloat as BF
-import Game.Goatee.Sgf.Renderer
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Renderer
+import Game.Goatee.Lib.Types
 
 {-# ANN module "HLint: ignore Use <$>" #-}
 

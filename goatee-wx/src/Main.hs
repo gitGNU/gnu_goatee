@@ -17,9 +17,9 @@
 
 module Main (main) where
 
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Parser
-import Game.Goatee.Sgf.Tree
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Parser
+import Game.Goatee.Lib.Tree
 import Game.Goatee.Ui.Wx
 import Graphics.UI.WX (start)
 import System.Environment (getArgs)

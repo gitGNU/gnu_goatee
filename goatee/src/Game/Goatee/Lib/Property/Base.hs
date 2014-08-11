@@ -21,8 +21,8 @@
 -- | Core property-related data types, and some Template Haskell declarations
 -- for defining property metadata.
 --
--- Import "Game.Goatee.Sgf.Property" rather than importing this module.
-module Game.Goatee.Sgf.Property.Base (
+-- Import "Game.Goatee.Lib.Property" rather than importing this module.
+module Game.Goatee.Lib.Property.Base (
   -- * Properties
   Property (..),
   -- * Property metadata
@@ -37,9 +37,9 @@ module Game.Goatee.Sgf.Property.Base (
   ) where
 
 import Control.Applicative ((<$))
-import Game.Goatee.Sgf.Property.Value (PropertyValueType(..), nonePvt)
-import Game.Goatee.Sgf.Renderer
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Property.Value (PropertyValueType(..), nonePvt)
+import Game.Goatee.Lib.Renderer
+import Game.Goatee.Lib.Types
 import Language.Haskell.TH (
   Info (DataConI), DecsQ, Name, Type (AppT),
   appE, appT, caseE, conE, conP, conT, lam1E, match, mkName, newName,

@@ -36,13 +36,13 @@ import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
 import Data.Unique (Unique, newUnique)
 import Game.Goatee.App
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Parser
-import Game.Goatee.Sgf.Renderer
-import Game.Goatee.Sgf.Renderer.Tree
-import Game.Goatee.Sgf.Tree
-import qualified Game.Goatee.Sgf.Monad as Monad
-import Game.Goatee.Sgf.Monad (
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Parser
+import Game.Goatee.Lib.Renderer
+import Game.Goatee.Lib.Renderer.Tree
+import Game.Goatee.Lib.Tree
+import qualified Game.Goatee.Lib.Monad as Monad
+import Game.Goatee.Lib.Monad (
   Event, on, childAddedEvent, childDeletedEvent, propertiesModifiedEvent,
   )
 import Game.Goatee.Ui.Gtk.Common

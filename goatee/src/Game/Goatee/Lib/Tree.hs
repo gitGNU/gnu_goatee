@@ -16,7 +16,7 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | SGF data structures modelling the hierarchical game tree.
-module Game.Goatee.Sgf.Tree (
+module Game.Goatee.Lib.Tree (
   Collection(..), CollectionWithDeepEquality(..),
   Node(..), NodeWithDeepEquality(..),
   emptyNode, rootNode,
@@ -33,8 +33,8 @@ import Data.List (find, groupBy, intercalate, nub, sortBy)
 import Data.Version (showVersion)
 import Game.Goatee.App (applicationName)
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Types
 import Paths_goatee (version)
 
 -- | An SGF collection of game trees.

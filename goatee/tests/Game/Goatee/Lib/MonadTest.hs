@@ -15,7 +15,7 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Game.Goatee.Sgf.MonadTest (tests) where
+module Game.Goatee.Lib.MonadTest (tests) where
 
 import Control.Applicative ((<$>))
 import Control.Arrow ((&&&), second)
@@ -24,13 +24,13 @@ import Control.Monad.Writer (Writer, execWriter, runWriter, tell)
 import Data.List (unfoldr)
 import Data.Maybe (fromJust, maybeToList)
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Monad
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.TestInstances ()
-import Game.Goatee.Sgf.TestUtils
-import Game.Goatee.Sgf.Tree (emptyNode, nodeChildren)
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Monad
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.TestInstances ()
+import Game.Goatee.Lib.TestUtils
+import Game.Goatee.Lib.Tree (emptyNode, nodeChildren)
+import Game.Goatee.Lib.Types
 import Game.Goatee.Test.Common
 import Test.HUnit ((~:), (@=?), (@?=), Test (TestList))
 
@@ -43,7 +43,7 @@ runLoggedGo go cursor =
   let ((value, cursor'), log) = runWriter $ runGoT go cursor
   in (value, cursor', log)
 
-tests = "Game.Goatee.Sgf.Monad" ~: TestList [
+tests = "Game.Goatee.Lib.Monad" ~: TestList [
   monadTests,
   navigationTests,
   positionStackTests,

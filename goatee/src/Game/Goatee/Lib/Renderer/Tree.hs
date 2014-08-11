@@ -16,7 +16,7 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | Functions for serializing SGF trees.
-module Game.Goatee.Sgf.Renderer.Tree (
+module Game.Goatee.Lib.Renderer.Tree (
   renderCollection,
   renderGameTree,
   renderProperty,
@@ -24,9 +24,9 @@ module Game.Goatee.Sgf.Renderer.Tree (
 
 import Control.Monad.Writer (tell)
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Renderer
-import Game.Goatee.Sgf.Tree
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Renderer
+import Game.Goatee.Lib.Tree
 
 -- | Renders an SGF 'Collection' to a string.
 renderCollection :: Collection -> Render ()

@@ -52,11 +52,11 @@ import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Unique (Unique)
 import Game.Goatee.Common (Seq(..))
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Monad
-import Game.Goatee.Sgf.Parser
-import Game.Goatee.Sgf.Tree
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Monad
+import Game.Goatee.Lib.Parser
+import Game.Goatee.Lib.Tree
+import Game.Goatee.Lib.Types
 import Graphics.UI.Gtk (FileFilter, Window, fileFilterAddPattern, fileFilterNew, fileFilterSetName)
 import System.FilePath (takeFileName)
 
@@ -66,7 +66,7 @@ type UiGoM = GoT (Writer (Seq IO))
 -- | Schedules an IO action to run after the currently-executing Go monad
 -- completes.  The IO action should not attempt to access the cursor, as it may
 -- not be available; instead it should work within the Go monad for cursor
--- manipulation (e.g. 'Game.Goatee.Sgf.Monad.getCursor').
+-- manipulation (e.g. 'Game.Goatee.Lib.Monad.getCursor').
 afterGo :: IO () -> UiGoM ()
 afterGo = tell . Seq
 

@@ -15,17 +15,17 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Game.Goatee.Sgf.RoundTripTest (tests) where
+module Game.Goatee.Lib.RoundTripTest (tests) where
 
 import Data.Function (on)
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Parser
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Renderer
-import Game.Goatee.Sgf.Renderer.Tree
-import Game.Goatee.Sgf.TestUtils
-import Game.Goatee.Sgf.Tree
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Parser
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Renderer
+import Game.Goatee.Lib.Renderer.Tree
+import Game.Goatee.Lib.TestUtils
+import Game.Goatee.Lib.Tree
+import Game.Goatee.Lib.Types
 import Test.HUnit ((~:), (@?=), Assertion, Test (TestList), assertFailure)
 
 testCollection' :: Collection -> Assertion
@@ -50,7 +50,7 @@ testNode' = testCollection' . Collection . (:[])
 testNode :: String -> Node -> Test
 testNode label node = label ~: testNode' node
 
-tests = "Game.Goatee.Sgf.RoundTripTest" ~: TestList [
+tests = "Game.Goatee.Lib.RoundTripTest" ~: TestList [
   singleNodeGameTests,
   propertyValueTests
   ]

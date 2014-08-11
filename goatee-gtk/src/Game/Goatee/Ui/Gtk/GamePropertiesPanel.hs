@@ -29,9 +29,9 @@ import Control.Monad (forM_, void, when)
 import Control.Monad.Trans (liftIO)
 import Data.IORef (newIORef, readIORef, writeIORef)
 import qualified Game.Goatee.Common.Bigfloat as BF
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Monad hiding (on)
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Monad hiding (on)
+import Game.Goatee.Lib.Types
 import Game.Goatee.Ui.Gtk.Common
 import Game.Goatee.Ui.Gtk.Latch
 import Game.Goatee.Ui.Gtk.Utils

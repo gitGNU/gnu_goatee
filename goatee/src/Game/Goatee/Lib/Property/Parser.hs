@@ -17,8 +17,8 @@
 
 -- | Parsers of property values.
 --
--- Import "Game.Goatee.Sgf.Property" rather than importing this module.
-module Game.Goatee.Sgf.Property.Parser (
+-- Import "Game.Goatee.Lib.Property" rather than importing this module.
+module Game.Goatee.Lib.Property.Parser (
   colorParser,
   coordElistParser,
   coordListParser,
@@ -50,7 +50,7 @@ import Data.Char (isUpper, ord)
 import Data.Maybe (catMaybes)
 import Data.Monoid (Monoid, mappend, mconcat, mempty)
 import qualified Game.Goatee.Common.Bigfloat as BF
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Types
 import Text.ParserCombinators.Parsec (
   (<?>), (<|>), Parser,
   anyChar, char, choice, digit, many, many1,

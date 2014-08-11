@@ -16,7 +16,7 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | A parser for reading SGF files.
-module Game.Goatee.Sgf.Parser (
+module Game.Goatee.Lib.Parser (
   parseString,
   parseFile,
   parseSubtree,
@@ -27,10 +27,10 @@ import Control.Arrow ((+++))
 import Control.Applicative ((<*), (*>))
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Tree
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Tree
+import Game.Goatee.Lib.Types
 import Text.ParserCombinators.Parsec (
   (<?>), Parser, char, eof, many, many1, parse, spaces, upper,
   )

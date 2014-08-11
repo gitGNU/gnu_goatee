@@ -30,12 +30,12 @@ import qualified Data.Foldable as Foldable
 import qualified Data.Function as Function
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (sortBy)
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Monad hiding (on)
-import Game.Goatee.Sgf.Parser
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Renderer
-import Game.Goatee.Sgf.Renderer.Tree
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Monad hiding (on)
+import Game.Goatee.Lib.Parser
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Renderer
+import Game.Goatee.Lib.Renderer.Tree
 import Game.Goatee.Ui.Gtk.Common
 import Graphics.UI.Gtk (
   AttrOp ((:=)),

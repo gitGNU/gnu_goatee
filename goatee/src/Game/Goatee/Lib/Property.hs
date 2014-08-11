@@ -16,13 +16,13 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | Structures and functions for working with SGF node properties.
-module Game.Goatee.Sgf.Property (
+module Game.Goatee.Lib.Property (
   module Exported,
   PropertyValueType, pvtParser, pvtRenderer, pvtRendererPretty,
   ) where
 
-import Game.Goatee.Sgf.Property.Base as Exported
-import Game.Goatee.Sgf.Property.Info as Exported
-import Game.Goatee.Sgf.Property.Parser as Exported
-import Game.Goatee.Sgf.Property.Renderer as Exported
-import Game.Goatee.Sgf.Property.Value
+import Game.Goatee.Lib.Property.Base as Exported
+import Game.Goatee.Lib.Property.Info as Exported
+import Game.Goatee.Lib.Property.Parser as Exported
+import Game.Goatee.Lib.Property.Renderer as Exported
+import Game.Goatee.Lib.Property.Value

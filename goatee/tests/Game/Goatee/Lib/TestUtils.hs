@@ -16,7 +16,7 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | Test utilities for working with the SGF modules.
-module Game.Goatee.Sgf.TestUtils (
+module Game.Goatee.Lib.TestUtils (
   node,
   node1,
   node',
@@ -27,9 +27,9 @@ module Game.Goatee.Sgf.TestUtils (
 
 import Data.Function (on)
 import Data.List (sortBy)
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.Tree
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Tree
 
 node :: [Property] -> Node
 node props = emptyNode { nodeProperties = props }

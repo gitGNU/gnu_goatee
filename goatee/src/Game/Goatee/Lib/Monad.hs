@@ -16,7 +16,7 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | A monad for working with game trees.
-module Game.Goatee.Sgf.Monad (
+module Game.Goatee.Lib.Monad (
   -- * The Go monad
   MonadGo (..),
   GoT, GoM,
@@ -46,11 +46,11 @@ import Control.Monad.State (StateT)
 import Data.List (delete, find, mapAccumL, nub)
 import Data.Maybe (fromMaybe, isJust, isNothing)
 import Game.Goatee.Common
-import Game.Goatee.Sgf.Board
-import Game.Goatee.Sgf.Property
-import qualified Game.Goatee.Sgf.Tree as Tree
-import Game.Goatee.Sgf.Tree hiding (addChild, addChildAt)
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Property
+import qualified Game.Goatee.Lib.Tree as Tree
+import Game.Goatee.Lib.Tree hiding (addChild, addChildAt)
+import Game.Goatee.Lib.Types
 
 -- | The internal state of a Go monad transformer.  @go@ is the type of
 -- Go monad or transformer (instance of 'GoMonad').

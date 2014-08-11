@@ -15,18 +15,18 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Game.Goatee.Sgf.ParserTest (tests) where
+module Game.Goatee.Lib.ParserTest (tests) where
 
 import Control.Monad (forM_)
-import Game.Goatee.Sgf.ParserTestUtils
-import Game.Goatee.Sgf.Property
-import Game.Goatee.Sgf.TestInstances ()
-import Game.Goatee.Sgf.TestUtils
-import Game.Goatee.Sgf.Tree
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.ParserTestUtils
+import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.TestInstances ()
+import Game.Goatee.Lib.TestUtils
+import Game.Goatee.Lib.Tree
+import Game.Goatee.Lib.Types
 import Test.HUnit ((~:), (@?=), Test (TestList))
 
-tests = "Game.Goatee.Sgf.Parser" ~: TestList [
+tests = "Game.Goatee.Lib.Parser" ~: TestList [
   baseCaseTests,
   whitespaceTests,
   passConversionTests,

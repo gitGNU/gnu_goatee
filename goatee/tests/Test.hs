@@ -19,14 +19,14 @@ module Main (main) where
 
 import qualified Game.Goatee.Common.BigfloatTest
 import qualified Game.Goatee.CommonTest
-import qualified Game.Goatee.Sgf.BoardTest
-import qualified Game.Goatee.Sgf.MonadTest
-import qualified Game.Goatee.Sgf.ParserTest
-import qualified Game.Goatee.Sgf.Property.ParserTest
-import qualified Game.Goatee.Sgf.PropertyTest
-import qualified Game.Goatee.Sgf.RoundTripTest
-import qualified Game.Goatee.Sgf.TreeTest
-import qualified Game.Goatee.Sgf.TypesTest
+import qualified Game.Goatee.Lib.BoardTest
+import qualified Game.Goatee.Lib.MonadTest
+import qualified Game.Goatee.Lib.ParserTest
+import qualified Game.Goatee.Lib.Property.ParserTest
+import qualified Game.Goatee.Lib.PropertyTest
+import qualified Game.Goatee.Lib.RoundTripTest
+import qualified Game.Goatee.Lib.TreeTest
+import qualified Game.Goatee.Lib.TypesTest
 import System.Exit (exitFailure, exitSuccess)
 import Test.HUnit (Counts (errors, failures), Test (TestList), runTestTT)
 
@@ -34,14 +34,14 @@ tests :: Test
 tests = TestList [
   Game.Goatee.Common.BigfloatTest.tests
   , Game.Goatee.CommonTest.tests
-  , Game.Goatee.Sgf.BoardTest.tests
-  , Game.Goatee.Sgf.MonadTest.tests
-  , Game.Goatee.Sgf.ParserTest.tests
-  , Game.Goatee.Sgf.Property.ParserTest.tests
-  , Game.Goatee.Sgf.PropertyTest.tests
-  , Game.Goatee.Sgf.RoundTripTest.tests
-  , Game.Goatee.Sgf.TreeTest.tests
-  , Game.Goatee.Sgf.TypesTest.tests
+  , Game.Goatee.Lib.BoardTest.tests
+  , Game.Goatee.Lib.MonadTest.tests
+  , Game.Goatee.Lib.ParserTest.tests
+  , Game.Goatee.Lib.Property.ParserTest.tests
+  , Game.Goatee.Lib.PropertyTest.tests
+  , Game.Goatee.Lib.RoundTripTest.tests
+  , Game.Goatee.Lib.TreeTest.tests
+  , Game.Goatee.Lib.TypesTest.tests
   ]
 
 main :: IO ()

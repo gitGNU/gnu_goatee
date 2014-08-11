@@ -20,16 +20,16 @@
 
 -- | Property metadata declarations.
 --
--- Import "Game.Goatee.Sgf.Property" rather than importing this module.
-module Game.Goatee.Sgf.Property.Info where
+-- Import "Game.Goatee.Lib.Property" rather than importing this module.
+module Game.Goatee.Lib.Property.Info where
 
 import Control.Arrow ((&&&))
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (fromMaybe)
-import Game.Goatee.Sgf.Property.Base
-import Game.Goatee.Sgf.Property.Value
-import Game.Goatee.Sgf.Types
+import Game.Goatee.Lib.Property.Base
+import Game.Goatee.Lib.Property.Value
+import Game.Goatee.Lib.Types
 
 -- Move properties.
 $(defValuedProperty "B" 'MoveProperty False 'movePvt)

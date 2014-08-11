@@ -18,7 +18,7 @@
 {-# LANGUAGE CPP #-}
 
 -- | Common definitions for a renderer that supports failure.
-module Game.Goatee.Sgf.Renderer (
+module Game.Goatee.Lib.Renderer (
   Render,
   runRender,
   rendererOf,
