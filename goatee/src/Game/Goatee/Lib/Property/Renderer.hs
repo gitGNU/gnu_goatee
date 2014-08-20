@@ -286,7 +286,7 @@ renderSimpleTextPairBracketed = fmap bracketed $ rendererOf "simple text pair" $
   renderStringlike True b
 
 renderSimpleTextPairPretty :: (SimpleText, SimpleText) -> Render ()
-renderSimpleTextPairPretty = fmap bracketed $ rendererOf "simple text pair pretty" $ \(a, b) -> do
+renderSimpleTextPairPretty = rendererOf "simple text pair pretty" $ \(a, b) -> do
   renderStringlike True a
   tell " "
   renderStringlike True b
@@ -295,7 +295,7 @@ renderSimpleTextBracketed :: SimpleText -> Render ()
 renderSimpleTextBracketed = fmap bracketed $ rendererOf "simple text" $ renderStringlike False
 
 renderSimpleTextPretty :: SimpleText -> Render ()
-renderSimpleTextPretty = fmap bracketed $ rendererOf "simple text pretty" $ tell . fromSimpleText
+renderSimpleTextPretty = rendererOf "simple text pretty" $ tell . fromSimpleText
 
 renderSizeBracketed :: (Int, Int) -> Render ()
 renderSizeBracketed = fmap bracketed $ rendererOf "size" $ \(x, y) -> do
@@ -309,7 +309,7 @@ renderTextBracketed :: Text -> Render ()
 renderTextBracketed = fmap bracketed $ rendererOf "text" $ renderStringlike False
 
 renderTextPretty :: Text -> Render ()
-renderTextPretty = fmap bracketed $ rendererOf "text pretty" $ tell . fromText
+renderTextPretty = rendererOf "text pretty" $ tell . fromText
 
 renderUnknownPropertyBracketed :: UnknownPropertyValue -> Render ()
 renderUnknownPropertyBracketed =
