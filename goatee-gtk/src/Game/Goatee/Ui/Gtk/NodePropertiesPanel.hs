@@ -72,21 +72,22 @@ import Graphics.UI.Gtk (
   )
 import Text.ParserCombinators.Parsec (eof, parse, spaces)
 
-data NodePropertiesPanel ui = NodePropertiesPanel {
-  myUi :: ui
-  , myRegistrations :: ViewRegistrations
+data NodePropertiesPanel ui = NodePropertiesPanel
+  { myUi :: ui
+  , myState :: ViewState
   , myWidget :: Widget
   , myModel :: ListStore Property
   , myModelProperties :: IORef [Property]
     -- ^ A list of properties in the same order as the rows in 'myModel'.
   }
 
-instance UiCtrl ui => UiView (NodePropertiesPanel ui) ui where
+instance UiCtrl go ui => UiView go ui (NodePropertiesPanel ui) where
   viewName = const "NodePropertiesPanel"
   viewCtrl = myUi
-  viewRegistrations = myRegistrations
+  viewState = myState
+  viewUpdate = update
 
-create :: UiCtrl ui => ui -> IO (NodePropertiesPanel ui)
+create :: UiCtrl go ui => ui -> IO (NodePropertiesPanel ui)
 create ui = do
   vBox <- vBoxNew False 0
 
@@ -118,10 +119,10 @@ create ui = do
   containerAdd viewScroll view
   boxPackStart vBox viewScroll PackGrow 0
 
-  registrations <- viewNewRegistrations
+  state <- viewStateNew
 
   let me = NodePropertiesPanel { myUi = ui
-                               , myRegistrations = registrations
+                               , myState = state
                                , myWidget = toWidget vBox
                                , myModel = model
                                , myModelProperties = modelProperties
@@ -129,7 +130,7 @@ create ui = do
 
   on addButton buttonActivated $ do
     maybeProperty <- runPropertyEditDialog "Add property" stockAdd Nothing
-    Foldable.forM_ maybeProperty $ runUiGo ui . putProperty
+    Foldable.forM_ maybeProperty $ doUiGo ui . putProperty
 
   on editButton buttonActivated $ do
     rows <- map head <$> treeSelectionGetSelectedRows selection
@@ -140,7 +141,7 @@ create ui = do
         maybeNewProperty <- runPropertyEditDialog "Edit property" stockEdit $ Just oldProperty
         case maybeNewProperty of
           Nothing -> return ()
-          Just newProperty -> runUiGo ui $ do
+          Just newProperty -> doUiGo ui $ do
             -- Need to delete the old property when the property type has
             -- changed.
             deleteProperty oldProperty
@@ -150,29 +151,28 @@ create ui = do
     rows <- map head <$> treeSelectionGetSelectedRows selection
     properties <- readIORef modelProperties
     unless (null rows) $
-      runUiGo ui $ forM_ rows $ deleteProperty . (properties !!)
+      doUiGo ui $ forM_ rows $ deleteProperty . (properties !!)
 
-  let onChange = afterGo $ updateViewModel me
-  viewRegister me propertiesModifiedEvent $ const $ const onChange
-  viewRegister me navigationEvent $ const onChange
+  register me
+    [ AnyEvent navigationEvent
+    , AnyEvent propertiesModifiedEvent
+    ]
 
-  updateViewModel me
-
+  viewUpdate me
   return me
 
-destroy :: UiCtrl ui => NodePropertiesPanel ui -> IO ()
-destroy = viewUnregisterAll
+destroy :: UiCtrl go ui => NodePropertiesPanel ui -> IO ()
+destroy = viewDestroy
 
 -- | Updates the 'ListStore' backing the view from the properties on the cursor.
-updateViewModel :: UiCtrl ui => NodePropertiesPanel ui -> IO ()
-updateViewModel me = do
-  let ui = myUi me
-      model = myModel me
+update :: UiCtrl go ui => NodePropertiesPanel ui -> IO ()
+update me = do
+  cursor <- readCursor $ myUi me
+  let model = myModel me
       modelProperties = myModelProperties me
+      newProperties = sortBy (compare `Function.on` propertyName) $
+                      cursorProperties cursor
   oldProperties <- listStoreToList model
-  newProperties <- sortBy (compare `Function.on` propertyName) .
-                   cursorProperties <$>
-                   readCursor ui
   when (newProperties /= oldProperties) $ do
     listStoreClear model
     forM_ newProperties $ listStoreAppend model

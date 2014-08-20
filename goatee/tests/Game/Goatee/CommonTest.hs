@@ -19,10 +19,9 @@ module Game.Goatee.CommonTest (tests) where
 
 import qualified Control.Monad.State as State
 import Control.Monad.Identity (runIdentity)
-import Control.Monad.State (StateT, get, put, runStateT)
+import Control.Monad.State (get, put, runStateT)
 import Control.Monad.Writer (execWriter, tell)
 import Data.IORef (modifyIORef, newIORef, readIORef)
-import Data.Monoid (mappend, mempty)
 import Game.Goatee.Common
 import Test.HUnit ((~:), (@=?), Test (TestList), assertFailure)
 
@@ -42,8 +41,7 @@ tests = "Game.Goatee.Common" ~: TestList [
   forIndexM_Tests,
   whileMTests,
   whileM'Tests,
-  doWhileMTests,
-  seqTests
+  doWhileMTests
   ]
 
 listDeleteAtTests = "listDeleteAt" ~: TestList [
@@ -260,14 +258,4 @@ doWhileMTests = "doWhileM" ~: TestList [
                    tell $ show n
                    return $ if n == 0 then Left () else Right $ n - 1)
     @=? "9876543210"
-  ]
-
-seqTests = "Seq" ~: TestList [
-  "mempty does nothing" ~:
-    let Seq action = mempty
-    in "" @=? execWriter action,
-
-  "mappend works" ~:
-    let Seq action = Seq (tell "a") `mappend` Seq (tell "b")
-    in "ab" @=? execWriter action
   ]

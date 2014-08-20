@@ -44,8 +44,10 @@ library
         Game.Goatee.Ui.Gtk.Latch
     extensions:
         ExistentialQuantification
+        FlexibleContexts
         FlexibleInstances
         FunctionalDependencies
+        GeneralizedNewtypeDeriving
         MultiParamTypeClasses
         ScopedTypeVariables
         ViewPatterns
@@ -61,6 +63,7 @@ library
         Game.Goatee.Ui.Gtk.NodePropertiesPanel
         Game.Goatee.Ui.Gtk.PlayPanel
         Game.Goatee.Ui.Gtk.Utils
+        Game.Goatee.Ui.Gtk.Widget
         Paths_goatee_gtk
 
 executable goatee-gtk

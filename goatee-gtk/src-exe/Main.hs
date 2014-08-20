@@ -25,8 +25,8 @@ main :: IO ()
 main = do
   args <- initGUI
   if null args
-    then void $ startNewBoard Nothing
-    else do result <- startFile $ head args
+    then void (startNewBoard Nothing :: IO StdUiCtrlImpl)
+    else do result <- startFile $ head args :: IO (Either String StdUiCtrlImpl)
             case result of
               Left msg -> print msg
               _ -> return ()

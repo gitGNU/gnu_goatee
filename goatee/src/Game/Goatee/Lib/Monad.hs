@@ -26,7 +26,7 @@ module Game.Goatee.Lib.Monad (
   Step (..),
   NodeDeleteResult (..),
   -- * Event handling
-  Event, fire,
+  Event, AnyEvent (..), eventName, fire, eventHandlerFromAction,
   -- * Events
   childAddedEvent, ChildAddedHandler,
   childDeletedEvent, ChildDeletedHandler,
@@ -39,11 +39,12 @@ module Game.Goatee.Lib.Monad (
 import Control.Applicative ((<$>), Applicative ((<*>), pure))
 import Control.Monad (ap, liftM, when)
 import Control.Monad.Identity (Identity, runIdentity)
+import qualified Control.Monad.State as State
+import Control.Monad.State (MonadState, StateT, get, put)
 import Control.Monad.Trans (MonadIO, MonadTrans, lift, liftIO)
 import Control.Monad.Writer.Class (MonadWriter, listen, pass, tell, writer)
-import qualified Control.Monad.State as State
-import Control.Monad.State (StateT)
-import Data.List (delete, find, mapAccumL, nub)
+import qualified Data.Function as F
+import Data.List (delete, find, mapAccumL, nub, sortBy)
 import Data.Maybe (fromMaybe, isJust, isNothing)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board
@@ -127,7 +128,7 @@ takeStepM step = case step of
 --
 -- The monad supports handlers for events raised during actions it takes, such
 -- as navigating through the tree and modifying nodes.
-class Monad go => MonadGo go where
+class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- | Returns the current cursor.
   getCursor :: go Cursor
 
@@ -299,6 +300,12 @@ class Monad go => MonadGo go where
   -- | Registers a new event handler for a given event type.
   on :: Event go h -> h -> go ()
 
+  -- | Registers a new event handler for a given event type.  Unlike 'on', whose
+  -- handler may receive arguments, the handler given here doesn't receive any
+  -- arguments.
+  on0 :: Event go h -> go () -> go ()
+  on0 event handler = on event $ eventHandlerFromAction event handler
+
 -- | The result of deleting a node.
 data NodeDeleteResult =
   NodeDeleteOk
@@ -332,6 +339,10 @@ instance MonadTrans GoT where
 
 instance MonadIO m => MonadIO (GoT m) where
   liftIO = lift . liftIO
+
+instance MonadState s m => MonadState s (GoT m) where
+  get = lift get
+  put = lift . put
 
 instance MonadWriter w m => MonadWriter w (GoT m) where
   writer = lift . writer
@@ -444,7 +455,9 @@ instance Monad m => MonadGo (GoT m) where
                             (\node -> node { nodeProperties = newProperties })
                             oldCursor
             }
-    fire propertiesModifiedEvent (\f -> f oldProperties newProperties)
+    when (sortBy (compare `F.on` propertyName) newProperties /=
+          sortBy (compare `F.on` propertyName) oldProperties) $
+      fire propertiesModifiedEvent (\f -> f oldProperties newProperties)
 
     -- The current game info changes when modifying game info properties on the
     -- current node.  I think comparing game info properties should be faster
@@ -646,19 +659,42 @@ fire event handlerGenerator = do
   state <- getState
   mapM_ handlerGenerator $ eventStateGetter event state
 
--- | A type of event in the Go monad transformer that can be handled by
--- executing an action.  @go@ is the type of the Go monad/transformer.  @h@ is
--- the handler type, a function that takes some arguments relating to the event
--- and returning an action in the Go monad.  The arguments to the handler are
--- usually things that would be difficult to recover from the state of the monad
--- alone, for example the 'Step' associated with a 'navigationEvent'.
-data Event go h = Event { eventName :: String
-                        , eventStateGetter :: GoState go -> [h]
-                        , eventStateSetter :: [h] -> GoState go -> GoState go
-                        }
+-- | A type of event in a Go monad that can be handled by executing an action.
+-- @go@ is the type of the Go monad.  @h@ is the handler type, a function that
+-- takes some arguments relating to the event and returns an action in the Go
+-- monad.  The arguments to the handler are usually things that would be
+-- difficult to recover from the state of the monad alone, for example the
+-- 'Step' associated with a 'navigationEvent'.
+--
+-- The 'Eq', 'Ord', and 'Show' instances use events' names, via 'eventName'.
+data Event go h = Event {
+  eventName :: String
+  , eventStateGetter :: GoState go -> [h]
+  , eventStateSetter :: [h] -> GoState go -> GoState go
+  , eventHandlerFromAction :: go () -> h
+  }
+
+instance Eq (Event go h) where
+  (==) = (==) `F.on` eventName
+
+instance Ord (Event go h) where
+  compare = compare `F.on` eventName
 
 instance Show (Event go h) where
   show = eventName
+
+-- | An existential type for any event in a particular Go monad.  Like 'Event',
+-- the 'Eq', 'Ord', and 'Show' instances use events' names, via 'eventName'.
+data AnyEvent go = forall h. AnyEvent (Event go h)
+
+instance Eq (AnyEvent go) where
+  (AnyEvent e) == (AnyEvent e') = eventName e == eventName e'
+
+instance Ord (AnyEvent go) where
+  compare (AnyEvent e) (AnyEvent e') = compare (eventName e) (eventName e')
+
+instance Show (AnyEvent go) where
+  show (AnyEvent e) = eventName e
 
 addHandler :: Event go h -> h -> GoState go -> GoState go
 addHandler event handler state =
@@ -670,6 +706,7 @@ childAddedEvent = Event {
   eventName = "childAddedEvent"
   , eventStateGetter = stateChildAddedHandlers
   , eventStateSetter = \handlers state -> state { stateChildAddedHandlers = handlers }
+  , eventHandlerFromAction = const
   }
 
 -- | A handler for 'childAddedEvent's.  Called with the index of the child added
@@ -683,6 +720,7 @@ childDeletedEvent = Event {
   eventName = "childDeletedEvent"
   , eventStateGetter = stateChildDeletedHandlers
   , eventStateSetter = \handlers state -> state { stateChildDeletedHandlers = handlers }
+  , eventHandlerFromAction = const
   }
 
 -- | A handler for 'childDeletedEvent's.  It is called with a cursor at the
@@ -697,6 +735,7 @@ gameInfoChangedEvent = Event {
   eventName = "gameInfoChangedEvent"
   , eventStateGetter = stateGameInfoChangedHandlers
   , eventStateSetter = \handlers state -> state { stateGameInfoChangedHandlers = handlers }
+  , eventHandlerFromAction = const . const
   }
 
 -- | A handler for 'gameInfoChangedEvent's.  It is called with the old game info
@@ -710,6 +749,7 @@ navigationEvent = Event {
   eventName = "navigationEvent"
   , eventStateGetter = stateNavigationHandlers
   , eventStateSetter = \handlers state -> state { stateNavigationHandlers = handlers }
+  , eventHandlerFromAction = const
   }
 
 -- | A handler for 'navigationEvent's.
@@ -725,6 +765,7 @@ propertiesModifiedEvent = Event {
   eventName = "propertiesModifiedEvent"
   , eventStateGetter = statePropertiesModifiedHandlers
   , eventStateSetter = \handlers state -> state { statePropertiesModifiedHandlers = handlers }
+  , eventHandlerFromAction = const . const
   }
 
 -- | A handler for 'propertiesModifiedEvent's.  It is called with the old
@@ -739,6 +780,7 @@ variationModeChangedEvent = Event {
   eventName = "variationModeChangedEvent"
   , eventStateGetter = stateVariationModeChangedHandlers
   , eventStateSetter = \handlers state -> state { stateVariationModeChangedHandlers = handlers }
+  , eventHandlerFromAction = const . const
   }
 -- TODO Test that this is fired when moving between root nodes in a collection.
 -- For now, since we don't support multiple trees in a collection, we don't need

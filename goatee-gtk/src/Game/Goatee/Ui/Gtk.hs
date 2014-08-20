@@ -18,21 +18,26 @@
 -- | The main module for the GTK+ UI, used by clients of the UI.  Also
 -- implements the UI controller.
 module Game.Goatee.Ui.Gtk (
+  StdUiCtrlImpl,
   startBoard,
   startNewBoard,
   startFile,
   ) where
 
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), Applicative)
 import Control.Concurrent.MVar (MVar, newMVar, takeMVar, readMVar, putMVar, modifyMVar, modifyMVar_)
 import Control.Exception (IOException, catch, finally)
 import Control.Monad (forM_, join, liftM, unless, void, when)
+import Control.Monad.State (MonadState, State, runState, get, put, modify)
 import Data.Char (isSpace)
+import qualified Data.Foldable as Foldable
 import Data.Foldable (foldl')
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
+import qualified Data.Set as Set
+import Data.Set (Set)
 import Data.Unique (Unique, newUnique)
 import Game.Goatee.App
 import Game.Goatee.Common
@@ -43,7 +48,8 @@ import Game.Goatee.Lib.Renderer.Tree
 import Game.Goatee.Lib.Tree
 import qualified Game.Goatee.Lib.Monad as Monad
 import Game.Goatee.Lib.Monad (
-  Event, on, childAddedEvent, childDeletedEvent, propertiesModifiedEvent,
+  GoT, MonadGo, runGoT,
+  AnyEvent (..), on0, childAddedEvent, childDeletedEvent, propertiesModifiedEvent,
   )
 import Game.Goatee.Ui.Gtk.Common
 import qualified Game.Goatee.Ui.Gtk.MainWindow as MainWindow
@@ -70,15 +76,16 @@ import Graphics.UI.Gtk (
   )
 import qualified Paths_goatee_gtk as Paths
 import System.Directory (doesFileExist)
+import System.IO (hPutStrLn, stderr)
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
 -- | A structure for holding global application information about all open
 -- boards.
-data AppState = AppState { appControllers :: MVar (Map CtrlId UiCtrlImpl)
-                           -- ^ Maps all of the open boards' controllers by
-                           -- their IDs.
-                         }
+data AppState = AppState {
+  appControllers :: MVar (Map CtrlId AnyUiCtrl)
+  -- ^ Maps all of the open boards' controllers by their IDs.
+  }
 
 -- | Creates an 'AppState' that is holding no controllers.
 newAppState :: IO AppState
@@ -87,65 +94,81 @@ newAppState = do
   return AppState { appControllers = controllers }
 
 -- | Registers a 'UiCtrlImpl' with an 'AppState'.
-appStateRegister :: AppState -> UiCtrlImpl -> IO ()
+appStateRegister :: MonadUiGo go => AppState -> UiCtrlImpl go -> IO ()
 appStateRegister appState ui =
-  modifyMVar_ (appControllers appState) $ return . Map.insert (uiCtrlId ui) ui
+  modifyMVar_ (appControllers appState) $ return . Map.insert (uiCtrlId ui) (AnyUiCtrl ui)
 
 -- | Unregisters a 'UiCtrlImpl' from an 'AppState'.  If the 'AppState' is left
 -- with no controllers, then the GTK+ main loop is shut down and the application
 -- exits.
-appStateUnregister :: AppState -> UiCtrlImpl -> IO ()
+appStateUnregister :: AppState -> UiCtrlImpl go -> IO ()
 appStateUnregister appState ui = do
   ctrls' <- modifyMVar (appControllers appState) $ \ctrls ->
     let ctrls' = Map.delete (uiCtrlId ui) ctrls
     in return (ctrls', ctrls')
   when (Map.null ctrls') mainQuit
 
-data UiHandler = forall handler. UiHandler String (Event UiGoM handler) handler
+data DirtyChangedHandlerRecord = DirtyChangedHandlerRecord
+  { dirtyChangedHandlerOwner :: String
+  , dirtyChangedHandlerFn :: DirtyChangedHandler
+  }
 
-data DirtyChangedHandlerRecord =
-  DirtyChangedHandlerRecord { dirtyChangedHandlerOwner :: String
-                            , dirtyChangedHandlerFn :: DirtyChangedHandler
-                            }
+data FilePathChangedHandlerRecord = FilePathChangedHandlerRecord
+  { filePathChangedHandlerOwner :: String
+  , filePathChangedHandlerFn :: FilePathChangedHandler
+  }
 
-data FilePathChangedHandlerRecord =
-  FilePathChangedHandlerRecord { filePathChangedHandlerOwner :: String
-                               , filePathChangedHandlerFn :: FilePathChangedHandler
-                               }
-
-data ModesChangedHandlerRecord =
-  ModesChangedHandlerRecord { modesChangedHandlerOwner :: String
-                            , modesChangedHandlerFn :: ModesChangedHandler
-                            }
+data ModesChangedHandlerRecord = ModesChangedHandlerRecord
+  { modesChangedHandlerOwner :: String
+  , modesChangedHandlerFn :: ModesChangedHandler
+  }
 
 -- | A unique ID that identifies a 'UiCtrlImpl'.
 newtype CtrlId = CtrlId Unique
                deriving (Eq, Ord)
 
--- | Implementation of 'UiCtrl'.
-data UiCtrlImpl = UiCtrlImpl { uiCtrlId :: CtrlId
-                             , uiAppState :: AppState
-                             , uiDirty :: IORef Bool
-                             , uiFilePath :: IORef (Maybe FilePath)
-                             , uiModes :: IORef UiModes
-                             , uiCursor :: MVar Cursor
+-- | The standard instance of 'MonadUiGo', with no frills.
+newtype UiGoM a = UiGoM (GoT (State UiGoState) a)
+                deriving (Functor, Applicative, Monad, MonadGo, MonadState UiGoState)
 
-                             , uiMainWindow :: IORef (Maybe (MainWindow UiCtrlImpl))
+instance MonadUiGo UiGoM where
+  runUiGo cursor (UiGoM go) =
+    let ((value, cursor'), state) = flip runState initialUiGoState $
+                                    runGoT go cursor
+    in (value, cursor', state)
 
-                               -- Go monad action-related properties:
-                             , uiHandlers :: IORef (Map Registration UiHandler)
-                             , uiBaseAction :: IORef (UiGoM ())
+  uiGoGetState = get
+  uiGoPutState = put
+  uiGoModifyState = modify
 
-                               -- Ui action-related properties:
-                             , uiDirtyChangedHandlers ::
-                               IORef (Map Registration DirtyChangedHandlerRecord)
-                             , uiFilePathChangedHandlers ::
-                               IORef (Map Registration FilePathChangedHandlerRecord)
-                             , uiModesChangedHandlers ::
-                               IORef (Map Registration ModesChangedHandlerRecord)
-                             }
+-- | The standard instance of 'UiCtrl'.  See 'StdUiCtrlImpl'.
+data UiCtrlImpl go = UiCtrlImpl
+  { uiCtrlId :: CtrlId
+  , uiAppState :: AppState
+  , uiDirty :: IORef Bool
+  , uiFilePath :: IORef (Maybe FilePath)
+  , uiModes :: IORef UiModes
+  , uiCursor :: MVar Cursor
 
-instance UiCtrl UiCtrlImpl where
+  , uiMainWindow :: IORef (Maybe (MainWindow (UiCtrlImpl go)))
+  , uiViews :: IORef (Map ViewId AnyView)
+
+    -- Go monad action-related properties:
+  , uiGoRegistrationsByView :: IORef (Map AnyView (Set (AnyEvent go)))
+  , uiGoRegistrationsByEvent :: IORef (Map (AnyEvent go) (Set AnyView))
+  , uiGoRegistrationsAction :: IORef (go ())
+
+    -- Ui action-related properties:
+  , uiDirtyChangedHandlers :: IORef (Map Registration DirtyChangedHandlerRecord)
+  , uiFilePathChangedHandlers :: IORef (Map Registration FilePathChangedHandlerRecord)
+  , uiModesChangedHandlers :: IORef (Map Registration ModesChangedHandlerRecord)
+  }
+
+-- | The standard concrete controller type.  Use this type with 'startBoard',
+-- etc.
+type StdUiCtrlImpl = UiCtrlImpl UiGoM
+
+instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
   readModes = readIORef . uiModes
 
   modifyModes ui f = do
@@ -155,9 +178,9 @@ instance UiCtrl UiCtrlImpl where
       writeIORef (uiModes ui) newModes
       fireModesChangedHandlers ui oldModes newModes
 
-  runUiGo ui go = do
+  doUiGo ui go = do
     cursor <- takeMVar (uiCursor ui)
-    runUiGo' ui go cursor
+    doUiGo' ui go cursor
 
   readCursor = readMVar . uiCursor
 
@@ -172,6 +195,7 @@ instance UiCtrl UiCtrlImpl where
           Just coord -> isCurrentValidMove (cursorBoard cursor) coord
     if not valid
       then do
+        putMVar (uiCursor ui) cursor
         mainWindow <- getMainWindow ui
         dialog <- messageDialogNew (Just mainWindow)
                                    [DialogModal, DialogDestroyWithParent]
@@ -180,29 +204,28 @@ instance UiCtrl UiCtrlImpl where
                                    "Illegal move."
         dialogRun dialog
         widgetDestroy dialog
-        putMVar (uiCursor ui) cursor
       else case cursorChildPlayingAt move cursor of
-        Just child -> runUiGo' ui (Monad.goDown $ cursorChildIndex child) cursor
+        Just child -> doUiGo' ui (Monad.goDown $ cursorChildIndex child) cursor
         Nothing ->
           let board = cursorBoard cursor
               player = boardPlayerTurn board
               index = length $ cursorChildren cursor
               child = emptyNode { nodeProperties = [moveToProperty player move] }
-          in runUiGo' ui (Monad.addChildAt index child >> Monad.goDown index) cursor
+          in doUiGo' ui (Monad.addChildAt index child >> Monad.goDown index) cursor
 
-  goUp ui = runUiGo ui $ do
+  goUp ui = doUiGo ui $ do
     cursor <- Monad.getCursor
     if isNothing $ cursorParent cursor
       then return False
       else Monad.goUp >> return True
 
-  goDown ui index = runUiGo ui $ do
+  goDown ui index = doUiGo ui $ do
     cursor <- Monad.getCursor
     if null $ drop index $ cursorChildren cursor
       then return False
       else Monad.goDown index >> return True
 
-  goLeft ui = runUiGo ui $ do
+  goLeft ui = doUiGo ui $ do
     cursor <- Monad.getCursor
     case (cursorParent cursor, cursorChildIndex cursor) of
       (Nothing, _) -> return False
@@ -211,7 +234,7 @@ instance UiCtrl UiCtrlImpl where
                         Monad.goDown $ n - 1
                         return True
 
-  goRight ui = runUiGo ui $ do
+  goRight ui = doUiGo ui $ do
     cursor <- Monad.getCursor
     case (cursorParent cursor, cursorChildIndex cursor) of
       (Nothing, _) -> return False
@@ -220,26 +243,77 @@ instance UiCtrl UiCtrlImpl where
                         Monad.goDown $ n + 1
                         return True
 
-  register ui caller event handler = do
-    unique <- newUnique
-    modifyIORef (uiHandlers ui) $ Map.insert unique $ UiHandler caller event handler
-    modifyIORef (uiBaseAction ui) (>> on event handler)
-    return unique
+  register view events = do
+    let ui = viewCtrl view
+        view' = AnyView view
 
-  unregister ui unique = do
-    handlers <- readIORef $ uiHandlers ui
-    let (handlers', found) = if Map.member unique handlers
-                               then (Map.delete unique handlers, True)
-                               else (handlers, False)
-    when found $ do
-      writeIORef (uiHandlers ui) handlers'
-      rebuildBaseAction ui
-    return found
+    -- Ensure that the view is in the controller's id -> view map.
+    modifyIORef (uiViews ui) $ \views ->
+      if Map.member (viewId view) views
+      then views
+      else Map.insert (viewId view) view' views
+
+    -- Go ahead and connect the event to the view.
+    byView <- readIORef $ uiGoRegistrationsByView ui
+    byEvent <- readIORef $ uiGoRegistrationsByEvent ui
+    let duplicates = Map.member view' byView
+    when duplicates $
+      uiLogWarning $ "UiCtrlImpl.register: A " ++ viewName view ++
+      " view registered multiple times.  Overwriting previous registration(s)."
+    writeIORef (uiGoRegistrationsByView ui) $
+      Map.alter (Just .
+                 (flip .) foldr Set.insert events .
+                 fromMaybe Set.empty)
+                view'
+                byView
+    writeIORef (uiGoRegistrationsByEvent ui) $
+      foldr (Map.alter $ Just . maybe (Set.singleton view')
+                                      (Set.insert view'))
+            byEvent
+            events
+    -- TODO Don't need to fully rebuild the action.  We can append to it.
+    rebuildGoRegistrationsAction ui
+
+  unregister view event = do
+    let ui = viewCtrl view
+        view' = AnyView view
+    byView <- readIORef $ uiGoRegistrationsByView ui
+    byEvent <- readIORef $ uiGoRegistrationsByEvent ui
+    let byView' = Map.update (\events ->
+                               let events' = Set.delete event events
+                               in if Set.null events' then Nothing else Just events')
+                  view'
+                  byView
+        byEvent' = Map.update (\views ->
+                                let views' = Set.delete view' views
+                                in if Set.null views' then Nothing else Just views')
+                   event
+                   byEvent
+    writeIORef (uiGoRegistrationsByView ui) byView'
+    writeIORef (uiGoRegistrationsByEvent ui) byEvent'
+
+    -- If there are no more events registered for the view, then remove it from
+    -- the list of known views.
+    when (isNothing $ Map.lookup view' byView') $
+      modifyIORef (uiViews ui) $ Map.delete $ viewId view
+
+    rebuildGoRegistrationsAction ui
+    return $ maybe False (Set.member event) (Map.lookup view' byView) ||
+             maybe False (Set.member view') (Map.lookup event byEvent)
+
+  unregisterAll view =
+    let ui = viewCtrl view
+    in readIORef (uiGoRegistrationsByView ui) >>=
+       Foldable.mapM_ (mapM_ (unregister view) . Set.elems) .
+       Map.lookup (AnyView view)
 
   registeredHandlers =
-    liftM (map (\(UiHandler owner event _) -> (owner, show event)) . Map.elems) .
+    fmap (concatMap (\(view, events) ->
+                      let viewStr = show view
+                      in for (Set.elems events) $ \event -> (viewStr, show event)) .
+          Map.assocs) .
     readIORef .
-    uiHandlers
+    uiGoRegistrationsByView
 
   registerModesChangedHandler ui owner handler = do
     unique <- newUnique
@@ -270,8 +344,10 @@ instance UiCtrl UiCtrlImpl where
     modesVar <- newIORef defaultUiModes
     cursorVar <- newMVar $ rootCursor rootNode
     mainWindowRef <- newIORef Nothing
-    uiHandlers <- newIORef Map.empty
-    baseAction <- newIORef $ return ()
+    views <- newIORef Map.empty
+    goRegistrationsByView <- newIORef Map.empty
+    goRegistrationsByEvent <- newIORef Map.empty
+    goRegistrationsAction <- newIORef $ return ()
     dirtyChangedHandlers <- newIORef Map.empty
     filePathChangedHandlers <- newIORef Map.empty
     modesChangedHandlers <- newIORef Map.empty
@@ -283,15 +359,17 @@ instance UiCtrl UiCtrlImpl where
                         , uiModes = modesVar
                         , uiCursor = cursorVar
                         , uiMainWindow = mainWindowRef
-                        , uiHandlers = uiHandlers
-                        , uiBaseAction = baseAction
+                        , uiViews = views
+                        , uiGoRegistrationsByView = goRegistrationsByView
+                        , uiGoRegistrationsByEvent = goRegistrationsByEvent
+                        , uiGoRegistrationsAction = goRegistrationsAction
                         , uiDirtyChangedHandlers = dirtyChangedHandlers
                         , uiFilePathChangedHandlers = filePathChangedHandlers
                         , uiModesChangedHandlers = modesChangedHandlers
                         }
 
     appStateRegister appState ui
-    rebuildBaseAction ui
+    rebuildGoRegistrationsAction ui
 
     mainWindow <- MainWindow.create ui
     writeIORef mainWindowRef $ Just mainWindow
@@ -376,24 +454,26 @@ instance UiCtrl UiCtrlImpl where
 
   fileClose ui = do
     close <- confirmFileClose ui
-    when close $ closeBoard ui
+    when close $ fileCloseSilently ui
     return close
+
+  fileCloseSilently ui = do
+    MainWindow.destroy =<< getMainWindow' ui
+    appStateUnregister (uiAppState ui) ui
 
   fileQuit ui = do
     ctrls <- fmap Map.elems $ readMVar $ appControllers $ uiAppState ui
-    okayToClose <- andM $ map confirmFileClose ctrls
-    when okayToClose $ mapM_ closeBoard ctrls
+    okayToClose <- andM $ for ctrls $ \(AnyUiCtrl ctrl) -> confirmFileClose ctrl
+    when okayToClose $ forM_ ctrls $ \(AnyUiCtrl ctrl) -> fileCloseSilently ctrl
     return okayToClose
 
   editCutNode ui = do
     initialCursor <- readCursor ui
     case cursorParent initialCursor of
-      Nothing ->
-        -- TODO Common internal warning reporting.
-        putStrLn "WARNING: UiCtrlImpl.editCutNode: Can't cut the root node."
+      Nothing -> uiLogWarning "UiCtrlImpl.editCutNode: Can't cut the root node."
       Just _ -> do
         success <- editCopyNode' ui
-        when success $ runUiGo ui $ do
+        when success $ doUiGo ui $ do
           cursor <- Monad.getCursor
           when (isJust $ cursorParent cursor) $ do
             let index = cursorChildIndex cursor
@@ -422,7 +502,7 @@ instance UiCtrl UiCtrlImpl where
                        if not $ null textRest then "\n(truncated)" else "")
             dialogRun dialog
             widgetDestroy dialog
-          Right node -> runUiGo ui $ Monad.addChild node
+          Right node -> doUiGo ui $ Monad.addChild node
 
   helpAbout _ = do
     about <- aboutDialogNew
@@ -499,44 +579,53 @@ instance UiCtrl UiCtrlImpl where
   registeredDirtyChangedHandlers =
     liftM (map dirtyChangedHandlerOwner . Map.elems) . readIORef . uiDirtyChangedHandlers
 
--- | 'runUiGo' for 'UiCtrlImpl' is implemented by taking the cursor MVar,
--- running a Go action, putting the MVar, then running handlers.  Many types of
+-- | 'doUiGo' for 'UiCtrlImpl' is implemented by taking the cursor MVar, running
+-- a Go action, putting the MVar, then running follow-up tasks.  Many types of
 -- actions the UI wants to perform need to be able to take the cursor
 -- themselves, do some logic, then pass it off to run a Go action, re-put, and
--- call handlers.  This function is a helper for such UI code.
-runUiGo' :: UiCtrlImpl -> UiGoM a -> Cursor -> IO a
-runUiGo' ui go cursor = do
-  baseAction <- readIORef $ uiBaseAction ui
-  let (value, cursor', handlers) = runUiGoPure (baseAction >> go) cursor
+-- perform subsequent UI tasks.  This function is a helper for such UI code.
+doUiGo' :: MonadUiGo go => UiCtrlImpl go -> go a -> Cursor -> IO a
+doUiGo' ui go cursor = do
+  goRegistrationsAction <- readIORef $ uiGoRegistrationsAction ui
+  let (value, cursor', state) = runUiGo cursor (goRegistrationsAction >> go)
+      staleViews = uiGoViewsToUpdate state
   putMVar (uiCursor ui) cursor'
-  handlers
+  when (uiGoMakesDirty state) $ setDirty ui True
+  unless (Set.null staleViews) $ do
+    viewMap <- readIORef $ uiViews ui
+    forM_ (Set.elems staleViews) $ \viewId -> case Map.lookup viewId viewMap of
+      Just (AnyView view) -> viewUpdate view
+      Nothing -> uiLogWarning "doUiGo': Asked to update an unknown view."
   return value
 
-startBoard :: Node -> IO UiCtrlImpl
+startBoard :: MonadUiGo go => Node -> IO (UiCtrlImpl go)
 startBoard = openBoard Nothing Nothing
 
-startNewBoard :: Maybe (Int, Int) -> IO UiCtrlImpl
+startNewBoard :: MonadUiGo go => Maybe (Int, Int) -> IO (UiCtrlImpl go)
 startNewBoard = openNewBoard Nothing
 
-startFile :: FilePath -> IO (Either String UiCtrlImpl)
+startFile :: MonadUiGo go => FilePath -> IO (Either String (UiCtrlImpl go))
 startFile = openFile Nothing
 
-rebuildBaseAction :: UiCtrlImpl -> IO ()
-rebuildBaseAction ui =
-  readIORef (uiHandlers ui) >>= writeIORef (uiBaseAction ui) . buildBaseAction
-  where buildBaseAction =
-          foldl' (\io (UiHandler _ event handler) -> io >> on event handler)
-                 commonAction
+rebuildGoRegistrationsAction :: MonadUiGo go => UiCtrlImpl go -> IO ()
+rebuildGoRegistrationsAction ui =
+  readIORef (uiGoRegistrationsByEvent ui) >>=
+  writeIORef (uiGoRegistrationsAction ui) . buildAction
+  where buildAction =
+          foldl' (\m (AnyEvent event, views) ->
+                   m >> on0 event (forM_ (Set.elems views) $ \(AnyView view) ->
+                                    uiGoUpdateView $ viewId view))
+                 commonAction .
+          Map.assocs
         commonAction = do
           -- TODO This really calls for some sort of event hierarchy, so
           -- that we can listen for all mutating events here, rather than
           -- making it easy to forget to add new events here.
-          on childAddedEvent $ const setDirtyTrue
-          on childDeletedEvent $ const setDirtyTrue
-          on propertiesModifiedEvent $ const $ const setDirtyTrue
-        setDirtyTrue = afterGo $ setDirty ui True
+          on0 childAddedEvent uiGoMakeDirty
+          on0 childDeletedEvent uiGoMakeDirty
+          on0 propertiesModifiedEvent uiGoMakeDirty
 
-fireModesChangedHandlers :: UiCtrlImpl -> UiModes -> UiModes -> IO ()
+fireModesChangedHandlers :: UiCtrlImpl go -> UiModes -> UiModes -> IO ()
 fireModesChangedHandlers ui oldModes newModes = do
   handlers <- readIORef $ uiModesChangedHandlers ui
   forM_ (Map.elems handlers) $ \handler ->
@@ -544,7 +633,7 @@ fireModesChangedHandlers ui oldModes newModes = do
 
 -- | Retrieves the 'MainWindow' owned by the controller.  It is an error to call
 -- this before the main window has been set up.
-getMainWindow' :: UiCtrlImpl -> IO (MainWindow UiCtrlImpl)
+getMainWindow' :: UiCtrlImpl go -> IO (MainWindow (UiCtrlImpl go))
 getMainWindow' ui = join $
                     fmap (maybe (fail "getMainWindow: No window available.") return) $
                     readIORef $
@@ -572,7 +661,7 @@ confirmSaveIfAlreadyExists path = do
 -- state of UI; if dirty, then a dialog prompts the user whether the game
 -- should be saved before closing, and giving the option to cancel closing.
 -- Returns true if the window should be closed.
-confirmFileClose :: UiCtrl ui => ui -> IO Bool
+confirmFileClose :: UiCtrl go ui => ui -> IO Bool
 confirmFileClose ui = do
   dirty <- getDirty ui
   if dirty
@@ -596,18 +685,10 @@ confirmFileClose ui = do
               _ -> return False
     else return True
 
--- | Hides and releases the game's 'Game.Goatee.Ui.Gtk.MainWindow', and shuts
--- down the UI controller (in effect closing the game, with no prompting).  If
--- this is the last board open, then the application will exit.
-closeBoard :: UiCtrlImpl -> IO ()
-closeBoard ui = do
-  MainWindow.destroy =<< getMainWindow' ui
-  appStateUnregister (uiAppState ui) ui
-
 -- | Attempts to copy the current node to the clipboard.  Returns true if
 -- successful.  If not, this presents a model dialog describing the error, waits
 -- for the user to click through, then returns false.
-editCopyNode' :: UiCtrlImpl -> IO Bool
+editCopyNode' :: MonadUiGo go => UiCtrlImpl go -> IO Bool
 editCopyNode' ui = do
   clipboard <- getClipboard
   cursor <- readCursor ui
@@ -653,3 +734,7 @@ fallbackLicense =
   "\n" ++
   "\nYou should have received a copy of the GNU Affero General Public License" ++
   "\nalong with Goatee.  If not, see <http://www.gnu.org/licenses/>."
+
+-- | Logs a warning to stderr.
+uiLogWarning :: String -> IO ()
+uiLogWarning msg = hPutStrLn stderr $ applicationName ++ " WARNING: " ++ msg

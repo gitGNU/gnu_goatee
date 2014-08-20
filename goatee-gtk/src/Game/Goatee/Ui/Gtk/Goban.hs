@@ -34,7 +34,8 @@ import Data.Tree (drawTree, unfoldTree)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board hiding (isValidMove)
 import Game.Goatee.Lib.Monad (
-  childAddedEvent, childDeletedEvent, modifyMark, navigationEvent, propertiesModifiedEvent,
+  AnyEvent (..), childAddedEvent, childDeletedEvent, modifyMark, navigationEvent,
+  propertiesModifiedEvent,
   )
 import Game.Goatee.Lib.Property
 import Game.Goatee.Lib.Tree
@@ -95,7 +96,7 @@ useHorizontalKeyNavigation :: Bool
 useHorizontalKeyNavigation = True
 
 -- Key handler code below requires that these keys don't use modifiers.
-keyNavActions :: UiCtrl a => Map String (a -> IO Bool)
+keyNavActions :: UiCtrl go ui => Map String (ui -> IO Bool)
 keyNavActions =
   Map.fromList $
   if useHorizontalKeyNavigation
@@ -179,31 +180,32 @@ boardAnnotationArrowWidth = 0.1
 -- | A GTK widget that renders a Go board.
 --
 -- @ui@ should be an instance of 'UiCtrl'.
-data Goban ui = Goban { myUi :: ui
-                      , myRegistrations :: ViewRegistrations
-                      , myWidget :: Widget
-                      , myDrawingArea :: DrawingArea
-                      , myModesChangedHandler :: IORef (Maybe Registration)
-                      }
+data Goban ui = Goban
+  { myUi :: ui
+  , myState :: ViewState
+  , myWidget :: Widget
+  , myDrawingArea :: DrawingArea
+  , myModesChangedHandler :: IORef (Maybe Registration)
+  }
 
-instance UiCtrl ui => UiView (Goban ui) ui where
+instance UiCtrl go ui => UiView go ui (Goban ui) where
   viewName = const "Goban"
   viewCtrl = myUi
-  viewRegistrations = myRegistrations
+  viewState = myState
+  viewUpdate = update
 
 -- | Holds data relating to the state of the mouse hovering over the board.
-data HoverState = HoverState { hoverCoord :: Maybe Coord
-                               -- ^ The board coordinate corresponding to the
-                               -- current mouse position.  Nothing if the mouse
-                               -- is not over the board.
-                             , hoverIsValidMove :: Bool
-                               -- ^ True iff the hovered point is legal to play
-                               -- on for the current player.
-                             } deriving (Show)
+data HoverState = HoverState
+  { hoverCoord :: Maybe Coord
+    -- ^ The board coordinate corresponding to the current mouse position.
+    -- Nothing if the mouse is not over the board.
+  , hoverIsValidMove :: Bool
+    -- ^ True iff the hovered point is legal to play on for the current player.
+  } deriving (Show)
 
 -- | Augments a 'CoordState' with data that is only used for rendering purposes.
-data RenderedCoord = RenderedCoord {
-  renderedCoordState :: CoordState
+data RenderedCoord = RenderedCoord
+  { renderedCoordState :: CoordState
   , renderedCoordCurrent :: Bool
   , renderedCoordVariation :: Maybe Color
     -- ^ If a variation move exists at this point, then this will be the color
@@ -211,7 +213,7 @@ data RenderedCoord = RenderedCoord {
   } deriving (Show)
 
 -- | Creates a 'Goban' for rendering Go boards of the given size.
-create :: UiCtrl ui => ui -> IO (Goban ui)
+create :: UiCtrl go ui => ui -> IO (Goban ui)
 create ui = do
   hoverStateRef <- newIORef HoverState { hoverCoord = Nothing
                                        , hoverIsValidMove = False
@@ -264,11 +266,11 @@ create ui = do
              (show $ nodeProperties node, nodeChildren node)
            return True)]
 
-  registrations <- viewNewRegistrations
+  state <- viewStateNew
   modesChangedHandler <- newIORef Nothing
 
   let me = Goban { myUi = ui
-                 , myRegistrations = registrations
+                 , myState = state
                  , myWidget = toWidget drawingArea
                  , myDrawingArea = drawingArea
                  , myModesChangedHandler = modesChangedHandler
@@ -277,33 +279,34 @@ create ui = do
   initialize me
   return me
 
-initialize :: UiCtrl ui => Goban ui -> IO ()
+initialize :: UiCtrl go ui => Goban ui -> IO ()
 initialize me = do
   let ui = myUi me
-      onChange = afterGo $ update me
-  viewRegister me childAddedEvent $ const onChange
-  viewRegister me childDeletedEvent $ const onChange
-  viewRegister me navigationEvent $ const onChange
-  viewRegister me propertiesModifiedEvent $ const $ const onChange
+  register me
+    [ AnyEvent childAddedEvent
+    , AnyEvent childDeletedEvent
+    , AnyEvent navigationEvent
+    , AnyEvent propertiesModifiedEvent
+    ]
   writeIORef (myModesChangedHandler me) =<<
     liftM Just (registerModesChangedHandler ui "Goban" $ \_ _ -> update me)
   -- TODO Need to update the hover state's validity on cursor and tool (mode?)
   -- changes.
   update me
 
-destroy :: UiCtrl ui => Goban ui -> IO ()
+destroy :: UiCtrl go ui => Goban ui -> IO ()
 destroy me = do
   let ui = myUi me
-  viewUnregisterAll me
   F.mapM_ (unregisterModesChangedHandler ui) =<< readIORef (myModesChangedHandler me)
+  viewDestroy me
 
-update :: UiCtrl ui => Goban ui -> IO ()
+update :: UiCtrl go ui => Goban ui -> IO ()
 update = widgetQueueDraw . myDrawingArea
 
 -- | Called when the mouse is moved.  Updates the 'HoverState' according to the
 -- new mouse location, and redraws the board if necessary.
-handleMouseMove :: UiCtrl a
-                => a
+handleMouseMove :: UiCtrl go ui
+                => ui
                 -> IORef HoverState
                 -> DrawingArea
                 -> Maybe (Double, Double)
@@ -319,7 +322,7 @@ handleMouseMove ui hoverStateRef drawingArea maybeClickCoord = do
 
 -- | Applies the current tool at the given GTK coordinate, if such an action is
 -- valid.
-doToolAtPoint :: UiCtrl ui => ui -> DrawingArea -> (Double, Double) -> IO ()
+doToolAtPoint :: UiCtrl go ui => ui -> DrawingArea -> (Double, Double) -> IO ()
 doToolAtPoint ui drawingArea (mouseX, mouseY) = do
   cursor <- readCursor ui
   let board = cursorBoard cursor
@@ -337,14 +340,14 @@ doToolAtPoint ui drawingArea (mouseX, mouseY) = do
         valid <- isValidMove ui xy
         when valid $ playAt ui $ Just xy
       _ -> return ()  -- TODO Support other tools.
-  where toggleMark ui xy mark = runUiGo ui $ modifyMark (toggleMark' mark) xy
+  where toggleMark ui xy mark = doUiGo ui $ modifyMark (toggleMark' mark) xy
         toggleMark' mark maybeExistingMark = case maybeExistingMark of
           Just existingMark | existingMark == mark -> Nothing
           _ -> Just mark
 
 -- | Updates the hover state for the mouse having moved to the given board
 -- coordinate.  Returns true if the board coordinate has changed.
-updateHoverPosition :: UiCtrl ui => ui -> IORef HoverState -> Maybe Coord -> IO Bool
+updateHoverPosition :: UiCtrl go ui => ui -> IORef HoverState -> Maybe Coord -> IO Bool
 updateHoverPosition ui hoverStateRef maybeXy = do
   hoverState <- readIORef hoverStateRef
   if maybeXy == hoverCoord hoverState
@@ -388,7 +391,7 @@ gtkToBoardCoordinates board drawingArea x y = do
            else Just result
 
 -- | Fully redraws the board based on the current controller and UI state.
-drawBoard :: UiCtrl ui => ui -> IORef HoverState -> DrawingArea -> IO ()
+drawBoard :: UiCtrl go ui => ui -> IORef HoverState -> DrawingArea -> IO ()
 drawBoard ui hoverStateRef drawingArea = do
   cursor <- readCursor ui
   modes <- readModes ui

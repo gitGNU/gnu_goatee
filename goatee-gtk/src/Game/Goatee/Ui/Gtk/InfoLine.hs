@@ -32,24 +32,26 @@ import Game.Goatee.Lib.Types
 import Game.Goatee.Ui.Gtk.Common
 import Graphics.UI.Gtk (Label, Widget, labelNew, labelSetMarkup, toWidget)
 
-data InfoLine ui = InfoLine { myUi :: ui
-                            , myRegistrations :: ViewRegistrations
-                            , myWidget :: Widget
-                            , myLabel :: Label
-                            }
+data InfoLine ui = InfoLine
+  { myUi :: ui
+  , myState :: ViewState
+  , myWidget :: Widget
+  , myLabel :: Label
+  }
 
-instance UiCtrl ui => UiView (InfoLine ui) ui where
+instance UiCtrl go ui => UiView go ui (InfoLine ui) where
   viewName = const "InfoLine"
   viewCtrl = myUi
-  viewRegistrations = myRegistrations
+  viewState = myState
+  viewUpdate = update
 
-create :: UiCtrl ui => ui -> IO (InfoLine ui)
+create :: UiCtrl go ui => ui -> IO (InfoLine ui)
 create ui = do
   label <- labelNew Nothing
-  registrations <- viewNewRegistrations
+  state <- viewStateNew
 
   let me = InfoLine { myUi = ui
-                    , myRegistrations = registrations
+                    , myState = state
                     , myWidget = toWidget label
                     , myLabel = label
                     }
@@ -57,26 +59,22 @@ create ui = do
   initialize me
   return me
 
-initialize :: UiCtrl ui => InfoLine ui -> IO ()
+initialize :: UiCtrl go ui => InfoLine ui -> IO ()
 initialize me = do
-  let updateAfter = afterGo . updateWithCursor me =<< getCursor
-  viewRegister me childAddedEvent $ const updateAfter
-  viewRegister me childDeletedEvent $ const updateAfter
-  viewRegister me navigationEvent $ const updateAfter
-  viewRegister me propertiesModifiedEvent $ const $ const updateAfter
-  update me
+  register me
+    [ AnyEvent childAddedEvent
+    , AnyEvent childDeletedEvent
+    , AnyEvent navigationEvent
+    , AnyEvent propertiesModifiedEvent
+    ]
+  viewUpdate me
 
-destroy :: UiCtrl ui => InfoLine ui -> IO ()
-destroy = viewUnregisterAll
+destroy :: UiCtrl go ui => InfoLine ui -> IO ()
+destroy = viewDestroy
 
-update :: UiCtrl ui => InfoLine ui -> IO ()
-update me = do
-  cursor <- readCursor $ myUi me
-  updateWithCursor me cursor
-
-updateWithCursor :: UiCtrl ui => InfoLine ui -> Cursor -> IO ()
-updateWithCursor me cursor =
-  labelSetMarkup (myLabel me) $ generateMarkup cursor
+update :: UiCtrl go ui => InfoLine ui -> IO ()
+update me =
+  labelSetMarkup (myLabel me) . generateMarkup =<< readCursor (myUi me)
 
 generateMarkup :: Cursor -> String
 generateMarkup cursor =

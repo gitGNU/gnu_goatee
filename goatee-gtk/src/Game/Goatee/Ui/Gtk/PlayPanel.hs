@@ -48,20 +48,21 @@ import Graphics.UI.Gtk (
   vBoxNew,
   )
 
-data PlayPanel ui = PlayPanel {
-  myUi :: ui
-  , myRegistrations :: ViewRegistrations
+data PlayPanel ui = PlayPanel
+  { myUi :: ui
+  , myState :: ViewState
   , myWidget :: Widget
   , myComment :: TextView
   , myCommentSetter :: String -> IO ()
   }
 
-instance UiCtrl ui => UiView (PlayPanel ui) ui where
+instance UiCtrl go ui => UiView go ui (PlayPanel ui) where
   viewName = const "PlayPanel"
   viewCtrl = myUi
-  viewRegistrations = myRegistrations
+  viewState = myState
+  viewUpdate = update
 
-create :: UiCtrl ui => ui -> Actions ui -> IO (PlayPanel ui)
+create :: UiCtrl go ui => ui -> Actions ui -> IO (PlayPanel ui)
 create ui actions = do
   box <- vBoxNew False 0
 
@@ -77,13 +78,13 @@ create ui actions = do
   boxPackStart box commentScroll PackGrow 0
 
   commentSetter <- textViewConfigure comment $ \value ->
-    runUiGo ui $ modifyPropertyString propertyC $ const value
+    doUiGo ui $ modifyPropertyString propertyC $ const value
 
-  registrations <- viewNewRegistrations
+  state <- viewStateNew
 
-  let me = PlayPanel {
-        myUi = ui
-        , myRegistrations = registrations
+  let me = PlayPanel
+        { myUi = ui
+        , myState = state
         , myWidget = toWidget box
         , myComment = comment
         , myCommentSetter = commentSetter
@@ -92,21 +93,18 @@ create ui actions = do
   initialize me
   return me
 
-initialize :: UiCtrl ui => PlayPanel ui -> IO ()
+initialize :: UiCtrl go ui => PlayPanel ui -> IO ()
 initialize me = do
-  let ui = myUi me
+  register me
+    [ AnyEvent navigationEvent
+    , AnyEvent propertiesModifiedEvent
+    ]
+  viewUpdate me
 
-  -- Watch for node changes.
-  let onNodeChange = do cursor <- getCursor
-                        afterGo $ updateFromCursor me cursor
-  viewRegister me navigationEvent $ const onNodeChange
-  viewRegister me propertiesModifiedEvent $ const $ const onNodeChange
+destroy :: UiCtrl go ui => PlayPanel ui -> IO ()
+destroy = viewDestroy
 
-  updateFromCursor me =<< readCursor ui
-
-destroy :: UiCtrl ui => PlayPanel ui -> IO ()
-destroy = viewUnregisterAll
-
-updateFromCursor :: UiCtrl ui => PlayPanel ui -> Cursor -> IO ()
-updateFromCursor me cursor =
-  myCommentSetter me $ maybe "" fromText $ findPropertyValue propertyC $ cursorNode cursor
+update :: UiCtrl go ui => PlayPanel ui -> IO ()
+update me =
+  readCursor (myUi me) >>=
+  myCommentSetter me . maybe "" fromText . findPropertyValue propertyC . cursorNode

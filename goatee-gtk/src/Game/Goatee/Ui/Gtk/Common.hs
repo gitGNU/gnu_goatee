@@ -18,11 +18,11 @@
 -- | Common dependencies among all GTK+ UI code.  Contains class definitions and
 -- some common data declarations.
 module Game.Goatee.Ui.Gtk.Common (
+  -- * UI Go monads
+  MonadUiGo (..), uiGoUpdateView, uiGoMakeDirty,
+  UiGoState (..), initialUiGoState,
   -- * UI controllers
-  UiGoM,
-  afterGo,
-  runUiGoPure,
-  UiCtrl (..),
+  UiCtrl (..), AnyUiCtrl (..),
   Registration,
   DirtyChangedHandler,
   FilePathChangedHandler,
@@ -31,10 +31,12 @@ module Game.Goatee.Ui.Gtk.Common (
   setTool,
   -- * UI views
   UiView (..),
-  ViewRegistrations,
-  viewNewRegistrations,
-  viewRegister,
-  viewUnregisterAll,
+  AnyView (..),
+  ViewId,
+  ViewState,
+  viewStateNew,
+  viewDestroy,
+  viewId,
   -- * UI modes
   UiModes (..),
   ViewMode (..),
@@ -48,10 +50,9 @@ module Game.Goatee.Ui.Gtk.Common (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad.Writer (Writer, runWriter, tell)
-import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
-import Data.Unique (Unique)
-import Game.Goatee.Common (Seq(..))
+import qualified Data.Set as Set
+import Data.Set (Set)
+import Data.Unique (Unique, newUnique)
 import Game.Goatee.Lib.Board
 import Game.Goatee.Lib.Monad
 import Game.Goatee.Lib.Parser
@@ -60,103 +61,139 @@ import Game.Goatee.Lib.Types
 import Graphics.UI.Gtk (FileFilter, Window, fileFilterAddPattern, fileFilterNew, fileFilterSetName)
 import System.FilePath (takeFileName)
 
--- | A Go monad with handlers in the 'IO' monad.
-type UiGoM = GoT (Writer (Seq IO))
+-- | A class for monads that provide the features required to be used with a
+-- 'UiCtrl'.  The type must have a 'MonadGo' instance and also provide access to
+-- some internal state, 'UiGoState'.
+class MonadGo go => MonadUiGo go where
+  -- | Evaluates the Go monad, returning the final value and cursor as well as
+  -- the internal 'UiGoState'.
+  runUiGo :: Cursor -> go a -> (a, Cursor, UiGoState)
 
--- | Schedules an IO action to run after the currently-executing Go monad
--- completes.  The IO action should not attempt to access the cursor, as it may
--- not be available; instead it should work within the Go monad for cursor
--- manipulation (e.g. 'Game.Goatee.Lib.Monad.getCursor').
-afterGo :: IO () -> UiGoM ()
-afterGo = tell . Seq
+  -- | Retrieves the current internal state.
+  uiGoGetState :: go UiGoState
 
--- | Applies a 'UiGoM' to a 'Cursor' purely, as opposed to 'runUiGo' which works
--- with the UI controller's cursor.  Returns a tuple containing the Go action's
--- result, the final cursor, and the IO action resulting from all handlers being
--- run.
-runUiGoPure :: UiGoM a -> Cursor -> (a, Cursor, IO ())
-runUiGoPure go cursor =
-  let ((value, cursor'), Seq action) = runWriter $ runGoT go cursor
-  in (value, cursor', action)
+  -- | Assigns to the current internal state.
+  uiGoPutState :: UiGoState -> go ()
+
+  -- | Modifies the current internal state with the given function.
+  uiGoModifyState :: (UiGoState -> UiGoState) -> go ()
+
+-- | Forces the view with the given ID to update after the Go action completes.
+uiGoUpdateView :: MonadUiGo go => ViewId -> go ()
+uiGoUpdateView viewId = uiGoModifyState $ \state ->
+  let views = uiGoViewsToUpdate state
+  in if Set.member viewId views
+     then state
+     else state { uiGoViewsToUpdate = Set.insert viewId views }
+
+-- | Forces the UI to become dirty after the Go action completes.  See
+-- 'setDirty'.
+uiGoMakeDirty :: MonadUiGo go => go ()
+uiGoMakeDirty = uiGoModifyState $ \state -> state { uiGoMakesDirty = True }
+
+-- | Internal state held by a type that implements 'MonadUiGo'.
+data UiGoState = UiGoState
+  { uiGoViewsToUpdate :: Set ViewId
+  -- ^ Keeps track of views that need updating after the Go action completes.
+  , uiGoMakesDirty :: Bool
+    -- ^ Whether the UI should be marked dirty as a result of running the Go
+    -- action.
+  }
+
+-- | The state with which a UI Go action should start executing.
+initialUiGoState :: UiGoState
+initialUiGoState = UiGoState
+  { uiGoViewsToUpdate = Set.empty
+  , uiGoMakesDirty = False
+  }
 
 -- | A controller for the GTK+ UI.
-class UiCtrl a where
+--
+-- The controller is agnostic to the type of Go monad it is used with, as long
+-- as it implements the functionality in 'MonadUiGo'.  The monad can have extra
+-- functionality, e.g. for testing or debugging.
+class MonadUiGo go => UiCtrl go ui | ui -> go where
   -- | Reads the current UI modes.
-  readModes :: a -> IO UiModes
+  readModes :: ui -> IO UiModes
 
   -- | Modifies the controller's modes according to the given action, then fires
   -- a mode change event via 'fireViewModesChanged'.
-  modifyModes :: a -> (UiModes -> IO UiModes) -> IO ()
+  modifyModes :: ui -> (UiModes -> IO UiModes) -> IO ()
 
   -- | Runs a Go monad on the current cursor, updating the cursor and firing
   -- handlers as necessary.
-  runUiGo :: a -> UiGoM b -> IO b
+  doUiGo :: ui -> go a -> IO a
 
   -- | Returns the current cursor.
-  readCursor :: a -> IO Cursor
+  readCursor :: ui -> IO Cursor
 
   -- | Determines whether it is currently valid to play at the given point.
-  isValidMove :: a -> Coord -> IO Bool
+  isValidMove :: ui -> Coord -> IO Bool
 
   -- | Makes the current player place a stone at the given point, or pass in the
   -- case of 'Nothing'.
-  playAt :: a -> Maybe Coord -> IO ()
+  playAt :: ui -> Maybe Coord -> IO ()
 
   -- | If possible, takes a step up to the parent of the current node in the
   -- game tree.  Returns whether a move was made (i.e. whether the current node
   -- is not the root node).
-  goUp :: a -> IO Bool
+  goUp :: ui -> IO Bool
 
   -- | If possible, takes a step down from the current node to its child at the
   -- given index.  Returns whether a move was made (i.e. whether the node had
   -- @n+1@ children).
-  goDown :: a -> Int -> IO Bool
+  goDown :: ui -> Int -> IO Bool
 
   -- | If possible, move to the sibling node immediately to the left of the
   -- current one.  Returns whether a move was made (i.e. whether there was a
   -- left sibling).
-  goLeft :: a -> IO Bool
+  goLeft :: ui -> IO Bool
 
   -- | If possible, move to the sibling node immediately to the right of the
   -- current one.  Returns whether a move was made (i.e. whether there was a
   -- right sibling).
-  goRight :: a -> IO Bool
+  goRight :: ui -> IO Bool
 
-  -- | Registers a handler for a given 'Event'.  The string is the name of the
-  -- caller, used to keep track of what components registered what handlers.
-  -- Returns a 'Registration' that can be given to 'unregister' to prevent any
-  -- further calls to the handler.
-  register :: a -> String -> Event UiGoM handler -> handler -> IO Registration
+  -- | Registers a view to update when any of the given 'Event's fires.  The
+  -- controller will call 'viewUpdate' after the Go action finishes running.
+  --
+  -- When the view is destroyed, it must call 'unregister' or 'unregisterAll' to
+  -- free the handlers it has installed.  'viewDestroy' calls this, and all
+  -- views should call 'viewDestroy', so there is no need to call this manually.
+  register :: UiView go ui view => view -> [AnyEvent go] -> IO ()
 
-  -- | Unregisters the handler for a 'Registration' that was returned from
-  -- 'register'.  Returns true if such a handler was found and removed.
-  unregister :: a -> Registration -> IO Bool
+  -- | Stops the controller from updating the view when the 'Event' fires.
+  -- Returns true if there was a registration that was removed.
+  unregister :: UiView go ui view => view -> AnyEvent go -> IO Bool
+
+  -- | Stops the controller from updating the view entirely.
+  unregisterAll :: UiView go ui view => view -> IO ()
 
   -- | Returns the currently registered handlers, as (owner, event name) pairs.
-  registeredHandlers :: a -> IO [(String, String)]
+  registeredHandlers :: ui -> IO [(String, String)]
 
   -- | Registers a handler that will execute when UI modes change.  The string
   -- is the name of the caller, used to keep track of what components registered
   -- what handlers.
-  registerModesChangedHandler :: a -> String -> ModesChangedHandler -> IO Registration
+  registerModesChangedHandler :: ui -> String -> ModesChangedHandler -> IO Registration
 
   -- | Unregisters the modes-changed handler for a 'Registration' that was
   -- returned from 'registerModesChangedHandler'.  Returns true if such a
   -- handler was found and removed.
-  unregisterModesChangedHandler :: a -> Registration -> IO Bool
+  unregisterModesChangedHandler :: ui -> Registration -> IO Bool
 
   -- | Returns the owners of the currently registered 'ModesChangedHandler's.
-  registeredModesChangedHandlers :: a -> IO [String]
+  registeredModesChangedHandlers :: ui -> IO [String]
 
   -- | Returns the 'Window' for the game's 'MainWindow'.
-  getMainWindow :: a -> IO Window
+  getMainWindow :: ui -> IO Window
 
-  openBoard :: Maybe a -> Maybe FilePath -> Node -> IO a
+  openBoard :: Maybe ui -> Maybe FilePath -> Node -> IO ui
 
-  openNewBoard :: Maybe a -> Maybe (Int, Int) -> IO a
+  openNewBoard :: Maybe ui -> Maybe (Int, Int) -> IO ui
   openNewBoard ui = openBoard ui Nothing . rootNode
 
-  openFile :: Maybe a -> FilePath -> IO (Either String a)
+  openFile :: Maybe ui -> FilePath -> IO (Either String ui)
   openFile ui file = do
     result <- parseFile file
     case result of
@@ -167,67 +204,72 @@ class UiCtrl a where
 
   -- | Prompts with an open file dialog for a game to open, then opens the
   -- selected game if the user picks one.
-  fileOpen :: a -> IO ()
+  fileOpen :: ui -> IO ()
 
   -- | Saves the current game to a file.  If the current game is not currently
   -- tied to a file, then this will act identically to 'fileSaveAs'.  Returns true
   -- iff the game was saved.
-  fileSave :: a -> IO Bool
+  fileSave :: ui -> IO Bool
 
   -- | Presents a file save dialog for the user to specify a file to write the
   -- current game to.  If the user provides a filename, then the game is
   -- written.  If the user names an existing file, then another dialog confirms
   -- overwriting the existing file.  Returns true iff the user accepted the
   -- dialog(s) and the game was saved.
-  fileSaveAs :: a -> IO Bool
+  fileSaveAs :: ui -> IO Bool
 
   -- | Closes the game and all UI windows, etc. attached to the given controller.
   -- If the game is dirty, then a dialog first prompts the user whether to save,
   -- throw away changes, or abort the closing.
-  fileClose :: a -> IO Bool
+  fileClose :: ui -> IO Bool
+
+  -- | Hides and releases the game's UI window, and shut downs the UI controller
+  -- (in effect closing the game, with no prompting).  If this is the last board
+  -- open, then the application will exit.
+  fileCloseSilently :: ui -> IO ()
 
   -- | Closes all open games and exits the program.  If any games are dirty then
   -- we check if the user wants to save them.  If the user clicks cancel at any
   -- point then shutdown is cancelled and no games are closed.
-  fileQuit :: a -> IO Bool
+  fileQuit :: ui -> IO Bool
 
   -- | Performs a copy a la 'editCopyNode'.  If this copy succeeds, then we
   -- navigate to the parent of the current node, and delete the node we were
   -- just on from the tree.
-  editCutNode :: a -> IO ()
+  editCutNode :: ui -> IO ()
 
   -- | Copies an SGF representation of the subtree rooted at the current node
   -- onto the system clipboard.  If the node fails to render, then an error
   -- dialog is displayed and the clipboard is left untouched.
-  editCopyNode :: a -> IO ()
+  editCopyNode :: ui -> IO ()
 
   -- | Attempts to parse text on the system clipboard as an SGF subtree and
   -- insert the parsed node below the current node.
-  editPasteNode :: a -> IO ()
+  editPasteNode :: ui -> IO ()
 
   -- | Presents the user with an about dialog that shows general information
   -- about the application to the user (authorship, license, etc.).
-  helpAbout :: a -> IO ()
+  helpAbout :: ui -> IO ()
 
   -- | Returns the path to the file that the UI is currently displaying, or
   -- nothing if the UI is displaying an unsaved game.
-  getFilePath :: a -> IO (Maybe FilePath)
+  getFilePath :: ui -> IO (Maybe FilePath)
 
   -- | Returns the filename (base name, with no directories before it) that is
   -- currently open in the UI, or if the UI is showing an unsaved game, then a
   -- fallback "untitled" string.  As this may not be a real filename, it should
   -- be used for display purposes only, and not for actually writing to.
-  getFileName :: a -> IO String
+  getFileName :: ui -> IO String
   getFileName ui = maybe untitledFileName takeFileName <$> getFilePath ui
 
   -- | Sets the path to the file that the UI is currently displaying.  This
   -- changes the value returned by 'getFilePath' but does not do any saving or
   -- loading.
-  setFilePath :: a -> Maybe FilePath -> IO ()
+  setFilePath :: ui -> Maybe FilePath -> IO ()
 
   -- | Registers a handler that will execute when the file path the UI is bound
   -- to changes.
-  registerFilePathChangedHandler :: a
+  registerFilePathChangedHandler :: ui
                                  -> String
                                     -- ^ The name of the caller, used to track
                                     -- what components registered what handlers.
@@ -240,21 +282,21 @@ class UiCtrl a where
   -- | Unregisters the handler for a 'Registration' that was returned from
   -- 'registerFilePathChangedHandler'.  Returns true if such a handler was found
   -- and removed.
-  unregisterFilePathChangedHandler :: a -> Registration -> IO Bool
+  unregisterFilePathChangedHandler :: ui -> Registration -> IO Bool
 
   -- | Returns the owners of the currently registered 'FilePathChangedHandler's.
-  registeredFilePathChangedHandlers :: a -> IO [String]
+  registeredFilePathChangedHandlers :: ui -> IO [String]
 
   -- | Returns whether the UI is dirty, i.e. whether there are unsaved changes
   -- to the current game.
-  getDirty :: a -> IO Bool
+  getDirty :: ui -> IO Bool
 
   -- | Sets the dirty state of the UI.
-  setDirty :: a -> Bool -> IO ()
+  setDirty :: ui -> Bool -> IO ()
 
   -- | Registers a handler that will execute when the dirty state of the UI
   -- changes.
-  registerDirtyChangedHandler :: a
+  registerDirtyChangedHandler :: ui
                               -> String
                                  -- ^ The name of the caller, used to track what
                                  -- components registered what handlers.
@@ -267,13 +309,16 @@ class UiCtrl a where
   -- | Unregisters the handler for a 'Registration' that was returned from
   -- 'registerDirtyChangedHandler'.  Returns true if such a handler was found
   -- and removed.
-  unregisterDirtyChangedHandler :: a -> Registration -> IO Bool
+  unregisterDirtyChangedHandler :: ui -> Registration -> IO Bool
 
   -- | Returns the owners of the currently registered 'DirtyChangedHandler's.
-  registeredDirtyChangedHandlers :: a -> IO [String]
+  registeredDirtyChangedHandlers :: ui -> IO [String]
 
--- | A key that refers to registration of a handler with a UI controller.  Used
--- to unregister handlers.
+-- | An existential type for all UI controllers.
+data AnyUiCtrl = forall go ui. UiCtrl go ui => AnyUiCtrl ui
+
+-- | A key that refers to registration of a handler with a UI controller, for
+-- non-Go-monad events.  Used to unregister handlers.
 type Registration = Unique
 
 -- | A handler for when the dirty state of the UI changes.  Passed the new dirty
@@ -288,50 +333,66 @@ type FilePathChangedHandler = Maybe FilePath -> Maybe FilePath -> IO ()
 -- the new modes, in that order.
 type ModesChangedHandler = UiModes -> UiModes -> IO ()
 
-modifyModesPure :: UiCtrl ui => ui -> (UiModes -> UiModes) -> IO ()
+modifyModesPure :: UiCtrl go ui => ui -> (UiModes -> UiModes) -> IO ()
 modifyModesPure ui f = modifyModes ui (return . f)
 
 -- | Assigns to the current tool within the modes of 'ui' (firing any relevant
 -- change handlers).
-setTool :: UiCtrl ui => ui -> Tool -> IO ()
+setTool :: UiCtrl go ui => ui -> Tool -> IO ()
 setTool ui tool = modifyModesPure ui $ \modes -> modes { uiTool = tool }
 
 -- | A UI widget that listens to the state of a 'UiCtrl'.  This class makes it
--- easy to register and unregister event handlers with 'viewRegister' and
--- 'viewUnregisterAll'.
-class UiCtrl ui => UiView view ui | view -> ui where
+-- easy to ask to be updated on relevant changes with 'register'.
+class UiCtrl go ui => UiView go ui view | view -> ui where
   -- | A printable name of the view; usually just the data type name.
   viewName :: view -> String
 
   -- | A reference to the view's controller.
   viewCtrl :: view -> ui
 
-  -- | An updatable list of registrations for event handlers the view has
-  -- registered.
-  viewRegistrations :: view -> ViewRegistrations
+  -- | Internal housekeeping data for the view.  Create with 'viewStateNew'.  A
+  -- 'ViewState' may only be used with a single view.
+  viewState :: view -> ViewState
 
-type ViewRegistrations = IORef [Registration]
+  -- | Updates the UI state of the view based on the current state of data that
+  -- backs it in the model.
+  viewUpdate :: view -> IO ()
 
--- | Creates a new 'ViewRegistrations'.
-viewNewRegistrations :: IO ViewRegistrations
-viewNewRegistrations = newIORef []
+-- | An existential type over all views.  Provides 'Eq' and 'Ord' instances that
+-- use each view's 'ViewId', and a 'Show' instance that returns a view's name.
+data AnyView = forall go ui view. UiView go ui view => AnyView view
 
--- | Registers a handler for an event on a view.
-viewRegister :: UiView view ui => view -> Event UiGoM handler -> handler -> IO ()
-viewRegister view event handler = do
-  let ui = viewCtrl view
-      name = viewName view
-  registration <- register ui name event handler
-  modifyIORef (viewRegistrations view) (registration:)
+instance Eq AnyView where
+  (AnyView v) == (AnyView v') = viewId v == viewId v'
 
--- | Unregisters all event handlers that the view has registered in its
--- 'viewRegistrations'.
-viewUnregisterAll :: UiView view ui => view -> IO ()
-viewUnregisterAll view = do
-  let ui = viewCtrl view
-      registrations = viewRegistrations view
-  readIORef registrations >>= mapM_ (unregister ui)
-  writeIORef registrations []
+instance Ord AnyView where
+  compare (AnyView v) (AnyView v') = compare (viewId v) (viewId v')
+
+instance Show AnyView where
+  show (AnyView v) = viewName v
+
+-- | A application-wide unique identifier for referring to an instance of a
+-- view.
+newtype ViewId = ViewId Unique deriving (Eq, Ord)
+
+-- | Internal controller housekeeping data for a view.
+data ViewState = ViewState
+  { viewId' :: ViewId
+  }
+
+-- | Creates a new 'ViewState'.
+viewStateNew :: IO ViewState
+viewStateNew = ViewState <$> (ViewId <$> newUnique)
+
+-- | Cleans up the internal state of a view, and releases registered Go event
+-- handlers for the view.  Views should call this when destroying themselves;
+-- this does __not force__ a view to destroy itself.
+viewDestroy :: UiView go ui view => view -> IO ()
+viewDestroy = unregisterAll
+
+-- | Returns a view's unique ID.
+viewId :: UiView go ui view => view -> ViewId
+viewId = viewId' . viewState
 
 data UiModes = UiModes { uiViewMode :: ViewMode
                        , uiViewOneColorModeColor :: Color

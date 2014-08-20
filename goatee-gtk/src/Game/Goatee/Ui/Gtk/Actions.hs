@@ -83,9 +83,9 @@ import Graphics.UI.Gtk (
   windowSetTitle,
   )
 
-data Actions ui = Actions {
-  myUi :: ui
-  , myRegistrations :: ViewRegistrations
+data Actions ui = Actions
+  { myUi :: ui
+  , myState :: ViewState
   , myFileNew9Action :: Action
   , myFileNew13Action :: Action
   , myFileNew19Action :: Action
@@ -108,12 +108,13 @@ data Actions ui = Actions {
   , myHelpAboutAction :: Action
   }
 
-instance UiCtrl ui => UiView (Actions ui) ui where
+instance UiCtrl go ui => UiView go ui (Actions ui) where
   viewName = const "Actions"
   viewCtrl = myUi
-  viewRegistrations = myRegistrations
+  viewState = myState
+  viewUpdate = update
 
-create :: UiCtrl ui => ui -> IO (Actions ui)
+create :: UiCtrl go ui => ui -> IO (Actions ui)
 create ui = do
   let tools = enumFrom minBound
   modes <- readModes ui
@@ -145,7 +146,7 @@ create ui = do
     -- SGF only supports boards up to 'boardSizeMax', but Goatee works fine with
     -- larger boards.  The spinner wants an upper bound, so let's at least set
     -- something that isn't too outrageous along a single dimension.
-    let arbitraryUpperLimit = 1000
+    let arbitraryUpperLimit = 1000 :: Int
         makeSpinButton = do
           spin <- spinButtonNewWithRange
                   (fromIntegral boardSizeMin)
@@ -202,7 +203,7 @@ create ui = do
     widgetDestroy dialog
     when (response == ResponseOk) $ do
       ui' <- openNewBoard (Just ui) (Just (width, height))
-      when (komi /= 0) $ runUiGo ui' $ putProperty $ KM komi
+      when (komi /= 0) $ doUiGo ui' $ putProperty $ KM komi
       when (handicap > 0) $ do
         -- If the board size + handicap configuration is known, then set up the
         -- board for the handicap, otherwise, leave the user to do it.
@@ -211,7 +212,7 @@ create ui = do
         -- set HA at least, anyway?
         let stones = fromMaybe [] $ handicapStones width height handicap
         unless (null stones) $ do
-          runUiGo ui' $ do
+          doUiGo ui' $ do
             putProperty $ HA handicap
             putProperty $ AB $ coords stones
             putProperty $ PL White
@@ -287,11 +288,11 @@ create ui = do
   -- item is changed, so we only need to listen with one action.
   on gameVariationsChildAction radioActionChanged $ \action -> do
     value <- toEnum <$> get action radioActionCurrentValue
-    runUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeSource = value }
+    doUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeSource = value }
 
   on gameVariationsBoardMarkupOnAction radioActionChanged $ \action -> do
     value <- toEnum <$> get action radioActionCurrentValue
-    runUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeBoardMarkup = value }
+    doUiGo ui $ modifyVariationMode $ \mode -> mode { variationModeBoardMarkup = value }
 
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
@@ -323,11 +324,11 @@ create ui = do
     fmap (fromMaybe $ error $ "Could not find the initial tool " ++ show initialTool ++ ".")
          (actionGroupGetAction toolActions $ show initialTool)
 
-  registrations <- viewNewRegistrations
+  state <- viewStateNew
 
   let me = Actions {
         myUi = ui
-        , myRegistrations = registrations
+        , myState = state
         , myFileNew9Action = fileNew9Action
         , myFileNew13Action = fileNew13Action
         , myFileNew19Action = fileNew19Action
@@ -353,29 +354,39 @@ create ui = do
   initialize me
   return me
 
-initialize :: UiCtrl ui => Actions ui -> IO ()
-initialize me = do
-  let ui = myUi me
-      updateEditCutNodeEnabled = do
-        cursor <- readCursor ui
-        set (myEditCutNodeAction me) [actionSensitive := isJust $ cursorParent cursor]
+initialize :: UiCtrl go ui => Actions ui -> IO ()
+initialize me =
+  register me
+    [ AnyEvent navigationEvent
+    , AnyEvent variationModeChangedEvent
+    ]
 
-  updateEditCutNodeEnabled
-  viewRegister me navigationEvent $ \_ -> afterGo updateEditCutNodeEnabled
+destroy :: UiCtrl go ui => Actions ui -> IO ()
+destroy = viewDestroy
 
-  viewRegister me variationModeChangedEvent $ \_ new -> afterGo $ do
-    let newSource = fromEnum $ variationModeSource new
-        newBoardMarkup = fromEnum $ variationModeBoardMarkup new
-        sourceAction = myGameVariationsChildAction me
-        boardMarkupAction = myGameVariationsBoardMarkupOnAction me
+update :: UiCtrl go ui => Actions ui -> IO ()
+update me = do
+  cursor <- readCursor $ myUi me
 
-    oldSource <- get sourceAction radioActionCurrentValue
-    when (newSource /= oldSource) $
-      set sourceAction [radioActionCurrentValue := newSource]
+  -- Update the sensitivity of the "Edit > Cut node" action.
+  set (myEditCutNodeAction me) [actionSensitive := isJust $ cursorParent cursor]
 
-    oldBoardMarkup <- get boardMarkupAction radioActionCurrentValue
-    when (newBoardMarkup /= oldBoardMarkup) $
-      set boardMarkupAction [radioActionCurrentValue := newBoardMarkup]
+  updateVariationModeActions me cursor
 
-destroy :: UiCtrl ui => Actions ui -> IO ()
-destroy = viewUnregisterAll
+-- | Updates the selection variation mode radio actions.
+updateVariationModeActions :: Actions ui -> Cursor -> IO ()
+updateVariationModeActions me cursor = do
+  let new = rootInfoVariationMode $ gameInfoRootInfo $ boardGameInfo $
+            cursorBoard cursor
+      newSource = fromEnum $ variationModeSource new
+      newBoardMarkup = fromEnum $ variationModeBoardMarkup new
+      sourceAction = myGameVariationsChildAction me
+      boardMarkupAction = myGameVariationsBoardMarkupOnAction me
+
+  oldSource <- get sourceAction radioActionCurrentValue
+  when (newSource /= oldSource) $
+    set sourceAction [radioActionCurrentValue := newSource]
+
+  oldBoardMarkup <- get boardMarkupAction radioActionCurrentValue
+  when (newBoardMarkup /= oldBoardMarkup) $
+    set boardMarkupAction [radioActionCurrentValue := newBoardMarkup]

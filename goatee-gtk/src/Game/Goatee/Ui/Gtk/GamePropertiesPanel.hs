@@ -28,37 +28,37 @@ import Control.Arrow (first)
 import Control.Monad (forM_, void, when)
 import Control.Monad.Trans (liftIO)
 import Data.IORef (newIORef, readIORef, writeIORef)
+import Data.Maybe (fromMaybe)
 import qualified Game.Goatee.Common.Bigfloat as BF
 import Game.Goatee.Lib.Board
 import Game.Goatee.Lib.Monad hiding (on)
 import Game.Goatee.Lib.Types
 import Game.Goatee.Ui.Gtk.Common
-import Game.Goatee.Ui.Gtk.Latch
 import Game.Goatee.Ui.Gtk.Utils
+import Game.Goatee.Ui.Gtk.Widget
 import Graphics.UI.Gtk (
   AttachOptions (Expand, Fill),
   AttrOp ((:=)),
   CheckButton,
-  Entry,
   Label,
   Packing (PackGrow, PackNatural),
   PolicyType (PolicyAutomatic, PolicyNever),
-  SpinButton,
   TextView,
   Widget,
+  WidgetClass,
   boxPackStart,
   checkButtonNewWithLabel,
   containerAdd,
-  entryNew, entryText, entryWidthChars,
+  entryWidthChars,
   focusOutEvent,
   get,
   hBoxNew,
   hSeparatorNew,
   labelNew, labelSetMnemonicWidget, labelSetText,
-  on, onValueSpinned,
+  on,
   scrolledWindowAddWithViewport, scrolledWindowNew, scrolledWindowSetPolicy,
   set,
-  spinButtonNewWithRange, spinButtonSetDigits, spinButtonSetValue,
+  spinButtonSetDigits,
   tableAttach, tableAttachDefaults, tableNew, tableSetRowSpacing,
   textViewNew,
   toggleButtonActive, toggled,
@@ -70,57 +70,55 @@ import Graphics.UI.Gtk (
 -- A getter for 'Stringlike' 'GameInfo' fields.
 data InfoGetter = forall a. Stringlike a => InfoGetter (GameInfo -> Maybe a)
 
-data GamePropertiesPanel ui = GamePropertiesPanel {
-  myUi :: ui
-  , myRegistrations :: ViewRegistrations
+data GamePropertiesPanel ui = GamePropertiesPanel
+  { myUi :: ui
+  , myState :: ViewState
   , myWidget :: Widget
-  , myLatch :: Latch
-    -- ^ A latch to be held when updating the model, to prevent the
-    -- view from re-updating.
 
     -- Black's info.
-  , myBlackNameEntry :: Entry
-  , myBlackRankEntry :: Entry
-  , myBlackTeamEntry :: Entry
+  , myBlackNameEntry :: GoateeEntry
+  , myBlackRankEntry :: GoateeEntry
+  , myBlackTeamEntry :: GoateeEntry
 
     -- White's info.
-  , myWhiteNameEntry :: Entry
-  , myWhiteRankEntry :: Entry
-  , myWhiteTeamEntry :: Entry
+  , myWhiteNameEntry :: GoateeEntry
+  , myWhiteRankEntry :: GoateeEntry
+  , myWhiteTeamEntry :: GoateeEntry
 
     -- Game rules.
-  , myRulesetEntry :: Entry
-  , myMainTimeSpin :: SpinButton
+  , myRulesetEntry :: GoateeEntry
+  , myMainTimeSpin :: GoateeSpinButton
   , myMainTimeLabel :: Label
-  , myOvertimeEntry :: Entry
+  , myOvertimeEntry :: GoateeEntry
   , myGameResultDisplayCheck :: CheckButton
-  , myGameResultEntry :: Entry
+  , myGameResultEntry :: GoateeEntry
 
     -- Game editors.
-  , myGameAnnotatorEntry :: Entry
-  , myGameEntererEntry :: Entry
+  , myGameAnnotatorEntry :: GoateeEntry
+  , myGameEntererEntry :: GoateeEntry
 
     -- Game context.
-  , myEventNameEntry :: Entry
-  , myGamePlaceEntry :: Entry
-  , myGameRoundEntry :: Entry
-  , myGameDatesEntry :: Entry
-  , myGameNameEntry :: Entry
-  , myGameSourceEntry :: Entry
-  , myGameCopyrightEntry :: Entry
+  , myEventNameEntry :: GoateeEntry
+  , myGamePlaceEntry :: GoateeEntry
+  , myGameRoundEntry :: GoateeEntry
+  , myGameDatesEntry :: GoateeEntry
+  , myGameNameEntry :: GoateeEntry
+  , myGameSourceEntry :: GoateeEntry
+  , myGameCopyrightEntry :: GoateeEntry
 
     -- Further commentary.
-  , myGameOpeningEntry :: Entry
+  , myGameOpeningEntry :: GoateeEntry
   , myGameCommentTextView :: TextView
   , myGameCommentTextViewSetter :: String -> IO ()
   }
 
-instance UiCtrl ui => UiView (GamePropertiesPanel ui) ui where
+instance UiCtrl go ui => UiView go ui (GamePropertiesPanel ui) where
   viewName = const "GamePropertiesPanel"
   viewCtrl = myUi
-  viewRegistrations = myRegistrations
+  viewState = myState
+  viewUpdate = update
 
-create :: UiCtrl ui => ui -> IO (GamePropertiesPanel ui)
+create :: UiCtrl go ui => ui -> IO (GamePropertiesPanel ui)
 create ui = do
   let rows = 27
       cols = 2
@@ -142,6 +140,7 @@ create ui = do
         tableAttachDefaults table sep 0 cols row (row + 1)
         tableSetRowSpacing table (row - 1) 6
         tableSetRowSpacing table row 6
+      addWidget :: WidgetClass widget => String -> widget -> IO widget
       addWidget labelText widget = do
         row <- nextRow
         label <- labelNew $ Just labelText
@@ -152,52 +151,55 @@ create ui = do
         tableAttach table widget 1 2 row (row + 1)
                     [Expand, Fill] [] 0 0
         return widget
+      addWideWidget :: WidgetClass widget => widget -> IO widget
       addWideWidget widget = do
         row <- nextRow
         widgetSetSizeRequest widget 0 (-1)
         tableAttachDefaults table widget 0 2 row (row + 1)
         return widget
-      tableEntryNew = do
-        entry <- entryNew
-        set entry [entryWidthChars := 0]
+      addEntry :: String -> IO GoateeEntry
+      addEntry labelText = do
+        entry <- goateeEntryNew
+        let widget = goateeEntryWidget entry
+        set widget [entryWidthChars := 0]
+        addWidget labelText widget
         return entry
 
-  latch <- newLatch
-
-  blackNameEntry <- addWidget "Black" =<< tableEntryNew
-  blackRankEntry <- addWidget "Rank" =<< tableEntryNew
-  blackTeamEntry <- addWidget "Team" =<< tableEntryNew
+  blackNameEntry <- addEntry "Black"
+  blackRankEntry <- addEntry "Rank"
+  blackTeamEntry <- addEntry "Team"
   addSeparator
-  whiteNameEntry <- addWidget "White" =<< tableEntryNew
-  whiteRankEntry <- addWidget "Rank" =<< tableEntryNew
-  whiteTeamEntry <- addWidget "Team" =<< tableEntryNew
+  whiteNameEntry <- addEntry "White"
+  whiteRankEntry <- addEntry "Rank"
+  whiteTeamEntry <- addEntry "Team"
   addSeparator
-  rulesetEntry <- addWidget "Ruleset" =<< tableEntryNew
+  rulesetEntry <- addEntry "Ruleset"
 
   mainTimeBox <- hBoxNew True 0
-  mainTimeSpin <- spinButtonNewWithRange 0 3155692600 {- 100 years -} 1
-  spinButtonSetDigits mainTimeSpin 1
+  mainTimeSpin <- goateeSpinButtonNewWithRange 0 3155692600 {- 100 years -} 1
+  let mainTimeSpinWidget = goateeSpinButtonWidget mainTimeSpin
+  spinButtonSetDigits mainTimeSpinWidget 1
   mainTimeLabel <- labelNew Nothing
-  boxPackStart mainTimeBox mainTimeSpin PackGrow 0
+  boxPackStart mainTimeBox mainTimeSpinWidget PackGrow 0
   boxPackStart mainTimeBox mainTimeLabel PackNatural 0
   addWidget "Time" mainTimeBox
 
-  overtimeEntry <- addWidget "Overtime" =<< tableEntryNew
+  overtimeEntry <- addEntry "Overtime"
   gameResultDisplayCheck <- addWideWidget =<< checkButtonNewWithLabel "Show game result"
-  gameResultEntry <- addWidget "Result" =<< tableEntryNew
+  gameResultEntry <- addEntry "Result"
   addSeparator
-  gameAnnotatorEntry <- addWidget "Annotator" =<< tableEntryNew
-  gameEntererEntry <- addWidget "Enterer" =<< tableEntryNew
+  gameAnnotatorEntry <- addEntry "Annotator"
+  gameEntererEntry <- addEntry "Enterer"
   addSeparator
-  eventNameEntry <- addWidget "Event" =<< tableEntryNew
-  gamePlaceEntry <- addWidget "Place" =<< tableEntryNew
-  gameRoundEntry <- addWidget "Round" =<< tableEntryNew
-  gameDatesEntry <- addWidget "Dates" =<< tableEntryNew
-  gameNameEntry <- addWidget "Name" =<< tableEntryNew
-  gameSourceEntry <- addWidget "Source" =<< tableEntryNew
-  gameCopyrightEntry <- addWidget "Copyright" =<< tableEntryNew
+  eventNameEntry <- addEntry "Event"
+  gamePlaceEntry <- addEntry "Place"
+  gameRoundEntry <- addEntry "Round"
+  gameDatesEntry <- addEntry "Dates"
+  gameNameEntry <- addEntry "Name"
+  gameSourceEntry <- addEntry "Source"
+  gameCopyrightEntry <- addEntry "Copyright"
   addSeparator
-  gameOpeningEntry <- addWidget "Opening" =<< tableEntryNew
+  gameOpeningEntry <- addEntry "Opening"
   addWideWidget =<< labelNew (Just "Game comment:")
 
   gameCommentScroll <- scrolledWindowNew Nothing Nothing
@@ -209,7 +211,7 @@ create ui = do
   boxPackStart box gameCommentScroll PackNatural 0
 
   gameCommentTextViewSetter <- textViewConfigure gameCommentTextView $ \value ->
-    runUiGo ui $ void $ modifyGameInfo $ \info ->
+    doUiGo ui $ void $ modifyGameInfo $ \info ->
     info { gameInfoGameComment = if null value then Nothing else Just $ stringToSgf value }
 
   addedRowCount <- readIORef nextRowRef
@@ -217,12 +219,11 @@ create ui = do
     "GamePropertiesPanel: Table expected " ++ show rows ++ " rows, got " ++
     show addedRowCount ++ "."
 
-  registrations <- viewNewRegistrations
+  state <- viewStateNew
 
   let me = GamePropertiesPanel {
         myUi = ui
-        , myLatch = latch
-        , myRegistrations = registrations
+        , myState = state
         , myWidget = toWidget scroll
 
         , myBlackNameEntry = blackNameEntry
@@ -259,13 +260,11 @@ create ui = do
   initialize me
   return me
 
-initialize :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
+initialize :: UiCtrl go ui => GamePropertiesPanel ui -> IO ()
 initialize me = do
-  -- Watch for game info changes.
-  viewRegister me gameInfoChangedEvent $ \_ newInfo ->
-    afterGo $ updateUiGameInfo me newInfo
+  register me [AnyEvent gameInfoChangedEvent]
 
-  updateUi me
+  viewUpdate me
 
   connectEntry me (myBlackNameEntry me) gameInfoBlackName $ \x info ->
     info { gameInfoBlackName = x }
@@ -282,13 +281,11 @@ initialize me = do
     info { gameInfoWhiteTeamName = x }
 
   connectEntry me (myRulesetEntry me) gameInfoRuleset $ \x info -> info { gameInfoRuleset = x }
-  connect me
-          (void . onValueSpinned (myMainTimeSpin me))
-          (spinButtonGetValueAsBigfloat $ myMainTimeSpin me) $ \x info ->
+  connect me (goateeSpinButtonOnSpinned $ myMainTimeSpin me) $ \x info ->
     info { gameInfoBasicTimeSeconds = if x == 0 then Nothing else Just x }
   connectEntry me (myOvertimeEntry me) gameInfoOvertime $ \x info -> info { gameInfoOvertime = x }
   let gameResultCheck = myGameResultDisplayCheck me
-  on gameResultCheck toggled $ updateUi me
+  on gameResultCheck toggled $ viewUpdate me
   connectEntry' me (myGameResultEntry me) (get gameResultCheck toggleButtonActive) gameInfoResult $
     \x info -> info { gameInfoResult = x }
 
@@ -321,9 +318,9 @@ initialize me = do
 -- want to canonicalize "B+1.0" to "B+1" as soon as it's typed.
 -- Instead, we do the model-to-view canonicalizing update on
 -- focus-out.
-connectEntry :: (UiCtrl ui, Stringlike a)
+connectEntry :: (UiCtrl go ui, Stringlike a)
              => GamePropertiesPanel ui
-             -> Entry
+             -> GoateeEntry
              -> (GameInfo -> Maybe a)
              -> (Maybe a -> GameInfo -> GameInfo)
              -> IO ()
@@ -332,52 +329,47 @@ connectEntry me entry = connectEntry' me entry (return True)
 -- | This is like 'connectEntry'.  The additional @IO Bool@ can return false to
 -- indicate that a change in the entry should not be written to the model;
 -- returning true writes the change.
-connectEntry' :: (UiCtrl ui, Stringlike a)
+connectEntry' :: (UiCtrl go ui, Stringlike a)
               => GamePropertiesPanel ui
-              -> Entry
+              -> GoateeEntry
               -> IO Bool
               -> (GameInfo -> Maybe a)
               -> (Maybe a -> GameInfo -> GameInfo)
               -> IO ()
 connectEntry' me entry propagateChangesToModel modelGetter modelSetter = do
   let ui = myUi me
-  onEntryChange entry $ \value -> withLatchOn (myLatch me) $ do
+  goateeEntryOnChange entry $ \value -> do
     propagate <- propagateChangesToModel
-    when propagate $ runUiGo ui $ void $ modifyGameInfo $ modelSetter $
+    when propagate $ doUiGo ui $ void $ modifyGameInfo $ modelSetter $
       if null value then Nothing else Just $ stringToSgf value
-  on entry focusOutEvent $ liftIO $ do
+  on (goateeEntryWidget entry) focusOutEvent $ liftIO $ do
     cursor <- readCursor ui
-    set entry [entryText := maybe "" sgfToString $ modelGetter $ boardGameInfo $
-               cursorBoard cursor]
+    goateeEntrySetText entry $ maybe "" sgfToString $ modelGetter $
+      boardGameInfo $ cursorBoard cursor
     return False
   return ()
 
--- | @connect me connectFn getter setter@ binds a widget to a field in
--- the current 'GameInfo' so that changes in one affect the other.
--- @connect@ constructs an @IO ()@ handler for changes to the widget's
--- state, and immediately gives it to @connectFn@, which is in charge
--- of registering the handler.  @getter@ should read the current value
--- from the view.  @setter@ should update the value in a 'GameInfo'.
-connect :: UiCtrl ui
+-- | @connect me connectFn setter@ binds a widget to a field in the current
+-- 'GameInfo' so that changes in one affect the other.  @connect@ constructs an
+-- @a -> IO ()@ handler that takes a value and puts it into the model using
+-- @setter@, and immediately gives it to @connectFn@, which is in charge of
+-- registering the handler.
+connect :: UiCtrl go ui
         => GamePropertiesPanel ui
-        -> (IO () -> IO ()) -- ^ Function to install a handler.
-        -> IO a             -- ^ Getter for the widget value.
+        -> ((a -> IO ()) -> IO ())
         -> (a -> GameInfo -> GameInfo)
         -> IO ()
-connect me connectFn viewGetter modelSetter =
+connect me connectFn modelSetter =
   let ui = myUi me
-  in connectFn $ do
-    newValue <- viewGetter
-    runUiGo ui $ void $ modifyGameInfo $ modelSetter newValue
+  in connectFn $ \newValue -> doUiGo ui $ void $ modifyGameInfo $ modelSetter newValue
 
-destroy :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
-destroy = viewUnregisterAll
+destroy :: UiCtrl go ui => GamePropertiesPanel ui -> IO ()
+destroy = viewDestroy
 
-updateUi :: UiCtrl ui => GamePropertiesPanel ui -> IO ()
-updateUi me = updateUiGameInfo me . boardGameInfo . cursorBoard =<< readCursor (myUi me)
-
-updateUiGameInfo :: GamePropertiesPanel ui -> GameInfo -> IO ()
-updateUiGameInfo me info = whenLatchOff (myLatch me) $ do
+update :: UiCtrl go ui => GamePropertiesPanel ui -> IO ()
+update me = do
+  cursor <- readCursor $ myUi me
+  let info = boardGameInfo $ cursorBoard cursor
   forM_ [ (InfoGetter gameInfoBlackName, myBlackNameEntry)
         , (InfoGetter gameInfoBlackRank, myBlackRankEntry)
         , (InfoGetter gameInfoBlackTeamName, myBlackTeamEntry)
@@ -402,10 +394,10 @@ updateUiGameInfo me info = whenLatchOff (myLatch me) $ do
 
         , (InfoGetter gameInfoOpeningComment, myGameOpeningEntry)
         ] $ \(InfoGetter getter, entry) ->
-    set (entry me) [entryText := extractStringlike $ getter info]
+    goateeEntrySetText (entry me) $ extractStringlike $ getter info
 
   -- Update the "main time" spinner.
-  spinButtonSetValue (myMainTimeSpin me) $ maybe 0 BF.toDouble $
+  goateeSpinButtonSetValue (myMainTimeSpin me) $ fromMaybe 0 $
     gameInfoBasicTimeSeconds info
   labelSetText (myMainTimeLabel me) $ maybe "" renderSeconds $
     gameInfoBasicTimeSeconds info
@@ -413,10 +405,11 @@ updateUiGameInfo me info = whenLatchOff (myLatch me) $ do
   -- Update the game result entry.
   let gameResultEntry = myGameResultEntry me
   displayGameResult <- get (myGameResultDisplayCheck me) toggleButtonActive
-  widgetSetSensitive gameResultEntry displayGameResult
-  set gameResultEntry [entryText := if displayGameResult
-                                    then extractStringlike $ gameInfoResult info
-                                    else "(hidden)"]
+  widgetSetSensitive (goateeEntryWidget gameResultEntry) displayGameResult
+  goateeEntrySetText gameResultEntry $
+    if displayGameResult
+    then extractStringlike $ gameInfoResult info
+    else "(hidden)"
 
   -- Update the game comment TextView.
   myGameCommentTextViewSetter me $ maybe "" fromText $ gameInfoGameComment info

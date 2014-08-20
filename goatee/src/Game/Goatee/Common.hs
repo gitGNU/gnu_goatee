@@ -32,13 +32,11 @@ module Game.Goatee.Common (
   whileM,
   whileM',
   doWhileM,
-  Seq(..),
   ) where
 
 import Control.Arrow ((***))
 import Control.Monad (forM_, join, when)
 import Data.Either (partitionEithers)
-import Data.Monoid (Monoid, mempty, mappend)
 
 -- | Drops the element at an index from a list.  If the index is out of bounds
 -- then the list is returned unmodified.
@@ -132,13 +130,3 @@ doWhileM init body = do
   case value of
     Right next -> doWhileM next body
     Left end -> return end
-
--- | This sequences @()@-valued monadic actions as a monoid.  If @m@ is some
--- monad, then @Seq m@ is a monoid where 'mempty' does nothing and 'mappend'
--- sequences actions via '>>'.
-newtype Seq m = Seq (m ())
-
-instance Monad m => Monoid (Seq m) where
-  mempty = Seq $ return ()
-
-  (Seq x) `mappend` (Seq y) = Seq (x >> y)

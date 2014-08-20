@@ -66,19 +66,20 @@ import Graphics.UI.Gtk (
   )
 import System.IO (hPutStrLn, stderr)
 
-data MainWindow ui = MainWindow { myUi :: ui
-                                , myWindow :: Window
-                                , myActions :: Actions ui
-                                , myInfoLine :: InfoLine ui
-                                , myGoban :: Goban ui
-                                , myPlayPanel :: PlayPanel ui
-                                , myGamePropertiesPanel :: GamePropertiesPanel ui
-                                , myNodePropertiesPanel :: NodePropertiesPanel ui
-                                , myDirtyChangedHandler :: IORef (Maybe Registration)
-                                , myFilePathChangedHandler :: IORef (Maybe Registration)
-                                }
+data MainWindow ui = MainWindow
+  { myUi :: ui
+  , myWindow :: Window
+  , myActions :: Actions ui
+  , myInfoLine :: InfoLine ui
+  , myGoban :: Goban ui
+  , myPlayPanel :: PlayPanel ui
+  , myGamePropertiesPanel :: GamePropertiesPanel ui
+  , myNodePropertiesPanel :: NodePropertiesPanel ui
+  , myDirtyChangedHandler :: IORef (Maybe Registration)
+  , myFilePathChangedHandler :: IORef (Maybe Registration)
+  }
 
-create :: UiCtrl ui => ui -> IO (MainWindow ui)
+create :: UiCtrl go ui => ui -> IO (MainWindow ui)
 create ui = do
   window <- windowNew
   windowSetDefaultSize window 640 480
@@ -238,7 +239,7 @@ create ui = do
   return me
 
 -- | Initialization that must be done after the 'UiCtrl' is available.
-initialize :: UiCtrl ui => MainWindow ui -> IO ()
+initialize :: UiCtrl go ui => MainWindow ui -> IO ()
 initialize me = do
   let ui = myUi me
 
@@ -247,7 +248,7 @@ initialize me = do
   writeIORef (myFilePathChangedHandler me) =<<
     liftM Just (registerFilePathChangedHandler ui "MainWindow" True $ \_ _ -> updateWindowTitle me)
 
-destroy :: UiCtrl ui => MainWindow ui -> IO ()
+destroy :: UiCtrl go ui => MainWindow ui -> IO ()
 destroy me = do
   Actions.destroy $ myActions me
   InfoLine.destroy $ myInfoLine me
@@ -289,7 +290,7 @@ addActionsToMenu menu actions accessors =
   forM_ accessors $ \accessor ->
   containerAdd menu =<< actionCreateMenuItem (accessor actions)
 
-updateWindowTitle :: UiCtrl ui => MainWindow ui -> IO ()
+updateWindowTitle :: UiCtrl go ui => MainWindow ui -> IO ()
 updateWindowTitle me = do
   let ui = myUi me
   fileName <- getFileName ui

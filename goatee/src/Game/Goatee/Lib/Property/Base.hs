@@ -280,7 +280,6 @@ defProperty :: String
 defProperty name propType inherited = do
   let propName = mkName name
       varName = mkName $ "property" ++ name
-  foo <- newName "foo"
   sequence [
     sigD varName $ conT $ mkName "PropertyInfo",
     valD (varP varName)
