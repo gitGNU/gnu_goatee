@@ -53,7 +53,9 @@ import Graphics.UI.Gtk (
   boxPackStart,
   containerAdd,
   deleteEvent,
+  eventKeyName, eventModifier,
   hPanedNew,
+  keyPressEvent,
   menuBarNew, menuItemNewWithMnemonic, menuItemSetSubmenu, menuNew, menuShellAppend,
   notebookAppendPage, notebookNew,
   on,
@@ -229,6 +231,17 @@ create ui = do
                       }
 
   initialize me
+
+  on window keyPressEvent $ do
+    key <- eventKeyName
+    mods <- eventModifier
+    let km = (key, mods)
+    case km of
+      -- Escape focuses the goban.
+      ("Escape", []) -> do
+        liftIO $ widgetGrabFocus $ Goban.myWidget goban
+        return True
+      _ -> return False
 
   on window deleteEvent $ liftIO $ do
     fileClose ui
