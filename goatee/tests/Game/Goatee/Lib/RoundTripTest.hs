@@ -50,53 +50,53 @@ testNode' = testCollection' . Collection . (:[])
 testNode :: String -> Node -> Test
 testNode label node = label ~: testNode' node
 
-tests = "Game.Goatee.Lib.RoundTripTest" ~: TestList [
-  singleNodeGameTests,
-  propertyValueTests
+tests = "Game.Goatee.Lib.RoundTripTest" ~: TestList
+  [ singleNodeGameTests
+  , propertyValueTests
   ]
 
-singleNodeGameTests = "games with single nodes" ~: TestList [
-  testNode "empty game" $ node [],
-  testNode "some default properties" $ node [FF 4, GM 1, ST defaultVariationMode]
+singleNodeGameTests = "games with single nodes" ~: TestList
+  [ testNode "empty game" $ node []
+  , testNode "some default properties" $ node [FF 4, GM 1, ST defaultVariationMode]
   ]
 
-propertyValueTests = "property value types" ~: TestList [
-  "color values" ~: TestList [
-    testNode "black" $ node [PL Black],
-    testNode "white" $ node [PL White]
-    ],
+propertyValueTests = "property value types" ~: TestList
+  [ "color values" ~: TestList
+    [ testNode "black" $ node [PL Black]
+    , testNode "white" $ node [PL White]
+    ]
 
-  "double values" ~: TestList [
-    testNode "1" $ node [DM Double1],
-    testNode "2" $ node [DM Double2]
-    ],
+  , "double values" ~: TestList
+    [ testNode "1" $ node [DM Double1]
+    , testNode "2" $ node [DM Double2]
+    ]
 
-  "label list values" ~: TestList [
-    testNode "one value" $ node [LB [((5,2), toSimpleText "Hi.")]],
-    testNode "multiple value" $ node [LB [((5, 2), toSimpleText "Hi."),
+  , "label list values" ~: TestList
+    [ testNode "one value" $ node [LB [((5,2), toSimpleText "Hi.")]]
+    , testNode "multiple value" $ node [LB [((5, 2), toSimpleText "Hi."),
                                           ((0, 1), toSimpleText "Bye.")]]
-    ],
+    ]
 
-  testNode "none value" $ node [KO],
+  , testNode "none value" $ node [KO]
 
-  "point-valued values" ~: TestList $
+  , "point-valued values" ~: TestList $
     for [0..boardSizeMax-1]
     (\row -> testNode ("row " ++ show row) $ node [B $ Just (0, row)]) ++
     for [0..boardSizeMax-1]
-    (\col -> testNode ("row " ++ show col) $ node [B $ Just (col, 0)]),
+    (\col -> testNode ("row " ++ show col) $ node [B $ Just (col, 0)])
 
-  "real values" ~: TestList [
-    testNode "0" $ node [TM $ read "0"],
-    testNode "0.0" $ node [TM $ read "0.0"],
-    testNode "1500" $ node [TM $ read "1500"],
-    testNode "150" $ node [TM $ read "150"],
-    testNode "15" $ node [TM $ read "15"],
-    testNode "1.5" $ node [TM $ read "1.5"],
-    testNode "0.15" $ node [TM $ read "0.15"],
-    testNode "0.015" $ node [TM $ read "0.015"],
-    testNode "0.0015" $ node [TM $ read "0.0015"],
-    testNode "60.5" $ node [TM $ read "60.5"],
-    testNode "10.1" $ node [TM $ read "10.1"]
+  , "real values" ~: TestList
+    [ testNode "0" $ node [TM $ read "0"]
+    , testNode "0.0" $ node [TM $ read "0.0"]
+    , testNode "1500" $ node [TM $ read "1500"]
+    , testNode "150" $ node [TM $ read "150"]
+    , testNode "15" $ node [TM $ read "15"]
+    , testNode "1.5" $ node [TM $ read "1.5"]
+    , testNode "0.15" $ node [TM $ read "0.15"]
+    , testNode "0.015" $ node [TM $ read "0.015"]
+    , testNode "0.0015" $ node [TM $ read "0.0015"]
+    , testNode "60.5" $ node [TM $ read "60.5"]
+    , testNode "10.1" $ node [TM $ read "10.1"]
     ]
   ]
 

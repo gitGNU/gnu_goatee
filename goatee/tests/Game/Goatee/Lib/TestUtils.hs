@@ -40,9 +40,10 @@ node1 props child = emptyNode { nodeProperties = props
                               }
 
 node' :: [Property] -> [Node] -> Node
-node' props children = emptyNode { nodeProperties = props
-                                , nodeChildren = children
-                                }
+node' props children =
+  emptyNode { nodeProperties = props
+            , nodeChildren = children
+            }
 
 -- | Creates a root node that starts with only a 'SZ' property.  This is more
 -- minimal than 'rootNode'.

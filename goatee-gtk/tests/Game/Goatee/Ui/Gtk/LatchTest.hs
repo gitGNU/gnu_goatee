@@ -23,23 +23,23 @@ import Test.HUnit ((~:), (@=?), Test (TestList))
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
-tests = "Game.Goatee.Ui.Gtk.Latch" ~: TestList [
-  "a new latch is off" ~: do
+tests = "Game.Goatee.Ui.Gtk.Latch" ~: TestList
+  [ "a new latch is off" ~: do
      latch <- newLatch
      ref <- newIORef 0
      whenLatchOff latch $ modifyIORef ref (+ 1)
      whenLatchOn latch $ modifyIORef ref (+ 2)
-     (1 @=?) =<< readIORef ref,
+     (1 @=?) =<< readIORef ref
 
-  "a latch can be held on" ~: do
+  , "a latch can be held on" ~: do
      latch <- newLatch
      ref <- newIORef 0
      withLatchOn latch $ do
        whenLatchOff latch $ modifyIORef ref (+ 1)
        whenLatchOn latch $ modifyIORef ref (+ 2)
-     (2 @=?) =<< readIORef ref,
+     (2 @=?) =<< readIORef ref
 
-  "a new latch returns to being off after it is released" ~: do
+  , "a new latch returns to being off after it is released" ~: do
      latch <- newLatch
      ref <- newIORef 0
      withLatchOn latch $ do

@@ -22,19 +22,19 @@ import Game.Goatee.Lib.Property
 import Game.Goatee.Lib.Types
 import Test.HUnit ((~:), (@=?), Test (TestList))
 
-tests = "Game.Goatee.Lib.Property" ~: TestList $ [
-  propertyMetadataTests,
-  markPropertyTests
+tests = "Game.Goatee.Lib.Property" ~: TestList
+  [ propertyMetadataTests
+  , markPropertyTests
   ]
 
-propertyMetadataTests = "property metadata" ~: TestList $ [
-  "game info properties" ~: gameInfoProperties @=? filterTo GameInfoProperty allProperties,
-  "general properties" ~: generalProperties @=? filterTo GeneralProperty allProperties,
-  "move properties" ~: moveProperties @=? filterTo MoveProperty allProperties,
-  "root properties" ~: rootProperties @=? filterTo RootProperty allProperties,
-  "setup properties" ~: setupProperties @=? filterTo SetupProperty allProperties,
+propertyMetadataTests = "property metadata" ~: TestList
+  [ "game info properties" ~: gameInfoProperties @=? filterTo GameInfoProperty allProperties
+  , "general properties" ~: generalProperties @=? filterTo GeneralProperty allProperties
+  , "move properties" ~: moveProperties @=? filterTo MoveProperty allProperties
+  , "root properties" ~: rootProperties @=? filterTo RootProperty allProperties
+  , "setup properties" ~: setupProperties @=? filterTo SetupProperty allProperties
 
-  "inherited properties" ~: [DD cl] @=? filter propertyInherited allProperties
+  , "inherited properties" ~: [DD cl] @=? filter propertyInherited allProperties
   ]
   where filterTo propType = filter ((propType ==) . propertyType)
         moveProperties = [-- Move properties.
@@ -65,8 +65,8 @@ propertyMetadataTests = "property metadata" ~: TestList $ [
         rv = 1
         vm = defaultVariationMode
 
-markPropertyTests = "markProperty" ~: TestList $ [
-  "doesn't repeat properties" ~:
+markPropertyTests = "markProperty" ~: TestList
+  [ "doesn't repeat properties" ~:
     let marks = [minBound..maxBound]
     in length marks @=? Set.size (Set.fromList $ map (propertyName . markProperty) marks)
   ]

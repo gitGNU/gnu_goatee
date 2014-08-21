@@ -29,42 +29,42 @@ import Game.Goatee.Test.Common
 import Paths_goatee (version)
 import Test.HUnit ((~:), (@=?), (@?=), Test (TestList))
 
-tests = "Game.Goatee.Lib.Tree" ~: TestList [
-  emptyNodeTests,
-  rootNodeTests,
-  findPropertyTests,
-  addPropertyTests,
-  addChildTests,
-  addChildAtTests,
-  deleteChildAtTests
+tests = "Game.Goatee.Lib.Tree" ~: TestList
+  [ emptyNodeTests
+  , rootNodeTests
+  , findPropertyTests
+  , addPropertyTests
+  , addChildTests
+  , addChildAtTests
+  , deleteChildAtTests
   ]
 
-emptyNodeTests = "emptyNode" ~: TestList [
-  "has no properties" ~: [] @=? nodeProperties emptyNode,
-  "has no children" ~: [] @=? nodeChildren emptyNode
+emptyNodeTests = "emptyNode" ~: TestList
+  [ "has no properties" ~: [] @=? nodeProperties emptyNode
+  , "has no children" ~: [] @=? nodeChildren emptyNode
   ]
 
-rootNodeTests = "rootNode" ~: TestList [
-  "sets SZ correctly" ~: do
+rootNodeTests = "rootNode" ~: TestList
+  [ "sets SZ correctly" ~: do
     assertElem (SZ 9 9) $ nodeProperties $ rootNode $ Just (9, 9)
     assertElem (SZ 19 19) $ nodeProperties $ rootNode $ Just (19, 19)
-    assertElem (SZ 9 5) $ nodeProperties $ rootNode $ Just (9, 5),
+    assertElem (SZ 9 5) $ nodeProperties $ rootNode $ Just (9, 5)
 
-  "sets AP correctly" ~: do
+  , "sets AP correctly" ~: do
     let ap = AP (toSimpleText applicationName)
                 (toSimpleText $ showVersion version)
     assertElem ap $ nodeProperties $ rootNode Nothing
     assertElem ap $ nodeProperties $ rootNode $ Just (9, 9)
   ]
 
-findPropertyTests = "findProperty" ~: TestList [
-  "returns Nothing for an empty node" ~:
-    Nothing @=? findProperty propertyB (mk []),
+findPropertyTests = "findProperty" ~: TestList
+  [ "returns Nothing for an empty node" ~:
+    Nothing @=? findProperty propertyB (mk [])
 
-  "returns Nothing if no properties match" ~:
-    Nothing @=? findProperty propertyB (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9]),
+  , "returns Nothing if no properties match" ~:
+    Nothing @=? findProperty propertyB (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9])
 
-  "finds present properties" ~: do
+  , "finds present properties" ~: do
      Just (B (Just (2,3))) @=?
        findProperty propertyB (mk [B (Just (2,3))])
      Just (W Nothing) @=?
@@ -72,16 +72,16 @@ findPropertyTests = "findProperty" ~: TestList [
      Just IT @=?
        findProperty propertyIT (mk [IT, GW Double2])
      Just (GW Double2) @=?
-       findProperty propertyGW (mk [IT, GW Double2]),
+       findProperty propertyGW (mk [IT, GW Double2])
 
-  "doesn't find absent properties" ~: do
+  , "doesn't find absent properties" ~: do
     Nothing @=? findProperty propertyW (mk [B Nothing])
     Nothing @=? findProperty propertyW (mk [FF 4, GM 1, ST defaultVariationMode, SZ 9 9])
   ]
   where mk properties = emptyNode { nodeProperties = properties }
 
-addPropertyTests = "addProperty" ~: TestList [
-  "adds properties in order" ~: do
+addPropertyTests = "addProperty" ~: TestList
+  [ "adds properties in order" ~: do
     let prop1 = B (Just (6,6))
         prop2 = RE GameResultVoid
         prop3 = C (toText "Game over.")
@@ -93,8 +93,8 @@ addPropertyTests = "addProperty" ~: TestList [
     node3 @?= emptyNode { nodeProperties = [prop1, prop2, prop3] }
   ]
 
-addChildTests = "addChild" ~: TestList [
-  "adds children in order" ~: do
+addChildTests = "addChild" ~: TestList
+  [ "adds children in order" ~: do
     let node1 = emptyNode { nodeProperties = [B (Just (0,0))] }
         node2 = emptyNode { nodeProperties = [W (Just (1,1))] }
         node3 = emptyNode { nodeProperties = [B (Just (2,2))] }
@@ -113,25 +113,25 @@ addChildTests = "addChild" ~: TestList [
                                            , nodeChildren = children
                                            }
 
-addChildAtTests = "addChildAt" ~: TestList [
-  "adds to a childless node" ~:
+addChildAtTests = "addChildAt" ~: TestList
+  [ "adds to a childless node" ~:
     let parent = node [B Nothing]
         child = node [W Nothing]
-    in node1 [B Nothing] (node [W Nothing]) @=? addChildAt 0 child parent,
+    in node1 [B Nothing] (node [W Nothing]) @=? addChildAt 0 child parent
 
-  "adds as a first child" ~: do
+  , "adds as a first child" ~: do
     let expected = base { nodeChildren = newNode : baseChildren }
     expected @=? addChildAt 0 newNode base
     expected @=? addChildAt (-1) newNode base
-    expected @=? addChildAt (-2) newNode base,
+    expected @=? addChildAt (-2) newNode base
 
-  "adds as a middle child" ~: do
+  , "adds as a middle child" ~: do
     base { nodeChildren = listInsertAt 1 newNode baseChildren } @=?
       addChildAt 1 newNode base
     base { nodeChildren = listInsertAt 2 newNode baseChildren } @=?
-      addChildAt 2 newNode base,
+      addChildAt 2 newNode base
 
-  "adds as a last child" ~: do
+  , "adds as a last child" ~: do
     let expected = base { nodeChildren = baseChildren ++ [newNode] }
     expected @=? addChildAt baseChildCount newNode base
     expected @=? addChildAt (baseChildCount + 1) newNode base
@@ -144,30 +144,30 @@ addChildAtTests = "addChildAt" ~: TestList [
         baseChildCount = length $ nodeChildren base
         newNode = node [B $ Just (1,1)]
 
-deleteChildAtTests = "deleteChildAt" ~: TestList [
-  "deletes nothing from an empty list" ~: do
+deleteChildAtTests = "deleteChildAt" ~: TestList
+  [ "deletes nothing from an empty list" ~: do
     emptyNode @=? deleteChildAt (-1) emptyNode
     emptyNode @=? deleteChildAt 0 emptyNode
-    emptyNode @=? deleteChildAt 1 emptyNode,
+    emptyNode @=? deleteChildAt 1 emptyNode
 
-  "deletes an only child" ~:
-    node [B Nothing] @=? deleteChildAt 0 (node1 [B Nothing] $ node [W Nothing]),
+  , "deletes an only child" ~:
+    node [B Nothing] @=? deleteChildAt 0 (node1 [B Nothing] $ node [W Nothing])
 
-  "deletes a first child" ~:
+  , "deletes a first child" ~:
     base { nodeChildren = listDeleteAt 0 baseChildren } @=?
-    deleteChildAt 0 base,
+    deleteChildAt 0 base
 
-  "deletes middle children" ~: do
+  , "deletes middle children" ~: do
     base { nodeChildren = listDeleteAt 1 baseChildren } @=?
       deleteChildAt 1 base
     base { nodeChildren = listDeleteAt 2 baseChildren } @=?
-      deleteChildAt 2 base,
+      deleteChildAt 2 base
 
-  "delete a last child" ~:
+  , "delete a last child" ~:
     base { nodeChildren = init baseChildren } @=?
-    deleteChildAt (baseChildCount - 1) base,
+    deleteChildAt (baseChildCount - 1) base
 
-  "has no effect for invalid indices" ~: do
+  , "has no effect for invalid indices" ~: do
     base @=? deleteChildAt (-1) base
     base @=? deleteChildAt (-2) base
     base @=? deleteChildAt baseChildCount base

@@ -31,8 +31,8 @@ import System.Exit (exitFailure, exitSuccess)
 import Test.HUnit (Counts (errors, failures), Test (TestList), runTestTT)
 
 tests :: Test
-tests = TestList [
-  Game.Goatee.Common.BigfloatTest.tests
+tests = TestList
+  [ Game.Goatee.Common.BigfloatTest.tests
   , Game.Goatee.CommonTest.tests
   , Game.Goatee.Lib.BoardTest.tests
   , Game.Goatee.Lib.MonadTest.tests
