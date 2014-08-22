@@ -326,8 +326,8 @@ create ui = do
 
   state <- viewStateNew
 
-  let me = Actions {
-        myUi = ui
+  let me = Actions
+        { myUi = ui
         , myState = state
         , myFileNew9Action = fileNew9Action
         , myFileNew13Action = fileNew13Action

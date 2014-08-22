@@ -394,17 +394,18 @@ viewDestroy = unregisterAll
 viewId :: UiView go ui view => view -> ViewId
 viewId = viewId' . viewState
 
-data UiModes = UiModes { uiViewMode :: ViewMode
-                       , uiViewOneColorModeColor :: Color
-                       , uiViewBlindModesAnnouncePlayer :: Bool
-                         -- ^ If true, announce the player whose turn it is with
-                         -- blindfolds off.  If false, announce the player whose
-                         -- turn it is with blindfolds on.
-                       , uiHighlightCurrentMovesMode :: Bool
-                         -- ^ Whether to draw an indicator on the game board for
-                         -- moves on the current node.
-                       , uiTool :: Tool
-                       } deriving (Eq, Show)
+data UiModes = UiModes
+  { uiViewMode :: ViewMode
+  , uiViewOneColorModeColor :: Color
+  , uiViewBlindModesAnnouncePlayer :: Bool
+    -- ^ If true, announce the player whose turn it is with
+    -- blindfolds off.  If false, announce the player whose
+    -- turn it is with blindfolds on.
+  , uiHighlightCurrentMovesMode :: Bool
+    -- ^ Whether to draw an indicator on the game board for
+    -- moves on the current node.
+  , uiTool :: Tool
+  } deriving (Eq, Show)
 
 data ViewMode = ViewRegularMode
               | ViewOneColorMode
@@ -412,31 +413,33 @@ data ViewMode = ViewRegularMode
               deriving (Eq, Show)
 
 defaultUiModes :: UiModes
-defaultUiModes = UiModes { uiViewMode = ViewRegularMode
-                         , uiViewOneColorModeColor = Black
-                         , uiViewBlindModesAnnouncePlayer = True
-                         , uiHighlightCurrentMovesMode = True
-                         , uiTool = ToolPlay
-                         }
+defaultUiModes = UiModes
+  { uiViewMode = ViewRegularMode
+  , uiViewOneColorModeColor = Black
+  , uiViewBlindModesAnnouncePlayer = True
+  , uiHighlightCurrentMovesMode = True
+  , uiTool = ToolPlay
+  }
 
 -- | Selectable tools for operating on the board.
-data Tool = ToolPlay  -- ^ Game tool.
-          | ToolJump  -- ^ Game tool.
-          | ToolScore  -- ^ Game tool.
-          | ToolBlack  -- ^ Editing tool.
-          | ToolWhite  -- ^ Editing tool.
-          | ToolErase  -- ^ Editing tool.
-          | ToolArrow  -- ^ Markup tool.
-          | ToolMarkCircle  -- ^ Markup tool.
-          | ToolLabel  -- ^ Markup tool.
-          | ToolLine  -- ^ Markup tool.
-          | ToolMarkX  -- ^ Markup tool.
-          | ToolMarkSelected  -- ^ Markup tool.
-          | ToolMarkSquare  -- ^ Markup tool.
-          | ToolMarkTriangle  -- ^ Markup tool.
-          | ToolVisible  -- ^ Visibility tool.
-          | ToolDim  -- ^ Visibility tool.
-          deriving (Bounded, Enum, Eq, Show)
+data Tool =
+  ToolPlay  -- ^ Game tool.
+  | ToolJump  -- ^ Game tool.
+  | ToolScore  -- ^ Game tool.
+  | ToolBlack  -- ^ Editing tool.
+  | ToolWhite  -- ^ Editing tool.
+  | ToolErase  -- ^ Editing tool.
+  | ToolArrow  -- ^ Markup tool.
+  | ToolMarkCircle  -- ^ Markup tool.
+  | ToolLabel  -- ^ Markup tool.
+  | ToolLine  -- ^ Markup tool.
+  | ToolMarkX  -- ^ Markup tool.
+  | ToolMarkSelected  -- ^ Markup tool.
+  | ToolMarkSquare  -- ^ Markup tool.
+  | ToolMarkTriangle  -- ^ Markup tool.
+  | ToolVisible  -- ^ Visibility tool.
+  | ToolDim  -- ^ Visibility tool.
+  deriving (Bounded, Enum, Eq, Show)
 
 -- | The tool that should be selected when a board first opens in the UI.
 initialTool :: Tool

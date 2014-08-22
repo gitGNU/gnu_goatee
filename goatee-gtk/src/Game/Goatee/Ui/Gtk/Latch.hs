@@ -30,9 +30,10 @@ import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 -- | A binary switch that is off unless held on during the execution of some IO
 -- process.  The state of a latch can be read at any time, but can be held on by
 -- at most one thread at a time.
-data Latch = Latch { latchValue :: IORef Bool
-                   , latchLock :: MVar ()
-                   }
+data Latch = Latch
+  { latchValue :: IORef Bool
+  , latchLock :: MVar ()
+  }
 
 -- | Creates a new latch that is off.
 newLatch :: IO Latch

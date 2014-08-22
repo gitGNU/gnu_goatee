@@ -44,74 +44,76 @@ import Game.Goatee.Lib.Types
 -- TODO Stop using errors everywhere, they're not testable.
 
 -- | Properties that are specified in the root nodes of game trees.
-data RootInfo = RootInfo { rootInfoWidth :: Int
-                         , rootInfoHeight :: Int
-                         , rootInfoVariationMode :: VariationMode
-                         } deriving (Eq, Show)
+data RootInfo = RootInfo
+  { rootInfoWidth :: Int
+  , rootInfoHeight :: Int
+  , rootInfoVariationMode :: VariationMode
+  } deriving (Eq, Show)
 
 -- | Properties that are specified in game info nodes.
-data GameInfo = GameInfo { gameInfoRootInfo :: RootInfo
+data GameInfo = GameInfo
+  { gameInfoRootInfo :: RootInfo
 
-                         , gameInfoBlackName :: Maybe SimpleText
-                         , gameInfoBlackTeamName :: Maybe SimpleText
-                         , gameInfoBlackRank :: Maybe SimpleText
+  , gameInfoBlackName :: Maybe SimpleText
+  , gameInfoBlackTeamName :: Maybe SimpleText
+  , gameInfoBlackRank :: Maybe SimpleText
 
-                         , gameInfoWhiteName :: Maybe SimpleText
-                         , gameInfoWhiteTeamName :: Maybe SimpleText
-                         , gameInfoWhiteRank :: Maybe SimpleText
+  , gameInfoWhiteName :: Maybe SimpleText
+  , gameInfoWhiteTeamName :: Maybe SimpleText
+  , gameInfoWhiteRank :: Maybe SimpleText
 
-                         , gameInfoRuleset :: Maybe Ruleset
-                         , gameInfoBasicTimeSeconds :: Maybe RealValue
-                         , gameInfoOvertime :: Maybe SimpleText
-                         , gameInfoResult :: Maybe GameResult
+  , gameInfoRuleset :: Maybe Ruleset
+  , gameInfoBasicTimeSeconds :: Maybe RealValue
+  , gameInfoOvertime :: Maybe SimpleText
+  , gameInfoResult :: Maybe GameResult
 
-                         , gameInfoGameName :: Maybe SimpleText
-                         , gameInfoGameComment :: Maybe Text
-                         , gameInfoOpeningComment :: Maybe SimpleText
+  , gameInfoGameName :: Maybe SimpleText
+  , gameInfoGameComment :: Maybe Text
+  , gameInfoOpeningComment :: Maybe SimpleText
 
-                         , gameInfoEvent :: Maybe SimpleText
-                         , gameInfoRound :: Maybe SimpleText
-                         , gameInfoPlace :: Maybe SimpleText
-                         , gameInfoDatesPlayed :: Maybe SimpleText
-                         , gameInfoSource :: Maybe SimpleText
-                         , gameInfoCopyright :: Maybe SimpleText
+  , gameInfoEvent :: Maybe SimpleText
+  , gameInfoRound :: Maybe SimpleText
+  , gameInfoPlace :: Maybe SimpleText
+  , gameInfoDatesPlayed :: Maybe SimpleText
+  , gameInfoSource :: Maybe SimpleText
+  , gameInfoCopyright :: Maybe SimpleText
 
-                         , gameInfoAnnotatorName :: Maybe SimpleText
-                         , gameInfoEntererName :: Maybe SimpleText
-                         } deriving (Show)
+  , gameInfoAnnotatorName :: Maybe SimpleText
+  , gameInfoEntererName :: Maybe SimpleText
+  } deriving (Show)
 
 -- | Builds a 'GameInfo' with the given 'RootInfo' and no extra data.
 emptyGameInfo :: RootInfo -> GameInfo
-emptyGameInfo rootInfo =
-  GameInfo { gameInfoRootInfo = rootInfo
+emptyGameInfo rootInfo = GameInfo
+  { gameInfoRootInfo = rootInfo
 
-           , gameInfoBlackName = Nothing
-           , gameInfoBlackTeamName = Nothing
-           , gameInfoBlackRank = Nothing
+  , gameInfoBlackName = Nothing
+  , gameInfoBlackTeamName = Nothing
+  , gameInfoBlackRank = Nothing
 
-           , gameInfoWhiteName = Nothing
-           , gameInfoWhiteTeamName = Nothing
-           , gameInfoWhiteRank = Nothing
+  , gameInfoWhiteName = Nothing
+  , gameInfoWhiteTeamName = Nothing
+  , gameInfoWhiteRank = Nothing
 
-           , gameInfoRuleset = Nothing
-           , gameInfoBasicTimeSeconds = Nothing
-           , gameInfoOvertime = Nothing
-           , gameInfoResult = Nothing
+  , gameInfoRuleset = Nothing
+  , gameInfoBasicTimeSeconds = Nothing
+  , gameInfoOvertime = Nothing
+  , gameInfoResult = Nothing
 
-           , gameInfoGameName = Nothing
-           , gameInfoGameComment = Nothing
-           , gameInfoOpeningComment = Nothing
+  , gameInfoGameName = Nothing
+  , gameInfoGameComment = Nothing
+  , gameInfoOpeningComment = Nothing
 
-           , gameInfoEvent = Nothing
-           , gameInfoRound = Nothing
-           , gameInfoPlace = Nothing
-           , gameInfoDatesPlayed = Nothing
-           , gameInfoSource = Nothing
-           , gameInfoCopyright = Nothing
+  , gameInfoEvent = Nothing
+  , gameInfoRound = Nothing
+  , gameInfoPlace = Nothing
+  , gameInfoDatesPlayed = Nothing
+  , gameInfoSource = Nothing
+  , gameInfoCopyright = Nothing
 
-           , gameInfoAnnotatorName = Nothing
-           , gameInfoEntererName = Nothing
-           }
+  , gameInfoAnnotatorName = Nothing
+  , gameInfoEntererName = Nothing
+  }
 
 -- | Returns whether a node contains any game info properties.
 internalIsGameInfoNode :: Node -> Bool
@@ -152,11 +154,11 @@ gameInfoToProperties info = execWriter $ do
 -- | An object that corresponds to a node in some game tree, and represents the
 -- state of the game at that node, including board position, player turn and
 -- captures, and also board annotations.
-data BoardState = BoardState {
-  boardCoordStates :: [[CoordState]]
-  -- ^ The state of individual points on the board.  Stored in row-major order.
-  -- Point @(x, y)@ can be accessed via @!! y !! x@ (but prefer
-  -- 'boardCoordState').
+data BoardState = BoardState
+  { boardCoordStates :: [[CoordState]]
+    -- ^ The state of individual points on the board.  Stored in row-major order.
+    -- Point @(x, y)@ can be accessed via @!! y !! x@ (but prefer
+    -- 'boardCoordState').
   , boardHasInvisible :: Bool
     -- ^ Whether any of the board's 'CoordState's are invisible.  This is an
     -- optimization to make it more efficient to set the board to "all visible."
@@ -201,13 +203,14 @@ boardHeight = rootInfoHeight . gameInfoRootInfo . boardGameInfo
 -- | Used by 'BoardState' to represent the state of a single point on the board.
 -- Records whether a stone is present, as well as annotations and visibility
 -- properties.
-data CoordState = CoordState { coordStar :: Bool
-                               -- ^ Whether this point is a star point.
-                             , coordStone :: Maybe Color
-                             , coordMark :: Maybe Mark
-                             , coordVisible :: Bool
-                             , coordDimmed :: Bool
-                             }
+data CoordState = CoordState
+  { coordStar :: Bool
+    -- ^ Whether this point is a star point.
+  , coordStone :: Maybe Color
+  , coordMark :: Maybe Mark
+  , coordVisible :: Bool
+  , coordDimmed :: Bool
+  }
 
 instance Show CoordState where
   show c = if not $ coordVisible c
@@ -227,19 +230,19 @@ instance Show CoordState where
 
 -- | Creates a 'BoardState' for an empty board of the given width and height.
 emptyBoardState :: Int -> Int -> BoardState
-emptyBoardState width height =
-  BoardState { boardCoordStates = coords
-             , boardHasInvisible = False
-             , boardHasDimmed = False
-             , boardArrows = []
-             , boardLines = []
-             , boardLabels = []
-             , boardMoveNumber = 0
-             , boardPlayerTurn = Black
-             , boardBlackCaptures = 0
-             , boardWhiteCaptures = 0
-             , boardGameInfo = emptyGameInfo rootInfo
-             }
+emptyBoardState width height = BoardState
+  { boardCoordStates = coords
+  , boardHasInvisible = False
+  , boardHasDimmed = False
+  , boardArrows = []
+  , boardLines = []
+  , boardLabels = []
+  , boardMoveNumber = 0
+  , boardPlayerTurn = Black
+  , boardBlackCaptures = 0
+  , boardWhiteCaptures = 0
+  , boardGameInfo = emptyGameInfo rootInfo
+  }
   where rootInfo = RootInfo { rootInfoWidth = width
                             , rootInfoHeight = height
                             , rootInfoVariationMode = defaultVariationMode
@@ -477,47 +480,49 @@ updateBoardForMove movedPlayer board =
 
 -- | A structure that configures how 'applyMove' should handle moves that are
 -- normally illegal in Go.
-data ApplyMoveParams = ApplyMoveParams { allowSuicide :: Bool
-                                         -- ^ If false, suicide will cause 'applyMove' to return
-                                         -- 'ApplyMoveSuicideError'.  If true, suicide will kill the
-                                         -- friendly group and give points to the opponent.
-                                       , allowOverwrite :: Bool
-                                         -- ^ If false, playing on an occupied point will cause
-                                         -- 'applyMove' to return 'ApplyMoveOverwriteError' with the
-                                         -- color of the stone occupying the point.  If true,
-                                         -- playing on an occupied point will overwrite the point
-                                         -- (the previous stone vanishes), then capture rules are
-                                         -- applied as normal.
-                                       } deriving (Show)
+data ApplyMoveParams = ApplyMoveParams
+  { allowSuicide :: Bool
+    -- ^ If false, suicide will cause 'applyMove' to return
+    -- 'ApplyMoveSuicideError'.  If true, suicide will kill the
+    -- friendly group and give points to the opponent.
+  , allowOverwrite :: Bool
+    -- ^ If false, playing on an occupied point will cause
+    -- 'applyMove' to return 'ApplyMoveOverwriteError' with the
+    -- color of the stone occupying the point.  If true,
+    -- playing on an occupied point will overwrite the point
+    -- (the previous stone vanishes), then capture rules are
+    -- applied as normal.
+  } deriving (Show)
 
 -- | As an argument to 'applyMove', causes illegal moves to be treated as
 -- errors.
 standardGoMoveParams :: ApplyMoveParams
-standardGoMoveParams = ApplyMoveParams { allowSuicide = False
-                                       , allowOverwrite = False
-                                       }
+standardGoMoveParams = ApplyMoveParams
+  { allowSuicide = False
+  , allowOverwrite = False
+  }
 
 -- | As an argument to 'applyMove', causes illegal moves to be played
 -- unconditionally.
 playTheDarnMoveGoParams :: ApplyMoveParams
-playTheDarnMoveGoParams = ApplyMoveParams { allowSuicide = True
-                                          , allowOverwrite = True
-                                          }
+playTheDarnMoveGoParams = ApplyMoveParams
+  { allowSuicide = True
+  , allowOverwrite = True
+  }
 
 -- | The possible results from 'applyMove'.
-data ApplyMoveResult = ApplyMoveOk BoardState
-                       -- ^ The move was accepted; playing it resulted in the
-                       -- given board without capture.
-                     | ApplyMoveCapture BoardState Color Int
-                       -- ^ The move was accepted; playing it resulted in the
-                       -- given board with a capture.  The specified side gained
-                       -- the number of points given.
-                     | ApplyMoveSuicideError
-                       -- ^ Playing the move would result in suicide, which is
-                       -- forbidden.
-                     | ApplyMoveOverwriteError Color
-                       -- ^ There is already a stone of the specified color on
-                       -- the target point, and overwriting is forbidden.
+data ApplyMoveResult =
+  ApplyMoveOk BoardState
+  -- ^ The move was accepted; playing it resulted in the given board without
+  -- capture.
+  | ApplyMoveCapture BoardState Color Int
+    -- ^ The move was accepted; playing it resulted in the given board with a
+    -- capture.  The specified side gained the number of points given.
+  | ApplyMoveSuicideError
+    -- ^ Playing the move would result in suicide, which is forbidden.
+  | ApplyMoveOverwriteError Color
+    -- ^ There is already a stone of the specified color on the target point,
+    -- and overwriting is forbidden.
 
 -- | If the 'ApplyMoveResult' represents a successful move, then the resulting
 -- 'BoardState' is returned, otherwise, the default 'BoardState' given is
@@ -536,10 +541,11 @@ getApplyMoveResult' result = case result of
 
 -- | Internal data structure, only for move application code.  Represents a
 -- group of stones.
-data ApplyMoveGroup = ApplyMoveGroup { applyMoveGroupOrigin :: Coord
-                                     , applyMoveGroupCoords :: [Coord]
-                                     , applyMoveGroupLiberties :: Int
-                                     } deriving (Show)
+data ApplyMoveGroup = ApplyMoveGroup
+  { applyMoveGroupOrigin :: Coord
+  , applyMoveGroupCoords :: [Coord]
+  , applyMoveGroupLiberties :: Int
+  } deriving (Show)
 
 -- | Places a stone of a color at a point on a board, and runs move validation
 -- and capturing logic according to the given parameters.  Returns whether the

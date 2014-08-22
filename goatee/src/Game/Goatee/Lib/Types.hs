@@ -105,8 +105,8 @@ type Coord = (Int, Int)
 --
 -- 2. For a rectangle @((x0,y0), (x1,y1))@, @x0 <= x1@ and @y0 <= y1@ and
 -- @(x0,y0) /= (x1,y1)@ (otherwise the point belongs in the singles list).
-data CoordList = CoordList {
-  coordListSingles :: [Coord]
+data CoordList = CoordList
+  { coordListSingles :: [Coord]
   -- ^ Returns the single points in a 'CoordList'.
   , coordListRects :: [(Coord, Coord)]
     -- ^ Returns the rectangles in a 'CoordList'.
@@ -241,8 +241,8 @@ isStarPoint width height x y =
 -- point along an axis, 1 indicates the second, and 2 indicates the third, in
 -- the normal 'Coord' ordering.
 handicapStoneIndices :: [[(Int, Int)]]
-handicapStoneIndices = [
-  []
+handicapStoneIndices =
+  [ []
   , []  -- No single handicap stone for Black; black goes first instead.
   , [(2,0), (0,2)]
   , (2,2) : handicapStoneIndices !! 2
@@ -299,10 +299,10 @@ convertStringlike :: (Stringlike a, Stringlike b) => a -> b
 convertStringlike = stringToSgf . sgfToString
 
 -- | An SGF text value.
-newtype Text = Text { fromText :: String
-                      -- ^ Converts an SGF 'Text' to a string.
-                    }
-             deriving (Eq, Show)
+newtype Text = Text
+  { fromText :: String
+    -- ^ Converts an SGF 'Text' to a string.
+  } deriving (Eq, Show)
 
 instance Stringlike Text where
   sgfToString = fromText
@@ -313,10 +313,10 @@ toText :: String -> Text
 toText = Text
 
 -- | An SGF SimpleText value.
-newtype SimpleText = SimpleText { fromSimpleText :: String
-                                  -- ^ Converts an SGF 'SimpleText' to a string.
-                                }
-                   deriving (Eq, Show)
+newtype SimpleText = SimpleText
+  { fromSimpleText :: String
+    -- ^ Converts an SGF 'SimpleText' to a string.
+  } deriving (Eq, Show)
 
 instance Stringlike SimpleText where
   sgfToString = fromSimpleText
@@ -332,10 +332,10 @@ toSimpleText = SimpleText . sanitizeSimpleText
 
 -- | The value type for an 'UnknownProperty'.  Currently represented as a
 -- string.
-data UnknownPropertyValue = UnknownPropertyValue {
-  fromUnknownPropertyValue :: String
-  -- ^ Returns the string contained within the 'UnknownProperty' this value is
-  -- from.
+data UnknownPropertyValue = UnknownPropertyValue
+  { fromUnknownPropertyValue :: String
+    -- ^ Returns the string contained within the 'UnknownProperty' this value is
+    -- from.
   } deriving (Eq, Show)
 
 instance Stringlike UnknownPropertyValue where
@@ -367,9 +367,9 @@ cnot White = Black
 
 -- | SGF flags that control how move variations are to be presented while
 -- displaying the game.
-data VariationMode = VariationMode {
-  variationModeSource :: VariationModeSource
-  -- ^ Which moves to display as variations.
+data VariationMode = VariationMode
+  { variationModeSource :: VariationModeSource
+    -- ^ Which moves to display as variations.
   , variationModeBoardMarkup :: Bool
     -- ^ Whether to overlay variations on the board.
   } deriving (Eq, Show)

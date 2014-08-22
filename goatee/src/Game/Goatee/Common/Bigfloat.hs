@@ -44,8 +44,8 @@ import Prelude hiding (exponent, significand)
 -- Similarly, the 'Read' instance accepts numbers matching the regex
 -- @-?\\d+(\\.\\d+)?(e-?\\d+)?@.  Scientific exponent notation is supported for
 -- reading, for ease of converting 'Double's to 'Bigfloat's.
-data Bigfloat = Bigfloat {
-  significand :: !Integer
+data Bigfloat = Bigfloat
+  { significand :: !Integer
   , exponent :: !Int
   }
 

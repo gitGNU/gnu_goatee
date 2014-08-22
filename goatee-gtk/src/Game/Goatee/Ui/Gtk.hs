@@ -82,8 +82,8 @@ import System.IO (hPutStrLn, stderr)
 
 -- | A structure for holding global application information about all open
 -- boards.
-data AppState = AppState {
-  appControllers :: MVar (Map CtrlId AnyUiCtrl)
+data AppState = AppState
+  { appControllers :: MVar (Map CtrlId AnyUiCtrl)
   -- ^ Maps all of the open boards' controllers by their IDs.
   }
 

@@ -55,25 +55,26 @@ import Game.Goatee.Lib.Types
 
 -- | The internal state of a Go monad transformer.  @go@ is the type of
 -- Go monad or transformer (instance of 'GoMonad').
-data GoState go = GoState { stateCursor :: Cursor
-                            -- ^ The current position in the game tree.
-                          , statePathStack :: PathStack
-                            -- ^ The current path stack.
+data GoState go = GoState
+  { stateCursor :: Cursor
+    -- ^ The current position in the game tree.
+  , statePathStack :: PathStack
+    -- ^ The current path stack.
 
-                          -- Event handlers.
-                          , stateChildAddedHandlers :: [ChildAddedHandler go]
-                            -- ^ Handlers for 'childAddedEvent'.
-                          , stateChildDeletedHandlers :: [ChildDeletedHandler go]
-                            -- ^ Handlers for 'childDeletedEvent'.
-                          , stateGameInfoChangedHandlers :: [GameInfoChangedHandler go]
-                            -- ^ Handlers for 'gameInfoChangedEvent'.
-                          , stateNavigationHandlers :: [NavigationHandler go]
-                            -- ^ Handlers for 'navigationEvent'.
-                          , statePropertiesModifiedHandlers :: [PropertiesModifiedHandler go]
-                            -- ^ Handlers for 'propertiesModifiedEvent'.
-                          , stateVariationModeChangedHandlers :: [VariationModeChangedHandler go]
-                            -- ^ Handlers for 'variationModeChangedEvent'.
-                          }
+    -- Event handlers.
+  , stateChildAddedHandlers :: [ChildAddedHandler go]
+    -- ^ Handlers for 'childAddedEvent'.
+  , stateChildDeletedHandlers :: [ChildDeletedHandler go]
+    -- ^ Handlers for 'childDeletedEvent'.
+  , stateGameInfoChangedHandlers :: [GameInfoChangedHandler go]
+    -- ^ Handlers for 'gameInfoChangedEvent'.
+  , stateNavigationHandlers :: [NavigationHandler go]
+    -- ^ Handlers for 'navigationEvent'.
+  , statePropertiesModifiedHandlers :: [PropertiesModifiedHandler go]
+    -- ^ Handlers for 'propertiesModifiedEvent'.
+  , stateVariationModeChangedHandlers :: [VariationModeChangedHandler go]
+    -- ^ Handlers for 'variationModeChangedEvent'.
+  }
 
 -- | A path stack is a record of previous places visited in a game tree.  It is
 -- encoded a list of paths (steps) to each previous memorized position.
@@ -97,11 +98,12 @@ initialState cursor = GoState { stateCursor = cursor
                               }
 
 -- | A single step along a game tree.  Either up or down.
-data Step = GoUp Int
-            -- ^ Represents a step up from a child with the given index.
-          | GoDown Int
-            -- ^ Represents a step down to the child with the given index.
-          deriving (Eq, Show)
+data Step =
+  GoUp Int
+  -- ^ Represents a step up from a child with the given index.
+  | GoDown Int
+    -- ^ Represents a step down to the child with the given index.
+  deriving (Eq, Show)
 
 -- | Reverses a step, such that taking a step then it's reverse will leave you
 -- where you started.
@@ -667,8 +669,8 @@ fire event handlerGenerator = do
 -- 'Step' associated with a 'navigationEvent'.
 --
 -- The 'Eq', 'Ord', and 'Show' instances use events' names, via 'eventName'.
-data Event go h = Event {
-  eventName :: String
+data Event go h = Event
+  { eventName :: String
   , eventStateGetter :: GoState go -> [h]
   , eventStateSetter :: [h] -> GoState go -> GoState go
   , eventHandlerFromAction :: go () -> h
@@ -702,8 +704,8 @@ addHandler event handler state =
 
 -- | An event corresponding to a child node being added to the current node.
 childAddedEvent :: Event go (ChildAddedHandler go)
-childAddedEvent = Event {
-  eventName = "childAddedEvent"
+childAddedEvent = Event
+  { eventName = "childAddedEvent"
   , eventStateGetter = stateChildAddedHandlers
   , eventStateSetter = \handlers state -> state { stateChildAddedHandlers = handlers }
   , eventHandlerFromAction = const
@@ -716,8 +718,8 @@ type ChildAddedHandler go = Int -> go ()
 -- | An event corresponding to the deletion of one of the current node's
 -- children.
 childDeletedEvent :: Event go (ChildDeletedHandler go)
-childDeletedEvent = Event {
-  eventName = "childDeletedEvent"
+childDeletedEvent = Event
+  { eventName = "childDeletedEvent"
   , eventStateGetter = stateChildDeletedHandlers
   , eventStateSetter = \handlers state -> state { stateChildDeletedHandlers = handlers }
   , eventHandlerFromAction = const
@@ -731,8 +733,8 @@ type ChildDeletedHandler go = Cursor -> go ()
 -- navigating past a node with game info properties, or by modifying the current
 -- game info properties.
 gameInfoChangedEvent :: Event go (GameInfoChangedHandler go)
-gameInfoChangedEvent = Event {
-  eventName = "gameInfoChangedEvent"
+gameInfoChangedEvent = Event
+  { eventName = "gameInfoChangedEvent"
   , eventStateGetter = stateGameInfoChangedHandlers
   , eventStateSetter = \handlers state -> state { stateGameInfoChangedHandlers = handlers }
   , eventHandlerFromAction = const . const
@@ -745,8 +747,8 @@ type GameInfoChangedHandler go = GameInfo -> GameInfo -> go ()
 -- | An event that is fired when a single step up or down in a game tree is
 -- made.
 navigationEvent :: Event go (NavigationHandler go)
-navigationEvent = Event {
-  eventName = "navigationEvent"
+navigationEvent = Event
+  { eventName = "navigationEvent"
   , eventStateGetter = stateNavigationHandlers
   , eventStateSetter = \handlers state -> state { stateNavigationHandlers = handlers }
   , eventHandlerFromAction = const
@@ -761,8 +763,8 @@ type NavigationHandler go = Step -> go ()
 -- | An event corresponding to a modification to the properties list of the
 -- current node.
 propertiesModifiedEvent :: Event go (PropertiesModifiedHandler go)
-propertiesModifiedEvent = Event {
-  eventName = "propertiesModifiedEvent"
+propertiesModifiedEvent = Event
+  { eventName = "propertiesModifiedEvent"
   , eventStateGetter = statePropertiesModifiedHandlers
   , eventStateSetter = \handlers state -> state { statePropertiesModifiedHandlers = handlers }
   , eventHandlerFromAction = const . const
@@ -776,8 +778,8 @@ type PropertiesModifiedHandler go = [Property] -> [Property] -> go ()
 -- happen when modifying the 'ST' property, and also when navigating between
 -- collections (as they have different root nodes).
 variationModeChangedEvent :: Event go (VariationModeChangedHandler go)
-variationModeChangedEvent = Event {
-  eventName = "variationModeChangedEvent"
+variationModeChangedEvent = Event
+  { eventName = "variationModeChangedEvent"
   , eventStateGetter = stateVariationModeChangedHandlers
   , eventStateSetter = \handlers state -> state { stateVariationModeChangedHandlers = handlers }
   , eventHandlerFromAction = const . const

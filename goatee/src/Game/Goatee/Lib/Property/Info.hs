@@ -137,8 +137,8 @@ propertyUnknown name =
   (UnknownProperty name)
 
 allDescriptors :: [SomeDescriptor]
-allDescriptors = [
-  SomeDescriptor propertyB
+allDescriptors =
+  [ SomeDescriptor propertyB
   , SomeDescriptor propertyKO
   , SomeDescriptor propertyMN
   , SomeDescriptor propertyW

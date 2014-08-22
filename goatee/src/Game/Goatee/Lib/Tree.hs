@@ -38,12 +38,13 @@ import Game.Goatee.Lib.Types
 import Paths_goatee (version)
 
 -- | An SGF collection of game trees.
-data Collection = Collection { collectionTrees :: [Node]
-                             } deriving (Show)
+data Collection = Collection
+  { collectionTrees :: [Node]
+  } deriving (Show)
 
 -- | See 'NodeWithDeepEquality'.
-newtype CollectionWithDeepEquality = CollectionWithDeepEquality {
-  collectionWithDeepEquality :: Collection
+newtype CollectionWithDeepEquality = CollectionWithDeepEquality
+  { collectionWithDeepEquality :: Collection
   } deriving (Show)
 
 instance Eq CollectionWithDeepEquality where
@@ -52,9 +53,10 @@ instance Eq CollectionWithDeepEquality where
 -- | An SGF game tree node.  Unlike in the SGF spec, we represent a game tree
 -- with nodes uniformly, rather than having the separation between sequences and
 -- nodes.
-data Node = Node { nodeProperties :: [Property]
-                 , nodeChildren :: [Node]
-                 } deriving (Show)
+data Node = Node
+  { nodeProperties :: [Property]
+  , nodeChildren :: [Node]
+  } deriving (Show)
 
 -- | A wrapper around 'Node' with an 'Eq' instance that considers two nodes
 -- equal iff they contain the same properties (not necessarily in the same

@@ -200,9 +200,9 @@ class (Descriptor a, Eq v) => ValuedDescriptor a v | a -> v where
 
 -- | Metadata for a property that does not contain a value.  Corresponds to a
 -- single nullary data constructor of 'Property'.
-data PropertyInfo = PropertyInfo {
-  propertyInfoName :: String
-  -- ^ The SGF textual name for the property.
+data PropertyInfo = PropertyInfo
+  { propertyInfoName :: String
+    -- ^ The SGF textual name for the property.
   , propertyInfoInstance :: Property
     -- ^ The single instance of the property.
   , propertyInfoType :: PropertyType
@@ -222,10 +222,10 @@ instance Descriptor PropertyInfo where
 
 -- | Metadata for a property that contains a value.  Corresponds to a single
 -- unary data constructor of 'Property'.
-data ValuedPropertyInfo v = ValuedPropertyInfo {
-  valuedPropertyInfoName :: String
-  -- ^ The SGF textual name for the property (also the name of the data
-  -- constructor).
+data ValuedPropertyInfo v = ValuedPropertyInfo
+  { valuedPropertyInfoName :: String
+    -- ^ The SGF textual name for the property (also the name of the data
+    -- constructor).
   , valuedPropertyInfoType :: PropertyType
     -- ^ The SGF property type.
   , valuedPropertyInfoInherited :: Bool

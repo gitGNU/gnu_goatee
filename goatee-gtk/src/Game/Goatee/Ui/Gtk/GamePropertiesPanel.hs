@@ -221,8 +221,8 @@ create ui = do
 
   state <- viewStateNew
 
-  let me = GamePropertiesPanel {
-        myUi = ui
+  let me = GamePropertiesPanel
+        { myUi = ui
         , myState = state
         , myWidget = toWidget scroll
 

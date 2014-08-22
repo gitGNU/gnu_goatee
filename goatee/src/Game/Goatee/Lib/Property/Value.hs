@@ -46,134 +46,134 @@ import Game.Goatee.Lib.Renderer
 import Game.Goatee.Lib.Types
 import Text.ParserCombinators.Parsec (Parser)
 
-data PropertyValueType a = PropertyValueType {
-  pvtParser :: Parser a
+data PropertyValueType a = PropertyValueType
+  { pvtParser :: Parser a
   , pvtRenderer :: a -> Render ()
   , pvtRendererPretty :: a -> Render ()
   }
 
 colorPvt :: PropertyValueType Color
-colorPvt = PropertyValueType {
-  pvtParser = P.colorParser
+colorPvt = PropertyValueType
+  { pvtParser = P.colorParser
   , pvtRenderer = R.renderColorBracketed
   , pvtRendererPretty = R.renderColorPretty
   }
 
 coordElistPvt :: PropertyValueType CoordList
-coordElistPvt = PropertyValueType {
-  pvtParser = P.coordElistParser
+coordElistPvt = PropertyValueType
+  { pvtParser = P.coordElistParser
   , pvtRenderer = R.renderCoordElistBracketed
   , pvtRendererPretty = R.renderCoordElistPretty
   }
 
 coordListPvt :: PropertyValueType CoordList
-coordListPvt = PropertyValueType {
-  pvtParser = P.coordListParser
+coordListPvt = PropertyValueType
+  { pvtParser = P.coordListParser
   , pvtRenderer = R.renderCoordListBracketed
   , pvtRendererPretty = R.renderCoordListPretty
   }
 
 coordPairListPvt :: PropertyValueType [(Coord, Coord)]
-coordPairListPvt = PropertyValueType {
-  pvtParser = P.coordPairListParser
+coordPairListPvt = PropertyValueType
+  { pvtParser = P.coordPairListParser
   , pvtRenderer = R.renderCoordPairListBracketed
   , pvtRendererPretty = R.renderCoordPairListPretty
   }
 
 doublePvt :: PropertyValueType DoubleValue
-doublePvt = PropertyValueType {
-  pvtParser = P.doubleParser
+doublePvt = PropertyValueType
+  { pvtParser = P.doubleParser
   , pvtRenderer = R.renderDoubleBracketed
   , pvtRendererPretty = R.renderDoublePretty
   }
 
 gameResultPvt :: PropertyValueType GameResult
-gameResultPvt = PropertyValueType {
-  pvtParser = P.gameResultParser
+gameResultPvt = PropertyValueType
+  { pvtParser = P.gameResultParser
   , pvtRenderer = R.renderGameResultBracketed
   , pvtRendererPretty = R.renderGameResultPretty
   }
 
 integralPvt :: (Integral a, Read a, Show a) => PropertyValueType a
-integralPvt = PropertyValueType {
-  pvtParser = P.integralParser
+integralPvt = PropertyValueType
+  { pvtParser = P.integralParser
   , pvtRenderer = R.renderIntegralBracketed
   , pvtRendererPretty = R.renderIntegralPretty
   }
 
 labelListPvt :: PropertyValueType [(Coord, SimpleText)]
-labelListPvt = PropertyValueType {
-  pvtParser = P.labelListParser
+labelListPvt = PropertyValueType
+  { pvtParser = P.labelListParser
   , pvtRenderer = R.renderLabelListBracketed
   , pvtRendererPretty = R.renderLabelListPretty
   }
 
 movePvt :: PropertyValueType (Maybe Coord)
-movePvt = PropertyValueType {
-  pvtParser = P.moveParser
+movePvt = PropertyValueType
+  { pvtParser = P.moveParser
   , pvtRenderer = R.renderMoveBracketed
   , pvtRendererPretty = R.renderMovePretty
   }
 
 nonePvt :: PropertyValueType ()
-nonePvt = PropertyValueType {
-  pvtParser = P.noneParser
+nonePvt = PropertyValueType
+  { pvtParser = P.noneParser
   , pvtRenderer = R.renderNoneBracketed
   , pvtRendererPretty = R.renderNonePretty
   }
 
 realPvt :: PropertyValueType RealValue
-realPvt = PropertyValueType {
-  pvtParser = P.realParser
+realPvt = PropertyValueType
+  { pvtParser = P.realParser
   , pvtRenderer = R.renderRealBracketed
   , pvtRendererPretty = R.renderRealPretty
   }
 
 rulesetPvt :: PropertyValueType Ruleset
-rulesetPvt = PropertyValueType {
-  pvtParser = P.rulesetParser
+rulesetPvt = PropertyValueType
+  { pvtParser = P.rulesetParser
   , pvtRenderer = R.renderRulesetBracketed
   , pvtRendererPretty = R.renderRulesetPretty
   }
 
 simpleTextPairPvt :: PropertyValueType (SimpleText, SimpleText)
-simpleTextPairPvt = PropertyValueType {
-  pvtParser = P.simpleTextPairParser
+simpleTextPairPvt = PropertyValueType
+  { pvtParser = P.simpleTextPairParser
   , pvtRenderer = R.renderSimpleTextPairBracketed
   , pvtRendererPretty = R.renderSimpleTextPairPretty
   }
 
 simpleTextPvt :: PropertyValueType SimpleText
-simpleTextPvt = PropertyValueType {
-  pvtParser = P.simpleTextParser
+simpleTextPvt = PropertyValueType
+  { pvtParser = P.simpleTextParser
   , pvtRenderer = R.renderSimpleTextBracketed
   , pvtRendererPretty = R.renderSimpleTextPretty
   }
 
 sizePvt :: PropertyValueType (Int, Int)
-sizePvt = PropertyValueType {
-  pvtParser = P.sizeParser
+sizePvt = PropertyValueType
+  { pvtParser = P.sizeParser
   , pvtRenderer = R.renderSizeBracketed
   , pvtRendererPretty = R.renderSizePretty
   }
 
 textPvt :: PropertyValueType Text
-textPvt = PropertyValueType {
-  pvtParser = P.textParser
+textPvt = PropertyValueType
+  { pvtParser = P.textParser
   , pvtRenderer = R.renderTextBracketed
   , pvtRendererPretty = R.renderTextPretty
   }
 
 unknownPropertyPvt :: PropertyValueType UnknownPropertyValue
-unknownPropertyPvt = PropertyValueType {
-  pvtParser = P.unknownPropertyParser
+unknownPropertyPvt = PropertyValueType
+  { pvtParser = P.unknownPropertyParser
   , pvtRenderer = R.renderUnknownPropertyBracketed
   , pvtRendererPretty = R.renderUnknownPropertyPretty
   }
 
 variationModePvt :: PropertyValueType VariationMode
-variationModePvt = PropertyValueType {
-  pvtParser = P.variationModeParser
+variationModePvt = PropertyValueType
+  { pvtParser = P.variationModeParser
   , pvtRenderer = R.renderVariationModeBracketed
   , pvtRendererPretty = R.renderVariationModePretty
   }
