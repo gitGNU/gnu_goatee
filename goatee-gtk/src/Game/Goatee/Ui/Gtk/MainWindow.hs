@@ -30,7 +30,7 @@ import Control.Monad.Trans (liftIO)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (intersperse)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe)
 import Game.Goatee.Ui.Gtk.Common
 import qualified Game.Goatee.Ui.Gtk.Actions as Actions
 import Game.Goatee.Ui.Gtk.Actions (Actions)
@@ -168,14 +168,18 @@ create ui = do
                     toolSep <- separatorToolItemNew
                     containerAdd menuToolMenu menuSep
                     containerAdd toolbar toolSep) $
+    catMaybes $
     flip map toolOrdering $ \toolGroup ->
-    forM_ toolGroup $ \tool -> do
-      action <- fromMaybe (error $ "Tool has no action: " ++ show tool) <$>
-                actionGroupGetAction (Actions.myToolActions actions) (show tool)
-      menuItem <- actionCreateMenuItem action
-      toolItem <- actionCreateToolItem action
-      containerAdd menuToolMenu menuItem
-      containerAdd toolbar toolItem
+    let supportedTools = filter toolIsImplemented toolGroup
+    in if null supportedTools
+       then Nothing
+       else Just $ forM_ supportedTools $ \tool -> do
+         action <- fromMaybe (error $ "Tool has no action: " ++ show tool) <$>
+                   actionGroupGetAction (Actions.myToolActions actions) (show tool)
+         menuItem <- actionCreateMenuItem action
+         toolItem <- actionCreateToolItem action
+         containerAdd menuToolMenu menuItem
+         containerAdd toolbar toolItem
 
   menuView <- menuItemNewWithMnemonic "_View"
   menuViewMenu <- menuNew

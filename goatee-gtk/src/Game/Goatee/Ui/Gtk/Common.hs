@@ -45,6 +45,7 @@ module Game.Goatee.Ui.Gtk.Common (
   initialTool,
   toolOrdering,
   toolLabel,
+  toolIsImplemented,
   toolToColor,
   fileFiltersForSgf,
   ) where
@@ -479,6 +480,25 @@ toolLabel tool = case tool of
   ToolMarkTriangle -> "Mark triangles"
   ToolVisible -> "Toggle points visible"
   ToolDim -> "Toggle points dimmed"
+
+-- | Returns true if the tool is implemented and should be available in the UI,
+-- and false if the tool is not implemented and should not be offered to the
+-- user.
+--
+-- Eventually, this function should be removed.
+toolIsImplemented :: Tool -> Bool
+toolIsImplemented tool = case tool of
+  ToolJump -> False
+  ToolScore -> False
+  ToolBlack -> False
+  ToolWhite -> False
+  ToolErase -> False
+  ToolArrow -> False
+  ToolLabel -> False
+  ToolLine -> False
+  ToolVisible -> False
+  ToolDim -> False
+  _ -> True
 
 -- | Converts 'ToolBlack' and 'ToolWhite' into 'Color's.  Does not accept any
 -- other tools.
