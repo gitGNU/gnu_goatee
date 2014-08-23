@@ -6,11 +6,9 @@ Website: http://khumba.net/projects/goatee
 
 Goatee is a Go library and game editor, written in Haskell.  It provides a GUI
 for recording, studying, and editing game records.  Underneath this is a
-portable library for manipulating SGF files, to build UIs and tools.
-
-Goatee, the library and GUI, aims to be full-featured, supporting all of the SGF
-spec and allowing for full customization of the game records you create.
-Currently it is in an alpha stage, supporting basic game viewing and editing.
+portable library for manipulating SGF files, to build UIs and tools.  Goatee
+aims to be full-featured, supporting all of the SGF spec and allowing for full
+customization of the game records you create.
 
 This repository contains three Cabal projects:
 
@@ -44,4 +42,4 @@ To build one of the UIs, the recommended method is to use Cabal sandboxes:
   $ cd goatee.git/goatee-gtk
   $ cabal sandbox init
   $ cabal install ../goatee
-  $ cabal configure --enable-tests && cabal build
+  $ cabal configure --enable-tests && cabal run
