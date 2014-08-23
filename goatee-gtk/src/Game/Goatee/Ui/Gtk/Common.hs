@@ -192,7 +192,17 @@ class MonadUiGo go => UiCtrl go ui | ui -> go where
   openBoard :: Maybe ui -> Maybe FilePath -> Node -> IO ui
 
   openNewBoard :: Maybe ui -> Maybe (Int, Int) -> IO ui
-  openNewBoard ui = openBoard ui Nothing . rootNode
+  openNewBoard ui =
+    openBoard ui Nothing .
+
+    -- Show variations of the current move rather than child variations by
+    -- default.  The GTK+ UI always renders child variations when told to, even
+    -- when there's only a single child, so this puts less noise on the board.
+    cursorNode .
+    execGo (modifyVariationMode $ const $ VariationMode ShowCurrentVariations True) .
+    rootCursor .
+
+    rootNode
 
   openFile :: Maybe ui -> FilePath -> IO (Either String ui)
   openFile ui file = do
