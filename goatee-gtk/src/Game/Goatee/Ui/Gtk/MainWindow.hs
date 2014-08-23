@@ -59,7 +59,7 @@ import Graphics.UI.Gtk (
   menuBarNew, menuItemNewWithMnemonic, menuItemSetSubmenu, menuNew, menuShellAppend,
   notebookAppendPage, notebookNew,
   on,
-  panedAdd1, panedAdd2, panedSetPosition,
+  panedPack1, panedPack2, panedSetPosition,
   separatorMenuItemNew, separatorToolItemNew,
   toAction,
   toolbarNew,
@@ -219,10 +219,10 @@ create ui = do
   panedSetPosition hPaned 400 -- (truncate (fromIntegral hPanedMax * 0.8))
 
   goban <- Goban.create ui
-  panedAdd1 hPaned $ Goban.myWidget goban
+  panedPack1 hPaned (Goban.myWidget goban) True True
 
   controlsBook <- notebookNew
-  panedAdd2 hPaned controlsBook
+  panedPack2 hPaned controlsBook False True
 
   playPanel <- PlayPanel.create ui actions
   gamePropertiesPanel <- GamePropertiesPanel.create ui
