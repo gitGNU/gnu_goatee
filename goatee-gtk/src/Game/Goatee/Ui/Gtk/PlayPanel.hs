@@ -22,8 +22,14 @@ module Game.Goatee.Ui.Gtk.PlayPanel (
   myWidget,
   ) where
 
+import Control.Applicative ((<$>))
+import Control.Monad (void)
+import Game.Goatee.Common
 import Game.Goatee.Lib.Board
-import Game.Goatee.Lib.Monad hiding (on)
+import qualified Game.Goatee.Lib.Monad as Monad
+import Game.Goatee.Lib.Monad (
+  AnyEvent (..), getCursor, modifyPropertyString, navigationEvent, propertiesModifiedEvent,
+  )
 import Game.Goatee.Lib.Property
 import Game.Goatee.Lib.Tree
 import Game.Goatee.Lib.Types
@@ -41,6 +47,7 @@ import Graphics.UI.Gtk (
   boxPackStart,
   buttonActivated, buttonNewWithLabel,
   containerAdd,
+  hBoxNew,
   on,
   scrolledWindowNew, scrolledWindowSetPolicy,
   textViewNew, textViewSetWrapMode,
@@ -65,6 +72,20 @@ instance UiCtrl go ui => UiView go ui (PlayPanel ui) where
 create :: UiCtrl go ui => ui -> Actions ui -> IO (PlayPanel ui)
 create ui actions = do
   box <- vBoxNew False 0
+
+  navBox <- hBoxNew True 0
+  boxPackStart box navBox PackNatural 0
+  startButton <- buttonNewWithLabel "<<"
+  prevButton <- buttonNewWithLabel "<"
+  nextButton <- buttonNewWithLabel ">"
+  endButton <- buttonNewWithLabel ">>"
+  mapM_ (\b -> boxPackStart navBox b PackGrow 0)
+    [startButton, prevButton, nextButton, endButton]
+  on startButton buttonActivated $ doUiGo ui Monad.goToRoot
+  on prevButton buttonActivated $ void $ goUp ui
+  on nextButton buttonActivated $ void $ goDown ui 0
+  on endButton buttonActivated $ doUiGo ui $
+    whileM ((> 0) . length . cursorChildren <$> getCursor) $ Monad.goDown 0
 
   passButton <- buttonNewWithLabel "Pass"
   boxPackStart box passButton PackNatural 0
