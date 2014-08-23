@@ -29,7 +29,7 @@ import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
 import Data.Map (Map)
-import Data.Maybe (fromJust, isJust)
+import Data.Maybe (fromJust, fromMaybe, isJust)
 import Data.Tree (drawTree, unfoldTree)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board hiding (isValidMove)
@@ -75,6 +75,7 @@ import Graphics.UI.Gtk (
   Widget,
   buttonPressEvent,
   drawingAreaNew,
+  drawWindowGetPointerPos,
   eventCoordinates, eventKeyName, eventModifier,
   exposeEvent,
   keyPressEvent,
@@ -185,6 +186,9 @@ data Goban ui = Goban
   , myState :: ViewState
   , myWidget :: Widget
   , myDrawingArea :: DrawingArea
+  , myHoverStateRef :: IORef (Maybe HoverState)
+    -- ^ A reference to the cached current hover state.  Read with
+    -- 'readHoverState' to ensure you get a 'HoverState'.
   , myModesChangedHandler :: IORef (Maybe Registration)
   }
 
@@ -215,9 +219,9 @@ data RenderedCoord = RenderedCoord
 -- | Creates a 'Goban' for rendering Go boards of the given size.
 create :: UiCtrl go ui => ui -> IO (Goban ui)
 create ui = do
-  hoverStateRef <- newIORef HoverState { hoverCoord = Nothing
-                                       , hoverIsValidMove = False
-                                       }
+  hoverStateRef <- newIORef $ Just HoverState { hoverCoord = Nothing
+                                              , hoverIsValidMove = False
+                                              }
 
   drawingArea <- drawingAreaNew
   widgetSetCanFocus drawingArea True
@@ -225,17 +229,28 @@ create ui = do
                                ButtonPressMask,
                                PointerMotionMask]
 
+  state <- viewStateNew
+  modesChangedHandler <- newIORef Nothing
+
+  let me = Goban { myUi = ui
+                 , myState = state
+                 , myWidget = toWidget drawingArea
+                 , myDrawingArea = drawingArea
+                 , myHoverStateRef = hoverStateRef
+                 , myModesChangedHandler = modesChangedHandler
+                 }
+
   on drawingArea exposeEvent $ liftIO $ do
-    drawBoard ui hoverStateRef drawingArea
+    drawBoard me
     return True
 
   on drawingArea motionNotifyEvent $ do
     mouseCoord <- fmap Just eventCoordinates
-    liftIO $ handleMouseMove ui hoverStateRef drawingArea mouseCoord
+    liftIO $ handleMouseMove me mouseCoord
     return True
 
   on drawingArea leaveNotifyEvent $ do
-    liftIO $ handleMouseMove ui hoverStateRef drawingArea Nothing
+    liftIO $ handleMouseMove me Nothing
     return True
 
   on drawingArea buttonPressEvent $ do
@@ -266,16 +281,6 @@ create ui = do
              (show $ nodeProperties node, nodeChildren node)
            return True)]
 
-  state <- viewStateNew
-  modesChangedHandler <- newIORef Nothing
-
-  let me = Goban { myUi = ui
-                 , myState = state
-                 , myWidget = toWidget drawingArea
-                 , myDrawingArea = drawingArea
-                 , myModesChangedHandler = modesChangedHandler
-                 }
-
   initialize me
   return me
 
@@ -292,7 +297,7 @@ initialize me = do
     liftM Just (registerModesChangedHandler ui "Goban" $ \_ _ -> update me)
   -- TODO Need to update the hover state's validity on cursor and tool (mode?)
   -- changes.
-  update me
+  --update me
 
 destroy :: UiCtrl go ui => Goban ui -> IO ()
 destroy me = do
@@ -301,23 +306,25 @@ destroy me = do
   viewDestroy me
 
 update :: UiCtrl go ui => Goban ui -> IO ()
-update = widgetQueueDraw . myDrawingArea
+update me = do
+  invalidateHoverState me
+  widgetQueueDraw $ myDrawingArea me
 
 -- | Called when the mouse is moved.  Updates the 'HoverState' according to the
 -- new mouse location, and redraws the board if necessary.
 handleMouseMove :: UiCtrl go ui
-                => ui
-                -> IORef HoverState
-                -> DrawingArea
+                => Goban ui
                 -> Maybe (Double, Double)
                 -> IO ()
-handleMouseMove ui hoverStateRef drawingArea maybeClickCoord = do
+handleMouseMove me maybeClickCoord = do
+  let ui = myUi me
+      drawingArea = myDrawingArea me
   maybeXy <- case maybeClickCoord of
     Nothing -> return Nothing
     Just (mouseX, mouseY) -> do
       board <- fmap cursorBoard (readCursor ui)
       gtkToBoardCoordinates board drawingArea mouseX mouseY
-  updateHoverPosition ui hoverStateRef maybeXy >>= flip when
+  updateHoverState me maybeXy >>= flip when
     (widgetQueueDraw drawingArea)
 
 -- | Applies the current tool at the given GTK coordinate, if such an action is
@@ -345,20 +352,47 @@ doToolAtPoint ui drawingArea (mouseX, mouseY) = do
           Just existingMark | existingMark == mark -> Nothing
           _ -> Just mark
 
--- | Updates the hover state for the mouse having moved to the given board
--- coordinate.  Returns true if the board coordinate has changed.
-updateHoverPosition :: UiCtrl go ui => ui -> IORef HoverState -> Maybe Coord -> IO Bool
-updateHoverPosition ui hoverStateRef maybeXy = do
+-- | Reads the cached hover state, building a new one only if the cache is
+-- empty.
+readHoverState :: UiCtrl go ui => Goban ui -> IO HoverState
+readHoverState me = do
+  let ref = myHoverStateRef me
+  hoverState <- readIORef ref
+  case hoverState of
+    Just state -> return state
+    Nothing -> do updateHoverStateCurrent me
+                  fromMaybe (error "Goban.readHoverState") <$> readIORef ref
+
+-- | Clears the cached hover state.
+invalidateHoverState :: Goban ui -> IO ()
+invalidateHoverState me = writeIORef (myHoverStateRef me) Nothing
+
+-- | If the mouse has moved or the hover state is nothing, then this updates the
+-- hover state based on the mouse being at the given board coordinate (see
+-- 'gtkToBoardCoordinates'), and returns true.  Returns false if no update was
+-- needed.
+updateHoverState :: UiCtrl go ui => Goban ui -> Maybe Coord -> IO Bool
+updateHoverState me maybeXy = do
+  let ui = myUi me
+      hoverStateRef = myHoverStateRef me
   hoverState <- readIORef hoverStateRef
-  if maybeXy == hoverCoord hoverState
-    then return False
-    else do valid <- case maybeXy of
-              Nothing -> return False
-              Just xy -> isValidMove ui xy
-            writeIORef hoverStateRef HoverState { hoverCoord = maybeXy
-                                                , hoverIsValidMove = valid
-                                                }
-            return True
+  case hoverState of
+    Just state | hoverCoord state == maybeXy -> return False
+    _ -> do
+      valid <- case maybeXy of
+        Nothing -> return False
+        Just xy -> isValidMove ui xy
+      writeIORef hoverStateRef $ Just HoverState { hoverCoord = maybeXy
+                                                 , hoverIsValidMove = valid
+                                                 }
+      return True
+
+-- | Updates the hover state based on the current mouse position.
+updateHoverStateCurrent :: UiCtrl go ui => Goban ui -> IO ()
+updateHoverStateCurrent me = do
+  (_, x, y, _) <- drawWindowGetPointerPos =<< widgetGetDrawWindow (myDrawingArea me)
+  updateHoverState me $ Just (x, y)
+  return ()
 
 applyBoardCoordinates :: BoardState -> DrawingArea -> IO (Render ())
 applyBoardCoordinates board drawingArea = do
@@ -391,11 +425,13 @@ gtkToBoardCoordinates board drawingArea x y = do
            else Just result
 
 -- | Fully redraws the board based on the current controller and UI state.
-drawBoard :: UiCtrl go ui => ui -> IORef HoverState -> DrawingArea -> IO ()
-drawBoard ui hoverStateRef drawingArea = do
+drawBoard :: UiCtrl go ui => Goban ui -> IO ()
+drawBoard me = do
+  let ui = myUi me
+      drawingArea = myDrawingArea me
   cursor <- readCursor ui
   modes <- readModes ui
-  hoverState <- readIORef hoverStateRef
+  hoverState <- readHoverState me
 
   let board = cursorBoard cursor
       tool = uiTool modes
