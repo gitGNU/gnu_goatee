@@ -39,6 +39,9 @@ module Game.Goatee.Ui.Gtk.Actions (
   myGameVariationsBoardMarkupOffAction,
   myToolActions,
   myViewHighlightCurrentMovesAction,
+  myViewStonesRegularModeAction,
+  myViewStonesOneColorModeAction,
+  myViewStonesBlindModeAction,
   myHelpAboutAction,
   ) where
 
@@ -105,6 +108,9 @@ data Actions ui = Actions
   , myGameVariationsBoardMarkupOffAction :: RadioAction
   , myToolActions :: ActionGroup
   , myViewHighlightCurrentMovesAction :: ToggleAction
+  , myViewStonesRegularModeAction :: RadioAction
+  , myViewStonesOneColorModeAction :: RadioAction
+  , myViewStonesBlindModeAction :: RadioAction
   , myHelpAboutAction :: Action
   }
 
@@ -316,6 +322,34 @@ create ui = do
     active <- get viewHighlightCurrentMovesAction toggleActionActive
     modifyModes ui $ \modes -> return modes { uiHighlightCurrentMovesMode = active }
 
+  viewStonesRegularModeAction <-
+    radioActionNew "ViewStonesRegularMode"
+    "_Regular"
+    (Just "Regular Go: Render stones on the board normally.")
+    Nothing
+    (fromEnum ViewStonesRegularMode)
+  viewStonesOneColorModeAction <-
+    radioActionNew "ViewStonesOneColorMode"
+    "_One-color"
+    (Just "One-color Go: Both players use the same color stones.")
+    Nothing
+    (fromEnum ViewStonesOneColorMode)
+  viewStonesBlindModeAction <-
+    radioActionNew "ViewStonesBlindMode"
+    "_Blind"
+    (Just "Blind Go: No stones are visible on the board.")
+    Nothing
+    (fromEnum ViewStonesBlindMode)
+
+  radioActionSetGroup viewStonesOneColorModeAction viewStonesRegularModeAction
+  radioActionSetGroup viewStonesBlindModeAction viewStonesRegularModeAction
+  initialViewStonesMode <- uiViewStonesMode <$> readModes ui
+  set viewStonesRegularModeAction [radioActionCurrentValue := fromEnum initialViewStonesMode]
+
+  on viewStonesRegularModeAction radioActionChanged $ \action -> do
+    value <- toEnum <$> get action radioActionCurrentValue
+    modifyModes ui $ \modes -> return modes { uiViewStonesMode = value }
+
   -- Help actions.
   helpAboutAction <- actionNew "HelpAbout" "_About" Nothing Nothing
   on helpAboutAction actionActivated $ helpAbout ui
@@ -348,6 +382,9 @@ create ui = do
         , myGameVariationsBoardMarkupOffAction = gameVariationsBoardMarkupOffAction
         , myToolActions = toolActions
         , myViewHighlightCurrentMovesAction = viewHighlightCurrentMovesAction
+        , myViewStonesRegularModeAction = viewStonesRegularModeAction
+        , myViewStonesOneColorModeAction = viewStonesOneColorModeAction
+        , myViewStonesBlindModeAction = viewStonesBlindModeAction
         , myHelpAboutAction = helpAboutAction
         }
 

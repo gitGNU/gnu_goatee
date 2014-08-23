@@ -39,7 +39,7 @@ module Game.Goatee.Ui.Gtk.Common (
   viewId,
   -- * UI modes
   UiModes (..),
-  ViewMode (..),
+  ViewStonesMode (..),
   defaultUiModes,
   Tool (..),
   initialTool,
@@ -107,7 +107,8 @@ initialUiGoState = UiGoState
   , uiGoMakesDirty = False
   }
 
--- | A controller for the GTK+ UI.
+-- | A controller for the GTK+ UI.  A controller corresponds to a single open
+-- game.
 --
 -- The controller is agnostic to the type of Go monad it is used with, as long
 -- as it implements the functionality in 'MonadUiGo'.  The monad can have extra
@@ -395,28 +396,24 @@ viewId :: UiView go ui view => view -> ViewId
 viewId = viewId' . viewState
 
 data UiModes = UiModes
-  { uiViewMode :: ViewMode
-  , uiViewOneColorModeColor :: Color
-  , uiViewBlindModesAnnouncePlayer :: Bool
-    -- ^ If true, announce the player whose turn it is with
-    -- blindfolds off.  If false, announce the player whose
-    -- turn it is with blindfolds on.
+  { uiViewStonesMode :: ViewStonesMode
+  , uiViewStonesOneColorModeColor :: Color
   , uiHighlightCurrentMovesMode :: Bool
-    -- ^ Whether to draw an indicator on the game board for
-    -- moves on the current node.
+    -- ^ Whether to draw an indicator on the game board for moves on the current
+    -- node.
   , uiTool :: Tool
   } deriving (Eq, Show)
 
-data ViewMode = ViewRegularMode
-              | ViewOneColorMode
-              | ViewNothingMode
-              deriving (Eq, Show)
+data ViewStonesMode =
+  ViewStonesRegularMode
+  | ViewStonesOneColorMode
+  | ViewStonesBlindMode
+  deriving (Bounded, Enum, Eq, Show)
 
 defaultUiModes :: UiModes
 defaultUiModes = UiModes
-  { uiViewMode = ViewRegularMode
-  , uiViewOneColorModeColor = Black
-  , uiViewBlindModesAnnouncePlayer = True
+  { uiViewStonesMode = ViewStonesRegularMode
+  , uiViewStonesOneColorModeColor = Black
   , uiHighlightCurrentMovesMode = True
   , uiTool = ToolPlay
   }

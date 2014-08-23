@@ -470,14 +470,34 @@ drawBoard me = do
                            y
                            grid)
               (map (map $ \state -> RenderedCoord state False Nothing) $
-               mapBoardCoords maybeAddHover board)
+               mapBoardCoords preprocessCoord board)
               variations
 
-      maybeAddHover :: Int -> Int -> CoordState -> CoordState
-      maybeAddHover y x state = case hoverCoord hoverState of
-        Just (hx, hy) | x == hx && y == hy ->
-          modifyCoordForHover tool board hoverState state
-        _ -> state
+      -- | Performs processing at the individual coord level based on UI state.
+      preprocessCoord :: Int -> Int -> CoordState -> CoordState
+      preprocessCoord y x =
+        let maybeAddHover = case hoverCoord hoverState of
+              Just (hx, hy) | x == hx && y == hy ->
+                modifyCoordForHover tool board hoverState
+              _ -> id
+            applyStoneViewMode = case uiViewStonesMode modes of
+              ViewStonesRegularMode -> id
+              ViewStonesOneColorMode -> coerceStone $ uiViewStonesOneColorModeColor modes
+              ViewStonesBlindMode -> setStone Nothing
+        in applyStoneViewMode . maybeAddHover
+
+      -- | Replaces an existing stone of color opposite to the one given with a
+      -- stone of the given color.
+      coerceStone :: Color -> CoordState -> CoordState
+      coerceStone color state = if coordStone state == Just (cnot color)
+                                then state { coordStone = Just color }
+                                else state
+
+      -- | Replaces a coordinate's stone.
+      setStone :: Maybe Color -> CoordState -> CoordState
+      setStone color state = if coordStone state == color
+                             then state
+                             else state { coordStone = color }
 
   drawWindow <- widgetGetDrawWindow drawingArea
   changeCoords <- applyBoardCoordinates board drawingArea

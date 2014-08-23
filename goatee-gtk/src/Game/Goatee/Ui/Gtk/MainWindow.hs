@@ -61,6 +61,7 @@ import Graphics.UI.Gtk (
   on,
   panedAdd1, panedAdd2, panedSetPosition,
   separatorMenuItemNew, separatorToolItemNew,
+  toAction,
   toolbarNew,
   vBoxNew,
   widgetDestroy, widgetGrabFocus, widgetShowAll,
@@ -183,6 +184,17 @@ create ui = do
 
   containerAdd menuViewMenu =<<
     actionCreateMenuItem (Actions.myViewHighlightCurrentMovesAction actions)
+
+  menuViewStones <- menuItemNewWithMnemonic "_Stones"
+  menuViewStonesMenu <- menuNew
+  containerAdd menuViewMenu menuViewStones
+  menuItemSetSubmenu menuViewStones menuViewStonesMenu
+
+  addActionsToMenu menuViewStonesMenu actions
+    [ toAction . Actions.myViewStonesRegularModeAction
+    , toAction . Actions.myViewStonesOneColorModeAction
+    , toAction . Actions.myViewStonesBlindModeAction
+    ]
 
   menuHelp <- menuItemNewWithMnemonic "_Help"
   menuHelpMenu <- menuNew
