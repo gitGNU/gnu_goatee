@@ -15,7 +15,7 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Game.Goatee.Ui.Gtk.Tool.Null (NullTool) where
+module Game.Goatee.Ui.Gtk.Tool.Null (NullTool, create) where
 
 import Game.Goatee.Ui.Gtk.Common
 
@@ -27,14 +27,13 @@ data NullTool ui = NullTool
   }
 
 instance UiCtrl go ui => UiTool go ui (NullTool ui) where
-  toolCreate' ui toolState =
-    return NullTool
-      { myUi = ui
-      , myToolState = toolState
-      }
-
-  toolDestroy _ = return ()
-
   toolState = myToolState
 
   toolIsImplemented _ = False
+
+create :: UiCtrl go ui => ui -> ToolState -> IO (NullTool ui)
+create ui toolState =
+  return NullTool
+    { myUi = ui
+    , myToolState = toolState
+    }

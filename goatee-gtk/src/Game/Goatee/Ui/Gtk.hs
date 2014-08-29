@@ -486,6 +486,9 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
 
   fileCloseSilently ui = do
     MainWindow.destroy =<< getMainWindow' ui
+    fmap Map.elems (readIORef $ uiTools ui) >>= mapM_ (\(AnyTool tool) -> toolDestroy tool)
+    writeIORef (uiTools ui) Map.empty
+
     appStateUnregister (uiAppState ui) ui
 
   fileQuit ui = do

@@ -42,9 +42,8 @@ module Game.Goatee.Ui.Gtk.Common (
   ViewStonesMode (..),
   defaultUiModes,
   -- * Tools
-  ToolType (..), UiTool (..), AnyTool (..),
-  toolCreate, toolType, toolLabel,
-  ToolState,
+  ToolType (..), UiTool (..), AnyTool (..), toolType, toolLabel,
+  ToolState, toolStateNew, toolStateType, toolStateLabel,
   ToolGobanState (..), toolGetGobanState, toolGobanStateCurrentCoord,
   GobanEvent (..),
   RenderedCoord (..),
@@ -485,12 +484,9 @@ data ToolType =
 -- 'toolGobanHandleEvent'.  The tool can then affect what the goban displays by
 -- overriding 'toolGobanRenderModifyBoard' and/or 'toolGobanRenderModifyCoords'.
 class UiCtrl go ui => UiTool go ui tool | tool -> ui where
-  -- | Creates a new tool instance; called from 'toolCreate'.  Performs any
-  -- tool-specific setup necessary.
-  toolCreate' :: ui -> ToolState -> IO tool
-
-  -- | Performs tool-specific clean-up.
+  -- | Performs tool-specific clean-up during 'UiCtrl' shutdown.
   toolDestroy :: tool -> IO ()
+  toolDestroy _ = return ()
 
   -- | Returns the state given to 'toolCreate''.
   toolState :: tool -> ToolState
@@ -557,13 +553,6 @@ class UiCtrl go ui => UiTool go ui tool | tool -> ui where
 -- | An existential type for any tool under a specific UI controller.
 data AnyTool go ui = forall tool. UiTool go ui tool => AnyTool tool
 
--- | Creates a 'UiTool' for use with the specified 'ToolType' and with the given
--- UI label.
-toolCreate :: UiTool go ui tool => ui -> ToolType -> String -> IO tool
-toolCreate ui toolType label = do
-  state <- toolStateNew toolType label
-  toolCreate' ui state
-
 -- | Returns the 'ToolType' that a 'UiCtrl' was instantiated for.
 toolType :: UiTool go ui tool => tool -> ToolType
 toolType = toolStateType . toolState
@@ -608,8 +597,8 @@ data ToolState = ToolState
   , toolGobanStateRef :: IORef ToolGobanState
   }
 
--- | Creates a new 'ToolState' for a tool to be instantiated for the given
--- 'ToolType' and with the given UI label.
+-- | Creates a new 'ToolState' for a tool instiantiated for the given 'ToolType'
+-- and with the given UI label.
 toolStateNew :: ToolType -> String -> IO ToolState
 toolStateNew toolType label =
   ToolState <$> pure toolType <*> pure label <*> newIORef (ToolGobanHovering Nothing)

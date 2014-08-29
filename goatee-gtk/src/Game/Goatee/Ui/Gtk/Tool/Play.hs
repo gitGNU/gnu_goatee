@@ -15,7 +15,7 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Game.Goatee.Ui.Gtk.Tool.Play (PlayTool) where
+module Game.Goatee.Ui.Gtk.Tool.Play (PlayTool, create) where
 
 import Control.Applicative ((<$>))
 import Control.Monad (when)
@@ -40,24 +40,6 @@ data PlayTool ui = PlayTool
   }
 
 instance UiCtrl go ui => UiTool go ui (PlayTool ui) where
-  toolCreate' ui toolState = do
-    passButton <- buttonNewWithLabel "Pass"
-    isValidMoveCache <- newIORef Nothing
-
-    let me = PlayTool
-          { myUi = ui
-          , myToolState = toolState
-          , myPassButton = passButton
-          , myIsValidMoveCache = isValidMoveCache
-          }
-
-    -- TODO Reuse Actions.myGamePassAction?
-    on passButton buttonActivated $ playAt ui Nothing
-
-    return me
-
-  toolDestroy _ = return ()
-
   toolState = myToolState
 
   toolPanelWidget = Just . toWidget . myPassButton
@@ -89,6 +71,23 @@ instance UiCtrl go ui => UiTool go ui (PlayTool ui) where
         y
         coords
       _ -> coords
+
+create :: UiCtrl go ui => ui -> ToolState -> IO (PlayTool ui)
+create ui toolState = do
+  passButton <- buttonNewWithLabel "Pass"
+  isValidMoveCache <- newIORef Nothing
+
+  let me = PlayTool
+        { myUi = ui
+        , myToolState = toolState
+        , myPassButton = passButton
+        , myIsValidMoveCache = isValidMoveCache
+        }
+
+  -- TODO Reuse Actions.myGamePassAction?
+  on passButton buttonActivated $ playAt ui Nothing
+
+  return me
 
 -- | Calculates whether it is valid for the current player to to play at a
 -- 'Coord'.  Caches the result.

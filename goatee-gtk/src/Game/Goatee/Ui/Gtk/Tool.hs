@@ -24,33 +24,33 @@ import Data.Foldable (foldrM)
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Game.Goatee.Ui.Gtk.Common
-import Game.Goatee.Ui.Gtk.Tool.Play
-import Game.Goatee.Ui.Gtk.Tool.Null
+import qualified Game.Goatee.Ui.Gtk.Tool.Null as Null
+import qualified Game.Goatee.Ui.Gtk.Tool.Play as Play
 
 -- | Instantiates 'UiTool' instances for all of the 'ToolType's, and returns a
 -- map for looking up tools by their type.
-createTools :: forall go ui. UiCtrl go ui => ui -> IO (Map ToolType (AnyTool go ui))
+createTools :: UiCtrl go ui => ui -> IO (Map ToolType (AnyTool go ui))
 createTools ui =
   foldrM
   (\toolType tools -> do
-     tool <- case toolType of
-       ToolPlay -> AnyTool <$> (toolCreate ui toolType "Play" :: IO (PlayTool ui))
-       ToolJump -> AnyTool <$> (toolCreate ui toolType "Jump to move" :: IO (NullTool ui))
-       ToolScore -> AnyTool <$> (toolCreate ui toolType "Score" :: IO (NullTool ui))
-       ToolBlack -> AnyTool <$> (toolCreate ui toolType "Paint black stones" :: IO (NullTool ui))
-       ToolWhite -> AnyTool <$> (toolCreate ui toolType "Paint white stones" :: IO (NullTool ui))
-       ToolErase -> AnyTool <$> (toolCreate ui toolType "Erase stones" :: IO (NullTool ui))
-       ToolArrow -> AnyTool <$> (toolCreate ui toolType "Draw arrows" :: IO (NullTool ui))
-       ToolMarkCircle -> AnyTool <$> (toolCreate ui toolType "Mark circles" :: IO (NullTool ui))
-       ToolLabel -> AnyTool <$> (toolCreate ui toolType "Label points" :: IO (NullTool ui))
-       ToolLine -> AnyTool <$> (toolCreate ui toolType "Draw lines" :: IO (NullTool ui))
-       ToolMarkX -> AnyTool <$> (toolCreate ui toolType "Mark Xs" :: IO (NullTool ui))
-       ToolMarkSelected -> AnyTool <$> (toolCreate ui toolType "Mark selected" :: IO (NullTool ui))
-       ToolMarkSquare -> AnyTool <$> (toolCreate ui toolType "Mark squares" :: IO (NullTool ui))
-       ToolMarkTriangle -> AnyTool <$> (toolCreate ui toolType "Mark trianges" :: IO (NullTool ui))
-       ToolVisible ->
-         AnyTool <$> (toolCreate ui toolType "Toggle points visible" :: IO (NullTool ui))
-       ToolDim -> AnyTool <$> (toolCreate ui toolType "Toggle points dimmed" :: IO (NullTool ui))
-     return $ Map.insert toolType tool tools)
+    let newState = toolStateNew toolType
+    tool <- case toolType of
+      ToolPlay -> AnyTool <$> (Play.create ui =<< newState "Play")
+      ToolJump -> AnyTool <$> (Null.create ui =<< newState "Jump to move")
+      ToolScore -> AnyTool <$> (Null.create ui =<< newState "Score")
+      ToolBlack -> AnyTool <$> (Null.create ui =<< newState "Paint black stones")
+      ToolWhite -> AnyTool <$> (Null.create ui =<< newState "Paint white stones")
+      ToolErase -> AnyTool <$> (Null.create ui =<< newState "Erase stones")
+      ToolArrow -> AnyTool <$> (Null.create ui =<< newState "Draw arrows")
+      ToolMarkCircle -> AnyTool <$> (Null.create ui =<< newState "Mark circles")
+      ToolLabel -> AnyTool <$> (Null.create ui =<< newState "Label points")
+      ToolLine -> AnyTool <$> (Null.create ui =<< newState "Draw lines")
+      ToolMarkX -> AnyTool <$> (Null.create ui =<< newState "Mark Xs")
+      ToolMarkSelected -> AnyTool <$> (Null.create ui =<< newState "Mark selected")
+      ToolMarkSquare -> AnyTool <$> (Null.create ui =<< newState "Mark squares")
+      ToolMarkTriangle -> AnyTool <$> (Null.create ui =<< newState "Mark triangles")
+      ToolVisible -> AnyTool <$> (Null.create ui =<< newState "Toggle points visible")
+      ToolDim -> AnyTool <$> (Null.create ui =<< newState "Toggle points dimmed")
+    return $ Map.insert toolType tool tools)
   Map.empty
   [minBound..]
