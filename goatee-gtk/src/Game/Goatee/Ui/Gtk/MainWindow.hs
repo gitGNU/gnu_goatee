@@ -25,7 +25,7 @@ module Game.Goatee.Ui.Gtk.MainWindow (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (forM_, liftM, unless)
+import Control.Monad (forM, forM_, join, liftM, unless)
 import Control.Monad.Trans (liftIO)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
@@ -163,23 +163,25 @@ create ui = do
   toolbar <- toolbarNew
   boxPackStart boardBox toolbar PackNatural 0
 
-  sequence_ $
-    intersperse (do menuSep <- separatorMenuItemNew
-                    toolSep <- separatorToolItemNew
-                    containerAdd menuToolMenu menuSep
-                    containerAdd toolbar toolSep) $
-    catMaybes $
-    flip map toolOrdering $ \toolGroup ->
-    let supportedTools = filter toolIsImplemented toolGroup
-    in if null supportedTools
-       then Nothing
-       else Just $ forM_ supportedTools $ \tool -> do
-         action <- fromMaybe (error $ "Tool has no action: " ++ show tool) <$>
-                   actionGroupGetAction (Actions.myToolActions actions) (show tool)
-         menuItem <- actionCreateMenuItem action
-         toolItem <- actionCreateToolItem action
-         containerAdd menuToolMenu menuItem
-         containerAdd toolbar toolItem
+  let addToolSeparator = do
+        menuSep <- separatorMenuItemNew
+        toolSep <- separatorToolItemNew
+        containerAdd menuToolMenu menuSep
+        containerAdd toolbar toolSep
+      addTool (AnyTool tool) = do
+        action <- fromMaybe (error $ "No action for tool with type: " ++ show (toolType tool)) <$>
+                  actionGroupGetAction (Actions.myToolActions actions) (show (toolType tool))
+        menuItem <- actionCreateMenuItem action
+        toolItem <- actionCreateToolItem action
+        containerAdd menuToolMenu menuItem
+        containerAdd toolbar toolItem
+    in join $ fmap (sequence_ . intersperse addToolSeparator . catMaybes) $
+       forM toolOrdering $ \toolGroup -> do
+         tools <- filter (\(AnyTool tool) -> toolIsImplemented tool) <$>
+                  mapM (findTool ui) toolGroup
+         return $ if null tools
+                  then Nothing
+                  else Just $ mapM_ addTool tools
 
   menuView <- menuItemNewWithMnemonic "_View"
   menuViewMenu <- menuNew
@@ -224,7 +226,7 @@ create ui = do
   controlsBook <- notebookNew
   panedPack2 hPaned controlsBook False True
 
-  playPanel <- PlayPanel.create ui actions
+  playPanel <- PlayPanel.create ui
   gamePropertiesPanel <- GamePropertiesPanel.create ui
   nodePropertiesPanel <- NodePropertiesPanel.create ui
   notebookAppendPage controlsBook (PlayPanel.myWidget playPanel) "Play"

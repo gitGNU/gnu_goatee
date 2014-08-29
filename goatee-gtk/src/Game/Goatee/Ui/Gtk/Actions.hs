@@ -46,8 +46,8 @@ module Game.Goatee.Ui.Gtk.Actions (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (unless, void, when)
-import Data.Maybe (fromMaybe, isJust)
+import Control.Monad (forM, unless, void, when)
+import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Game.Goatee.Ui.Gtk.Common
 import Game.Goatee.Ui.Gtk.Utils
 import Game.Goatee.Lib.Board
@@ -122,7 +122,7 @@ instance UiCtrl go ui => UiView go ui (Actions ui) where
 
 create :: UiCtrl go ui => ui -> IO (Actions ui)
 create ui = do
-  let tools = enumFrom minBound
+  let toolTypes = enumFrom minBound
   modes <- readModes ui
 
   -- File actions.
@@ -302,16 +302,17 @@ create ui = do
 
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
-  actionGroupAddRadioActions toolActions
-    (flip map tools $ \tool ->
-      RadioActionEntry { radioActionName = show tool
-                       , radioActionLabel = toolLabel tool
-                       , radioActionStockId = Nothing
-                       , radioActionAccelerator = Nothing
-                       , radioActionTooltip = Nothing
-                       , radioActionValue = fromEnum tool
-                       })
-    (fromEnum initialTool)
+  toolActionList <- fmap catMaybes $ forM toolTypes $ \toolType -> do
+    AnyTool tool <- findTool ui toolType
+    return $ Just RadioActionEntry
+      { radioActionName = show toolType
+      , radioActionLabel = toolLabel tool
+      , radioActionStockId = Nothing
+      , radioActionAccelerator = Nothing
+      , radioActionTooltip = Nothing
+      , radioActionValue = fromEnum toolType
+      }
+  actionGroupAddRadioActions toolActions toolActionList (fromEnum initialToolType)
     (\radioAction -> setTool ui =<< fmap toEnum (get radioAction radioActionCurrentValue))
 
   -- View actions.
@@ -355,8 +356,8 @@ create ui = do
   on helpAboutAction actionActivated $ helpAbout ui
 
   actionActivate =<<
-    fmap (fromMaybe $ error $ "Could not find the initial tool " ++ show initialTool ++ ".")
-         (actionGroupGetAction toolActions $ show initialTool)
+    fmap (fromMaybe $ error $ "Could not find the initial tool " ++ show initialToolType ++ ".")
+         (actionGroupGetAction toolActions $ show initialToolType)
 
   state <- viewStateNew
 

@@ -60,6 +60,9 @@ library
         Game.Goatee.Ui.Gtk.MainWindow
         Game.Goatee.Ui.Gtk.NodePropertiesPanel
         Game.Goatee.Ui.Gtk.PlayPanel
+        Game.Goatee.Ui.Gtk.Tool
+        Game.Goatee.Ui.Gtk.Tool.Null
+        Game.Goatee.Ui.Gtk.Tool.Play
         Game.Goatee.Ui.Gtk.Utils
         Game.Goatee.Ui.Gtk.Widget
         Paths_goatee_gtk

@@ -54,6 +54,7 @@ import Game.Goatee.Lib.Monad (
 import Game.Goatee.Ui.Gtk.Common
 import qualified Game.Goatee.Ui.Gtk.MainWindow as MainWindow
 import Game.Goatee.Ui.Gtk.MainWindow (MainWindow)
+import Game.Goatee.Ui.Gtk.Tool
 import Graphics.UI.Gtk (
   AttrOp ((:=)),
   ButtonsType (ButtonsNone, ButtonsOk, ButtonsYesNo),
@@ -147,6 +148,7 @@ data UiCtrlImpl go = UiCtrlImpl
   , uiAppState :: AppState
   , uiDirty :: IORef Bool
   , uiFilePath :: IORef (Maybe FilePath)
+  , uiTools :: IORef (Map ToolType (AnyTool go (UiCtrlImpl go)))
   , uiModes :: IORef UiModes
   , uiCursor :: MVar Cursor
 
@@ -176,7 +178,27 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
     newModes <- f oldModes
     when (newModes /= oldModes) $ do
       writeIORef (uiModes ui) newModes
+      let oldToolType = uiToolType oldModes
+          newToolType = uiToolType newModes
+          toolChanged = newToolType /= oldToolType
+      -- If the tool has changed, then follow the order:
+      -- 1) Tell the new tool that it is about to become active, so that it can
+      --    update the state of its widgets if necessary.
+      -- 2) Fire modes changed handlers (causing the old tool's widget to hide
+      --    and the new tool's widget, now up-to-date, to become visible).
+      -- 3) Tell the old tool that is was deactivated.
+      when toolChanged $ do
+        AnyTool newTool <- findTool ui oldToolType
+        toolOnActivating newTool
       fireModesChangedHandlers ui oldModes newModes
+      when toolChanged $ do
+        AnyTool oldTool <- findTool ui oldToolType
+        toolOnDeactivated oldTool
+
+  findTool ui toolType =
+    fromMaybe (error $ "UiCtrlImpl.findTool: Couldn't find " ++ show toolType ++ ".") .
+    Map.lookup toolType <$>
+    readIORef (uiTools ui)
 
   doUiGo ui go = do
     cursor <- takeMVar (uiCursor ui)
@@ -341,6 +363,7 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
     appState <- maybe newAppState (return . uiAppState) maybeUi
     dirty <- newIORef False
     filePath <- newIORef maybePath
+    toolsRef <- newIORef Map.empty
     modesVar <- newIORef defaultUiModes
     cursorVar <- newMVar $ rootCursor rootNode
     mainWindowRef <- newIORef Nothing
@@ -356,6 +379,7 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
                         , uiAppState = appState
                         , uiDirty = dirty
                         , uiFilePath = filePath
+                        , uiTools = toolsRef
                         , uiModes = modesVar
                         , uiCursor = cursorVar
                         , uiMainWindow = mainWindowRef
@@ -370,6 +394,9 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
 
     appStateRegister appState ui
     rebuildGoRegistrationsAction ui
+
+    createTools ui >>= writeIORef toolsRef
+    readTool ui >>= \(AnyTool tool) -> toolOnActivating tool
 
     mainWindow <- MainWindow.create ui
     writeIORef mainWindowRef $ Just mainWindow

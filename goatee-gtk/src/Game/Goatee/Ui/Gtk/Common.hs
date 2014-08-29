@@ -41,16 +41,22 @@ module Game.Goatee.Ui.Gtk.Common (
   UiModes (..),
   ViewStonesMode (..),
   defaultUiModes,
-  Tool (..),
-  initialTool,
+  -- * Tools
+  ToolType (..), UiTool (..), AnyTool (..),
+  toolCreate, toolType, toolLabel,
+  ToolState,
+  ToolGobanState (..), toolGetGobanState, toolGobanStateCurrentCoord,
+  GobanEvent (..),
+  RenderedCoord (..),
+  initialToolType,
   toolOrdering,
-  toolLabel,
-  toolIsImplemented,
   toolToColor,
+  -- * Miscellaneous
   fileFiltersForSgf,
   ) where
 
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), (<*>), pure)
+import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import qualified Data.Set as Set
 import Data.Set (Set)
 import Data.Unique (Unique, newUnique)
@@ -59,7 +65,13 @@ import Game.Goatee.Lib.Monad
 import Game.Goatee.Lib.Parser
 import Game.Goatee.Lib.Tree
 import Game.Goatee.Lib.Types
-import Graphics.UI.Gtk (FileFilter, Window, fileFilterAddPattern, fileFilterNew, fileFilterSetName)
+import Graphics.UI.Gtk (
+  FileFilter,
+  MouseButton,
+  Widget,
+  Window,
+  fileFilterAddPattern, fileFilterNew, fileFilterSetName,
+  )
 import System.FilePath (takeFileName)
 
 -- | A class for monads that provide the features required to be used with a
@@ -121,6 +133,13 @@ class MonadUiGo go => UiCtrl go ui | ui -> go where
   -- | Modifies the controller's modes according to the given action, then fires
   -- a mode change event via 'fireViewModesChanged'.
   modifyModes :: ui -> (UiModes -> IO UiModes) -> IO ()
+
+  -- | Looks up the tool bound to a 'ToolType'.
+  findTool :: ui -> ToolType -> IO (AnyTool go ui)
+
+  -- | Reads the active tool.
+  readTool :: ui -> IO (AnyTool go ui)
+  readTool ui = findTool ui . uiToolType =<< readModes ui
 
   -- | Runs a Go monad on the current cursor, updating the cursor and firing
   -- handlers as necessary.
@@ -350,8 +369,8 @@ modifyModesPure ui f = modifyModes ui (return . f)
 
 -- | Assigns to the current tool within the modes of 'ui' (firing any relevant
 -- change handlers).
-setTool :: UiCtrl go ui => ui -> Tool -> IO ()
-setTool ui tool = modifyModesPure ui $ \modes -> modes { uiTool = tool }
+setTool :: UiCtrl go ui => ui -> ToolType -> IO ()
+setTool ui toolType = modifyModesPure ui $ \modes -> modes { uiToolType = toolType }
 
 -- | A UI widget that listens to the state of a 'UiCtrl'.  This class makes it
 -- easy to ask to be updated on relevant changes with 'register'.
@@ -412,7 +431,7 @@ data UiModes = UiModes
   , uiHighlightCurrentMovesMode :: Bool
     -- ^ Whether to draw an indicator on the game board for moves on the current
     -- node.
-  , uiTool :: Tool
+  , uiToolType :: ToolType
   } deriving (Eq, Show)
 
 data ViewStonesMode =
@@ -426,11 +445,11 @@ defaultUiModes = UiModes
   { uiViewStonesMode = ViewStonesRegularMode
   , uiViewStonesOneColorModeColor = Black
   , uiHighlightCurrentMovesMode = True
-  , uiTool = ToolPlay
+  , uiToolType = initialToolType
   }
 
--- | Selectable tools for operating on the board.
-data Tool =
+-- | Selectable tools for operating on the board.  See 'UiTool'.
+data ToolType =
   ToolPlay  -- ^ Game tool.
   | ToolJump  -- ^ Game tool.
   | ToolScore  -- ^ Game tool.
@@ -447,14 +466,212 @@ data Tool =
   | ToolMarkTriangle  -- ^ Markup tool.
   | ToolVisible  -- ^ Visibility tool.
   | ToolDim  -- ^ Visibility tool.
-  deriving (Bounded, Enum, Eq, Show)
+  deriving (Bounded, Enum, Eq, Ord, Show)
+
+-- | A tool is a mode of interaction between the user and the board, that
+-- determines what actions the user can perform to the game.  A tool interacts
+-- with the goban and controls how mouse events are responded to.  A tool can
+-- also provide a widget (or container of widgets) that will be inserted into
+-- the side panel while the tool is active.
+--
+-- The 'ToolType' enum contains an entry for each tool.  This 'UiTool' class
+-- is used to define the implementation of a tool.  A 'UiCtrl' manages tools,
+-- and maps 'ToolType's to 'UiTool's.  When a 'UiCtrl' initializes, it should
+-- create a map from each 'ToolType' to a 'UiTool' instance created with
+-- 'toolCreate'.  Individual tool implementations should perform any necessary
+-- initialization and clean-up in 'toolCreate'' and 'toolDestroy', respectively.
+--
+-- The goban sends events to the active tool as they occur, via
+-- 'toolGobanHandleEvent'.  The tool can then affect what the goban displays by
+-- overriding 'toolGobanRenderModifyBoard' and/or 'toolGobanRenderModifyCoords'.
+class UiCtrl go ui => UiTool go ui tool | tool -> ui where
+  -- | Creates a new tool instance; called from 'toolCreate'.  Performs any
+  -- tool-specific setup necessary.
+  toolCreate' :: ui -> ToolState -> IO tool
+
+  -- | Performs tool-specific clean-up.
+  toolDestroy :: tool -> IO ()
+
+  -- | Returns the state given to 'toolCreate''.
+  toolState :: tool -> ToolState
+
+  -- | By default, this returns true.  An implementation can override this to
+  -- return false if the implementation is a stub and the tool should not be
+  -- visible in the UI.
+  --
+  -- TODO Remove this once all tools are implemented.
+  toolIsImplemented :: tool -> Bool
+  toolIsImplemented _ = True
+
+  -- | A tool can provide a widget (or container of widgets) to display in the
+  -- side panel by creating widgets in 'toolCreate'' then returning them from
+  -- this function.
+  toolPanelWidget :: tool -> Maybe Widget
+  toolPanelWidget _ = Nothing
+
+  -- | A handler that is called when the user activates the tool.  Runs before
+  -- the tool becomes active and before the tool's widgets are displayed.  The
+  -- default implementation just calls 'toolGobanInvalidate'.
+  toolOnActivating :: tool -> IO ()
+  toolOnActivating = toolGobanInvalidate
+
+  -- | A handler that is called after the user deactivates the tool.  The
+  -- default implementation does nothing.
+  toolOnDeactivated :: tool -> IO ()
+  toolOnDeactivated _ = return ()
+
+  -- | Called by the goban when an event occurs.  Override this to implement
+  -- custom event handling.  The default implementation does basic click and
+  -- drag tracking for a single mouse button, and calls 'toolGobanClickComplete'
+  -- when a click/drag completes.
+  --
+  -- Returning true causes the goban to redraw.
+  --
+  -- The tool can also query the state of the mouse with 'toolGetGobanState'.
+  toolGobanHandleEvent :: tool -> GobanEvent -> IO Bool
+  toolGobanHandleEvent = toolGobanHandleEventDefault
+
+  -- | The default 'toolGobanHandleEvent' calls this when a click or drag that
+  -- started on the goban completes.  The two coordinates are the board points
+  -- at which the click started and ended, or nothing if the mouse was not over
+  -- a board point.
+  toolGobanClickComplete :: tool -> Maybe Coord -> Maybe Coord -> IO ()
+  toolGobanClickComplete _ _ _ = return ()
+
+  -- | The default 'toolGobanHandleEvent' calls this when the tool should
+  -- invalidate its state because something has changed via e.g. a navigation
+  -- event, properties modified event, or modes changed event.
+  toolGobanInvalidate :: tool -> IO ()
+  toolGobanInvalidate _ = return ()
+
+  -- | When rendering, the goban calls this function to let the active tool
+  -- modify the 'BoardState' before the goban starts inspecting it.
+  toolGobanRenderModifyBoard :: tool -> BoardState -> IO BoardState
+  toolGobanRenderModifyBoard _ = return
+
+  -- | When rendering, the goban calls this function to let the active tool
+  -- modify the final 'RenderedCoord's before they are drawn.
+  toolGobanRenderModifyCoords :: tool -> BoardState -> [[RenderedCoord]] -> IO [[RenderedCoord]]
+  toolGobanRenderModifyCoords _ _ = return
+
+-- | An existential type for any tool under a specific UI controller.
+data AnyTool go ui = forall tool. UiTool go ui tool => AnyTool tool
+
+-- | Creates a 'UiTool' for use with the specified 'ToolType' and with the given
+-- UI label.
+toolCreate :: UiTool go ui tool => ui -> ToolType -> String -> IO tool
+toolCreate ui toolType label = do
+  state <- toolStateNew toolType label
+  toolCreate' ui state
+
+-- | Returns the 'ToolType' that a 'UiCtrl' was instantiated for.
+toolType :: UiTool go ui tool => tool -> ToolType
+toolType = toolStateType . toolState
+
+-- | Returns the UI text that names a tool.
+toolLabel :: UiTool go ui tool => tool -> String
+toolLabel = toolStateLabel . toolState
+
+-- | See 'toolGobanHandleEvent'.
+toolGobanHandleEventDefault :: UiTool go ui tool => tool -> GobanEvent -> IO Bool
+toolGobanHandleEventDefault me event =
+  let gobanStateRef = toolGobanStateRef $ toolState me
+  in case event of
+    GobanMouseMove coord -> do
+      state <- readIORef gobanStateRef
+      if coord /= toolGobanStateCurrentCoord state
+        then do writeIORef gobanStateRef $ toolGobanStateModify (const coord) state
+                return True
+        else return False
+    GobanClickStart button start -> do
+      writeIORef gobanStateRef $ ToolGobanDragging button start start
+      return True
+    GobanClickFinish button end -> do
+      state <- readIORef gobanStateRef
+      case state of
+        ToolGobanDragging button0 start _ | button == button0 -> do
+          writeIORef gobanStateRef $ ToolGobanHovering end
+          toolGobanClickComplete me start end
+        _ -> return ()
+      return True
+    GobanInvalidate -> do
+      modifyIORef gobanStateRef $ \state -> case state of
+        ToolGobanHovering _ -> state
+        ToolGobanDragging _ _ current -> ToolGobanHovering current
+      toolGobanInvalidate me
+      return True
+
+-- | Internal state of a 'UiTool'.
+data ToolState = ToolState
+  { toolStateType :: ToolType
+  , toolStateLabel :: String
+  , toolGobanStateRef :: IORef ToolGobanState
+  }
+
+-- | Creates a new 'ToolState' for a tool to be instantiated for the given
+-- 'ToolType' and with the given UI label.
+toolStateNew :: ToolType -> String -> IO ToolState
+toolStateNew toolType label =
+  ToolState <$> pure toolType <*> pure label <*> newIORef (ToolGobanHovering Nothing)
+
+-- | The state of the mouse with respect to the goban.
+data ToolGobanState =
+  ToolGobanHovering (Maybe Coord)
+  -- ^ There is no click in process.  The mouse is over the point on the board,
+  -- if present.
+  | ToolGobanDragging MouseButton (Maybe Coord) (Maybe Coord)
+    -- ^ There is a click in progress.  The given button was pressed down, over
+    -- the first board point if present, and is currently over the second board
+    -- point if present, or elsewhere if absent.
+
+-- | __When 'toolGobanHandleEvent' is the default implementation,__ this method
+-- returns the current state of the mouse with respect to the goban.
+toolGetGobanState :: UiTool go ui tool => tool -> IO ToolGobanState
+toolGetGobanState = readIORef . toolGobanStateRef . toolState
+
+-- | Returns the board point that the mouse is over, according to a
+-- 'ToolGobanState'.
+toolGobanStateCurrentCoord :: ToolGobanState -> Maybe Coord
+toolGobanStateCurrentCoord state = case state of
+  ToolGobanHovering coord -> coord
+  ToolGobanDragging _ _ coord -> coord
+
+-- | Modifies the board point that a 'ToolGobanState' says the mouse is over.
+toolGobanStateModify :: (Maybe Coord -> Maybe Coord) -> ToolGobanState -> ToolGobanState
+toolGobanStateModify f state = case state of
+  ToolGobanHovering coord -> ToolGobanHovering $ f coord
+  ToolGobanDragging button start current -> ToolGobanDragging button start $ f current
+
+-- | Event notifications that can be sent from the goban to a tool.
+data GobanEvent =
+  GobanMouseMove (Maybe Coord)
+  -- ^ The mouse was moved over the goban.  The 'Coord' is the current mouse
+  -- location, or nothing if the mouse is not currently over a board point.
+  | GobanClickStart MouseButton (Maybe Coord)
+    -- ^ A mouse button was pressed down, over the given board point if present.
+  | GobanClickFinish MouseButton (Maybe Coord)
+    -- ^ A mouse button was released, over the given point if present.
+  | GobanInvalidate
+    -- ^ The tool should invalidate cached state, abandon any existing drag, and
+    -- read the cursor and modes from the 'UiCtrl' anew, because something
+    -- changed (examples: game navigation, game modification, modes change).
+
+-- | Augments a 'CoordState' with data that is used for rendering purposes.
+data RenderedCoord = RenderedCoord
+  { renderedCoordState :: CoordState
+  , renderedCoordCurrent :: Bool
+    -- ^ True if the point had a stone played on it in the current node.
+  , renderedCoordVariation :: Maybe Color
+    -- ^ If a variation move exists at this point, then this will be the color
+    -- of the move.
+  } deriving (Show)
 
 -- | The tool that should be selected when a board first opens in the UI.
-initialTool :: Tool
-initialTool = ToolPlay
+initialToolType :: ToolType
+initialToolType = ToolPlay
 
 -- | The ordering and grouping of tools as they should appear in the UI.
-toolOrdering :: [[Tool]]
+toolOrdering :: [[ToolType]]
 toolOrdering =
   [[ToolPlay, ToolJump, ToolScore],
    [ToolBlack, ToolWhite, ToolErase],
@@ -462,47 +679,9 @@ toolOrdering =
     ToolMarkSquare, ToolMarkTriangle],
    [ToolVisible, ToolDim]]
 
-toolLabel :: Tool -> String
-toolLabel tool = case tool of
-  ToolPlay -> "Play"
-  ToolJump -> "Jump to move"
-  ToolScore -> "Score"
-  ToolBlack -> "Paint black stones"
-  ToolWhite -> "Paint white stones"
-  ToolErase -> "Erase stones"
-  ToolArrow -> "Draw arrows"
-  ToolMarkCircle -> "Mark circles"
-  ToolLabel -> "Label points"
-  ToolLine -> "Draw lines"
-  ToolMarkX -> "Mark Xs"
-  ToolMarkSelected -> "Mark selected"
-  ToolMarkSquare -> "Mark squares"
-  ToolMarkTriangle -> "Mark triangles"
-  ToolVisible -> "Toggle points visible"
-  ToolDim -> "Toggle points dimmed"
-
--- | Returns true if the tool is implemented and should be available in the UI,
--- and false if the tool is not implemented and should not be offered to the
--- user.
---
--- Eventually, this function should be removed.
-toolIsImplemented :: Tool -> Bool
-toolIsImplemented tool = case tool of
-  ToolJump -> False
-  ToolScore -> False
-  ToolBlack -> False
-  ToolWhite -> False
-  ToolErase -> False
-  ToolArrow -> False
-  ToolLabel -> False
-  ToolLine -> False
-  ToolVisible -> False
-  ToolDim -> False
-  _ -> True
-
 -- | Converts 'ToolBlack' and 'ToolWhite' into 'Color's.  Does not accept any
 -- other tools.
-toolToColor :: Tool -> Color
+toolToColor :: ToolType -> Color
 toolToColor ToolBlack = Black
 toolToColor ToolWhite = White
 toolToColor other = error $ "toolToColor is invalid for " ++ show other ++ "."
