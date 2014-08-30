@@ -27,6 +27,7 @@ import Test.HUnit ((~:), (@=?), (@?=), Test (TestList))
 
 tests = "Game.Goatee.Lib.Board" ~: TestList
   [ boardCoordStateTests
+  , boardCoordModifyTests
   , moveNumberTests
   , markupPropertiesTests
   , visibilityPropertyTests
@@ -52,6 +53,18 @@ boardCoordStateTests = "boardCoordState" ~: TestList
     coordMark (boardCoordState (1,1) board) @?= Just MarkX
   ]
 
+boardCoordModifyTests = "boardCoordModify" ~: TestList
+  [ "modifies a single coord" ~:
+    let state = emptyCoordState
+        state' = emptyCoordState { coordStone = Just White }
+        state'' = emptyCoordState { coordMark = Just MarkTriangle }
+        expectedStates = [[state, state'], [state'', state]]
+        actualStates = boardCoordStates $
+                       (\board -> boardCoordModify board (1, 0) (const state')) $
+                       (\board -> boardCoordModify board (0, 1) (const state'')) $
+                       rootBoardState $ rootNode $ Just (2, 2)
+    in expectedStates @=? actualStates
+  ]
 
 moveNumberTests = "move number" ~: TestList
   [ "starts at zero" ~:

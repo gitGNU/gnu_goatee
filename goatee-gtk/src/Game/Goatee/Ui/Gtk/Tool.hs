@@ -23,7 +23,9 @@ import Control.Applicative ((<$>))
 import Data.Foldable (foldrM)
 import qualified Data.Map as Map
 import Data.Map (Map)
+import Game.Goatee.Lib.Types
 import Game.Goatee.Ui.Gtk.Common
+import qualified Game.Goatee.Ui.Gtk.Tool.Mark as Mark
 import qualified Game.Goatee.Ui.Gtk.Tool.Null as Null
 import qualified Game.Goatee.Ui.Gtk.Tool.Play as Play
 
@@ -42,13 +44,13 @@ createTools ui =
       ToolWhite -> AnyTool <$> (Null.create ui =<< newState "Paint white stones")
       ToolErase -> AnyTool <$> (Null.create ui =<< newState "Erase stones")
       ToolArrow -> AnyTool <$> (Null.create ui =<< newState "Draw arrows")
-      ToolMarkCircle -> AnyTool <$> (Null.create ui =<< newState "Mark circles")
+      ToolMarkCircle -> AnyTool <$> (Mark.create ui MarkCircle =<< newState "Mark circles")
       ToolLabel -> AnyTool <$> (Null.create ui =<< newState "Label points")
       ToolLine -> AnyTool <$> (Null.create ui =<< newState "Draw lines")
-      ToolMarkX -> AnyTool <$> (Null.create ui =<< newState "Mark Xs")
-      ToolMarkSelected -> AnyTool <$> (Null.create ui =<< newState "Mark selected")
-      ToolMarkSquare -> AnyTool <$> (Null.create ui =<< newState "Mark squares")
-      ToolMarkTriangle -> AnyTool <$> (Null.create ui =<< newState "Mark triangles")
+      ToolMarkX -> AnyTool <$> (Mark.create ui MarkX =<< newState "Mark Xs")
+      ToolMarkSelected -> AnyTool <$> (Mark.create ui MarkSelected =<< newState "Mark selected")
+      ToolMarkSquare -> AnyTool <$> (Mark.create ui MarkSquare =<< newState "Mark squares")
+      ToolMarkTriangle -> AnyTool <$> (Mark.create ui MarkTriangle =<< newState "Mark triangles")
       ToolVisible -> AnyTool <$> (Null.create ui =<< newState "Toggle points visible")
       ToolDim -> AnyTool <$> (Null.create ui =<< newState "Toggle points dimmed")
     return $ Map.insert toolType tool tools)

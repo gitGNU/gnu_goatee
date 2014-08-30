@@ -44,7 +44,7 @@ module Game.Goatee.Ui.Gtk.Common (
   -- * Tools
   ToolType (..), UiTool (..), AnyTool (..), toolType, toolLabel,
   ToolState, toolStateNew, toolStateType, toolStateLabel,
-  ToolGobanState (..), toolGetGobanState, toolGobanStateCurrentCoord,
+  ToolGobanState (..), toolGetGobanState, toolGobanStateStartCoord, toolGobanStateCurrentCoord,
   GobanEvent (..),
   RenderedCoord (..),
   initialToolType,
@@ -617,6 +617,13 @@ data ToolGobanState =
 -- returns the current state of the mouse with respect to the goban.
 toolGetGobanState :: UiTool go ui tool => tool -> IO ToolGobanState
 toolGetGobanState = readIORef . toolGobanStateRef . toolState
+
+-- | Returns the board point where an in-progress drag started, or the current
+-- board point if there is no drag.
+toolGobanStateStartCoord :: ToolGobanState -> Maybe Coord
+toolGobanStateStartCoord state = case state of
+  ToolGobanHovering coord -> coord
+  ToolGobanDragging _ coord _ -> coord
 
 -- | Returns the board point that the mouse is over, according to a
 -- 'ToolGobanState'.
