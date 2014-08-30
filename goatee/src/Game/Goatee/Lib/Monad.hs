@@ -186,7 +186,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
 
   -- | Searches for a valued property on the current node, returning its value
   -- if found.
-  getPropertyValue :: ValuedDescriptor d v => d -> go (Maybe v)
+  getPropertyValue :: ValuedDescriptor v d => d -> go (Maybe v)
   getPropertyValue descriptor = liftM (liftM $ propertyValue descriptor) $ getProperty descriptor
 
   -- | Sets a property on the current node, replacing an existing property with
@@ -219,7 +219,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- existing on the node, and a 'Just' with the property's value marks the
   -- property's presence.  This function does not do any validation to check
   -- that the resulting tree state is valid.
-  modifyPropertyValue :: ValuedDescriptor d v => d -> (Maybe v -> Maybe v) -> go ()
+  modifyPropertyValue :: ValuedDescriptor v d => d -> (Maybe v -> Maybe v) -> go ()
   modifyPropertyValue descriptor fn = modifyProperty descriptor $ \old ->
     propertyBuilder descriptor <$> fn (propertyValue descriptor <$> old)
 
@@ -228,7 +228,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- either has the property with an empty value, or doesn't have the property.
   -- Returning an empty string removes the property from the node, if it was
   -- set.
-  modifyPropertyString :: (Stringlike s, ValuedDescriptor d s) => d -> (String -> String) -> go ()
+  modifyPropertyString :: (Stringlike s, ValuedDescriptor s d) => d -> (String -> String) -> go ()
   modifyPropertyString descriptor fn =
     modifyPropertyValue descriptor $ \value -> case fn (maybe "" sgfToString value) of
       "" -> Nothing
@@ -247,7 +247,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- Importantly, this might not be specific enough for properties such as 'DD'
   -- and 'VW' where a present, empty list has different semantics from the
   -- property not being present.  In that case, 'modifyPropertyValue' is better.
-  modifyPropertyCoords :: ValuedDescriptor d CoordList => d -> ([Coord] -> [Coord]) -> go ()
+  modifyPropertyCoords :: ValuedDescriptor CoordList d => d -> ([Coord] -> [Coord]) -> go ()
   modifyPropertyCoords descriptor fn =
     modifyPropertyValue descriptor $ \value -> case fn $ maybe [] expandCoordList value of
       [] -> Nothing

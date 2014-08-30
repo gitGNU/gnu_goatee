@@ -190,7 +190,7 @@ instance Descriptor AnyDescriptor where
   propertyValueRendererPretty (AnyDescriptor d) = propertyValueRendererPretty d
 
 -- | A class for 'Descriptor's of 'Property's that also contain values.
-class (Descriptor a, Eq v) => ValuedDescriptor a v | a -> v where
+class (Descriptor a, Eq v) => ValuedDescriptor v a | a -> v where
   -- | Extracts the value from a property of the given type.  Behaviour is
   -- undefined if the property is not of the given type.
   propertyValue :: a -> Property -> v
@@ -259,7 +259,7 @@ instance Descriptor (ValuedPropertyInfo v) where
     pvtRendererPretty (valuedPropertyInfoValueType descriptor) $
     valuedPropertyInfoValue descriptor property
 
-instance Eq v => ValuedDescriptor (ValuedPropertyInfo v) v where
+instance Eq v => ValuedDescriptor v (ValuedPropertyInfo v) where
   propertyValue = valuedPropertyInfoValue
   propertyBuilder = valuedPropertyInfoBuilder
 
