@@ -28,7 +28,7 @@ module Game.Goatee.Lib.Property.Base (
   -- * Property metadata
   PropertyType (..),
   Descriptor (..),
-  SomeDescriptor (..),
+  AnyDescriptor (..),
   ValuedDescriptor (..),
   PropertyInfo,
   ValuedPropertyInfo (ValuedPropertyInfo),
@@ -178,16 +178,16 @@ class Descriptor a where
   -- a human-readable format.
   propertyValueRendererPretty :: a -> Property -> Render ()
 
-data SomeDescriptor = forall a. Descriptor a => SomeDescriptor a
+data AnyDescriptor = forall a. Descriptor a => AnyDescriptor a
 
-instance Descriptor SomeDescriptor where
-  propertyName (SomeDescriptor d) = propertyName d
-  propertyType (SomeDescriptor d) = propertyType d
-  propertyInherited (SomeDescriptor d) = propertyInherited d
-  propertyPredicate (SomeDescriptor d) = propertyPredicate d
-  propertyValueParser (SomeDescriptor d) = propertyValueParser d
-  propertyValueRenderer (SomeDescriptor d) = propertyValueRenderer d
-  propertyValueRendererPretty (SomeDescriptor d) = propertyValueRendererPretty d
+instance Descriptor AnyDescriptor where
+  propertyName (AnyDescriptor d) = propertyName d
+  propertyType (AnyDescriptor d) = propertyType d
+  propertyInherited (AnyDescriptor d) = propertyInherited d
+  propertyPredicate (AnyDescriptor d) = propertyPredicate d
+  propertyValueParser (AnyDescriptor d) = propertyValueParser d
+  propertyValueRenderer (AnyDescriptor d) = propertyValueRenderer d
+  propertyValueRendererPretty (AnyDescriptor d) = propertyValueRendererPretty d
 
 -- | A class for 'Descriptor's of 'Property's that also contain values.
 class (Descriptor a, Eq v) => ValuedDescriptor a v | a -> v where
