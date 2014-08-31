@@ -17,7 +17,6 @@
 
 module Game.Goatee.Ui.Gtk.Tool.Mark (MarkTool, create) where
 
-import Control.Applicative ((<$>))
 import Game.Goatee.Lib.Board
 import Game.Goatee.Lib.Monad
 import Game.Goatee.Lib.Types
@@ -36,15 +35,16 @@ instance UiCtrl go ui => UiTool go ui (MarkTool ui) where
   toolGobanClickComplete me (Just from) (Just to) = do
     let ui = myUi me
         mark = myMark me
-    board <- cursorBoard <$> readCursor ui
-    let newMark = case coordMark $ boardCoordState from board of
+    oldMark <- doUiGo ui $ getMark from
+    let newMark = case oldMark of
           Just mark' | mark' == mark -> Nothing
           _ -> Just mark
-    doUiGo ui $ mapM_ (modifyMark $ const newMark) $ range from to
+    doUiGo ui $ mapM_ (modifyMark $ const newMark) $ coordRange from to
 
   toolGobanClickComplete _ _ _ = return ()
 
-  toolGobanRenderModifyBoard me board = do
+  toolGobanRenderGetBoard me cursor = do
+    let board = cursorBoard cursor
     state <- toolGetGobanState me
     return $ case toolGobanStateStartCoord state of
       Nothing -> board
@@ -56,7 +56,7 @@ instance UiCtrl go ui => UiTool go ui (MarkTool ui) where
               board
               (case state of
                 ToolGobanHovering (Just coord) -> [coord]
-                ToolGobanDragging _ (Just from) (Just to) -> range from to
+                ToolGobanDragging _ (Just from) (Just to) -> coordRange from to
                 _ -> [])
 
 -- | Creates a 'MarkTool' that will modify regions of the given mark on the
@@ -68,13 +68,6 @@ create ui mark toolState =
     , myToolState = toolState
     , myMark = mark
     }
-
--- | @range coord0 coord1@ returns a list of all the coordinates in the
--- rectangle with @coord0@ and @coord1@ as opposite corners.
-range :: Coord -> Coord -> [Coord]
-range (x0, y0) (x1, y1) =
-  [(x, y) | x <- [min x0 x1 .. max x0 x1]
-          , y <- [min y0 y1 .. max y0 y1]]
 
 -- | @setMarkToOppositeOf mark baseCoord targetCoord@ returns @targetCoord@ with
 -- its mark modified to be nothing, if @baseCoord@ has @mark@, or @mark@, if

@@ -363,7 +363,7 @@ drawBoard me = do
   modes <- readModes ui
   AnyTool tool <- readTool ui
 
-  board <- toolGobanRenderModifyBoard tool $ cursorBoard cursor
+  board <- toolGobanRenderGetBoard tool cursor
   let variationMode = rootInfoVariationMode $ gameInfoRootInfo $ boardGameInfo $ cursorBoard cursor
 
       variations :: [(Coord, Color)]

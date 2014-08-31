@@ -61,6 +61,7 @@ library
         Game.Goatee.Ui.Gtk.NodePropertiesPanel
         Game.Goatee.Ui.Gtk.PlayPanel
         Game.Goatee.Ui.Gtk.Tool
+        Game.Goatee.Ui.Gtk.Tool.AssignStone
         Game.Goatee.Ui.Gtk.Tool.Mark
         Game.Goatee.Ui.Gtk.Tool.Null
         Game.Goatee.Ui.Gtk.Tool.Play

@@ -52,6 +52,8 @@ module Game.Goatee.Ui.Gtk.Common (
   toolToColor,
   -- * Miscellaneous
   fileFiltersForSgf,
+  coordRange,
+  toggle,
   ) where
 
 import Control.Applicative ((<$>), (<*>), pure)
@@ -482,7 +484,7 @@ data ToolType =
 --
 -- The goban sends events to the active tool as they occur, via
 -- 'toolGobanHandleEvent'.  The tool can then affect what the goban displays by
--- overriding 'toolGobanRenderModifyBoard' and/or 'toolGobanRenderModifyCoords'.
+-- overriding 'toolGobanRenderGetBoard' and/or 'toolGobanRenderModifyCoords'.
 class UiCtrl go ui => UiTool go ui tool | tool -> ui where
   -- | Performs tool-specific clean-up during 'UiCtrl' shutdown.
   toolDestroy :: tool -> IO ()
@@ -541,9 +543,10 @@ class UiCtrl go ui => UiTool go ui tool | tool -> ui where
   toolGobanInvalidate _ = return ()
 
   -- | When rendering, the goban calls this function to let the active tool
-  -- modify the 'BoardState' before the goban starts inspecting it.
-  toolGobanRenderModifyBoard :: tool -> BoardState -> IO BoardState
-  toolGobanRenderModifyBoard _ = return
+  -- extract a 'BoardState' from a 'Cursor' for rendering.  The tool is free to
+  -- modify the cursor before returning a state.
+  toolGobanRenderGetBoard :: tool -> Cursor -> IO BoardState
+  toolGobanRenderGetBoard _ = return . cursorBoard
 
   -- | When rendering, the goban calls this function to let the active tool
   -- modify the final 'RenderedCoord's before they are drawn.
@@ -698,3 +701,17 @@ fileFiltersForSgf = do
 -- disk.
 untitledFileName :: String
 untitledFileName = "(Untitled)"
+
+-- | @coordRange coord0 coord1@ returns a list of all the coordinates in the
+-- rectangle with @coord0@ and @coord1@ as opposite corners.
+coordRange :: Coord -> Coord -> [Coord]
+coordRange (x0, y0) (x1, y1) =
+  [(x, y) | x <- [min x0 x1 .. max x0 x1]
+          , y <- [min y0 y1 .. max y0 y1]]
+
+-- | @toggle value@ toggles @value@ in a 'Maybe', returning 'Nothing' if the
+-- maybe already holds the value, and @'Just' value@ otherwise.
+toggle :: Eq a => a -> Maybe a -> Maybe a
+toggle target maybeValue = case maybeValue of
+  Just value | value == target -> Nothing
+  _ -> Just target

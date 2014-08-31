@@ -311,6 +311,33 @@ descriptorForName name = fromMaybe (AnyDescriptor $ propertyUnknown name) $ desc
 descriptorForName' :: String -> Maybe AnyDescriptor
 descriptorForName' = flip Map.lookup descriptorsByName
 
+-- | Descriptors for setup properties that assign stones to the board.  For use
+-- with 'stoneAssignmentPropertyToStone' and 'stoneToStoneAssignmentProperty'.
+stoneAssignmentProperties :: [AnyCoordListDescriptor]
+stoneAssignmentProperties =
+  [ AnyCoordListDescriptor propertyAB
+  , AnyCoordListDescriptor propertyAE
+  , AnyCoordListDescriptor propertyAW
+  ]
+
+-- | Converts a descriptor in 'stoneAssignmentProperties' to the type of stone
+-- it assigns.
+stoneAssignmentPropertyToStone :: AnyCoordListDescriptor -> Maybe Color
+stoneAssignmentPropertyToStone (AnyCoordListDescriptor d) = case propertyName d of
+  "AB" -> Just Black
+  "AE" -> Nothing
+  "AW" -> Just White
+  _ -> error $ "stoneAssignmentPropertyToColor: " ++ show (propertyName d) ++
+       " is not a stone assignment property."
+
+-- | Converts a type of stone assignment to a descriptor in
+-- 'stoneAssignmentProperties'.
+stoneToStoneAssignmentProperty :: Maybe Color -> AnyCoordListDescriptor
+stoneToStoneAssignmentProperty stone = case stone of
+  Nothing -> AnyCoordListDescriptor propertyAE
+  Just Black -> AnyCoordListDescriptor propertyAB
+  Just White -> AnyCoordListDescriptor propertyAW
+
 -- | Returns the descriptor for a mark.
 markProperty :: Mark -> ValuedPropertyInfo CoordList
 markProperty MarkCircle = propertyCR
