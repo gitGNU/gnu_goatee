@@ -25,8 +25,8 @@ module Game.Goatee.Lib.TestUtils (
   sortProperties,
   ) where
 
-import Data.Function (on)
 import Data.List (sortBy)
+import Data.Ord (comparing)
 import Game.Goatee.Lib.Board
 import Game.Goatee.Lib.Property
 import Game.Goatee.Lib.Tree
@@ -59,4 +59,4 @@ child = flip cursorChild
 --
 -- TODO Probably better to have a compare-unordered operator.
 sortProperties :: [Property] -> [Property]
-sortProperties = sortBy (compare `on` show)
+sortProperties = sortBy $ comparing show

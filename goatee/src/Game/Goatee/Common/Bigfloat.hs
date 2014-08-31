@@ -23,7 +23,7 @@ module Game.Goatee.Common.Bigfloat (
   ) where
 
 import Data.Char (isDigit, isSpace)
-import Data.Function (on)
+import Data.Ord (comparing)
 import Prelude hiding (exponent, significand)
 
 -- | A base-10, infinite-precision, floating-point number.  Implemented as an
@@ -59,7 +59,7 @@ instance Eq Bigfloat where
            in xe == ye && xv == yv
 
 instance Ord Bigfloat where
-  compare = (uncurry (compare `on` significand) .) . normalize2
+  compare = (uncurry (comparing significand) .) . normalize2
 
 instance Num Bigfloat where
   (+) = lift2 (+)

@@ -30,6 +30,7 @@ import Control.Monad (forM_, unless, when)
 import Control.Monad.Writer (Writer, execWriter, tell)
 import Data.Function (on)
 import Data.List (find, groupBy, intercalate, nub, sortBy)
+import Data.Ord (comparing)
 import Data.Version (showVersion)
 import Game.Goatee.App (applicationName)
 import Game.Goatee.Common
@@ -74,7 +75,7 @@ instance Eq NodeWithDeepEquality where
         n2 = nodeWithDeepEquality node2
     in propertiesSorted n1 == propertiesSorted n2 &&
        deepChildren n1 == deepChildren n2
-    where propertiesSorted = sortBy (compare `on` show) . nodeProperties
+    where propertiesSorted = sortBy (comparing show) . nodeProperties
           deepChildren = map NodeWithDeepEquality . nodeChildren
 
 -- | A node with no properties and no children.
@@ -181,7 +182,7 @@ validateNodeDuplicates :: (Eq v, Ord v)
                           -> Writer [String] ()
 validateNodeDuplicates props getTaggedElts errAction =
   let groups = groupBy ((==) `on` fst) $
-               sortBy (compare `on` fst) $
+               sortBy (comparing fst) $
                concatMap getTaggedElts props
   in forM_ groups $ \group ->
        unless (null $ tail group) $

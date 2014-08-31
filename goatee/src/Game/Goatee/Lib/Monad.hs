@@ -48,6 +48,7 @@ import Data.List (delete, find, mapAccumL, nub, sortBy)
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (fromMaybe, isJust, isNothing)
+import Data.Ord (comparing)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board
 import Game.Goatee.Lib.Property
@@ -552,8 +553,8 @@ instance Monad m => MonadGo (GoT m) where
                             (\node -> node { nodeProperties = newProperties })
                             oldCursor
             }
-    when (sortBy (compare `F.on` propertyName) newProperties /=
-          sortBy (compare `F.on` propertyName) oldProperties) $
+    when (sortBy (comparing propertyName) newProperties /=
+          sortBy (comparing propertyName) oldProperties) $
       fire propertiesModifiedEvent (\f -> f oldProperties newProperties)
 
     -- The current game info changes when modifying game info properties on the
@@ -775,7 +776,7 @@ instance Eq (Event go h) where
   (==) = (==) `F.on` eventName
 
 instance Ord (Event go h) where
-  compare = compare `F.on` eventName
+  compare = comparing eventName
 
 instance Show (Event go h) where
   show = eventName

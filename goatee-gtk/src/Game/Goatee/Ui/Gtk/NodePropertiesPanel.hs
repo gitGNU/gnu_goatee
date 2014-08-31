@@ -27,9 +27,9 @@ import Control.Arrow ((+++))
 import Control.Applicative ((<$>), (<*), (*>))
 import Control.Monad (forM_, unless, when)
 import qualified Data.Foldable as Foldable
-import qualified Data.Function as Function
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (sortBy)
+import Data.Ord (comparing)
 import Game.Goatee.Lib.Board
 import Game.Goatee.Lib.Monad hiding (on)
 import Game.Goatee.Lib.Parser
@@ -170,8 +170,7 @@ update me = do
   cursor <- readCursor $ myUi me
   let model = myModel me
       modelProperties = myModelProperties me
-      newProperties = sortBy (compare `Function.on` propertyName) $
-                      cursorProperties cursor
+      newProperties = sortBy (comparing propertyName) $ cursorProperties cursor
   oldProperties <- listStoreToList model
   when (newProperties /= oldProperties) $ do
     listStoreClear model
