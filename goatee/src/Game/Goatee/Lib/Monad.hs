@@ -37,7 +37,7 @@ module Game.Goatee.Lib.Monad (
   ) where
 
 import Control.Applicative ((<$>), Applicative ((<*>), pure))
-import Control.Monad (ap, liftM, when)
+import Control.Monad ((<=<), ap, forM, forM_, liftM, msum, when)
 import Control.Monad.Identity (Identity, runIdentity)
 import qualified Control.Monad.State as State
 import Control.Monad.State (MonadState, StateT, get, put)
@@ -45,12 +45,14 @@ import Control.Monad.Trans (MonadIO, MonadTrans, lift, liftIO)
 import Control.Monad.Writer.Class (MonadWriter, listen, pass, tell, writer)
 import qualified Data.Function as F
 import Data.List (delete, find, mapAccumL, nub, sortBy)
+import qualified Data.Map as Map
+import Data.Map (Map)
 import Data.Maybe (fromMaybe, isJust, isNothing)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board
 import Game.Goatee.Lib.Property
 import qualified Game.Goatee.Lib.Tree as Tree
-import Game.Goatee.Lib.Tree hiding (addChild, addChildAt)
+import Game.Goatee.Lib.Tree hiding (addChild, addChildAt, deleteChildAt)
 import Game.Goatee.Lib.Types
 
 -- | The internal state of a Go monad transformer.  @go@ is the type of
@@ -186,7 +188,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
 
   -- | Searches for a valued property on the current node, returning its value
   -- if found.
-  getPropertyValue :: ValuedDescriptor d v => d -> go (Maybe v)
+  getPropertyValue :: ValuedDescriptor v d => d -> go (Maybe v)
   getPropertyValue descriptor = liftM (liftM $ propertyValue descriptor) $ getProperty descriptor
 
   -- | Sets a property on the current node, replacing an existing property with
@@ -219,7 +221,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- existing on the node, and a 'Just' with the property's value marks the
   -- property's presence.  This function does not do any validation to check
   -- that the resulting tree state is valid.
-  modifyPropertyValue :: ValuedDescriptor d v => d -> (Maybe v -> Maybe v) -> go ()
+  modifyPropertyValue :: ValuedDescriptor v d => d -> (Maybe v -> Maybe v) -> go ()
   modifyPropertyValue descriptor fn = modifyProperty descriptor $ \old ->
     propertyBuilder descriptor <$> fn (propertyValue descriptor <$> old)
 
@@ -228,7 +230,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- either has the property with an empty value, or doesn't have the property.
   -- Returning an empty string removes the property from the node, if it was
   -- set.
-  modifyPropertyString :: (Stringlike s, ValuedDescriptor d s) => d -> (String -> String) -> go ()
+  modifyPropertyString :: (Stringlike s, ValuedDescriptor s d) => d -> (String -> String) -> go ()
   modifyPropertyString descriptor fn =
     modifyPropertyValue descriptor $ \value -> case fn (maybe "" sgfToString value) of
       "" -> Nothing
@@ -247,7 +249,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- Importantly, this might not be specific enough for properties such as 'DD'
   -- and 'VW' where a present, empty list has different semantics from the
   -- property not being present.  In that case, 'modifyPropertyValue' is better.
-  modifyPropertyCoords :: ValuedDescriptor d CoordList => d -> ([Coord] -> [Coord]) -> go ()
+  modifyPropertyCoords :: ValuedDescriptor CoordList d => d -> ([Coord] -> [Coord]) -> go ()
   modifyPropertyCoords descriptor fn =
     modifyPropertyValue descriptor $ \value -> case fn $ maybe [] expandCoordList value of
       [] -> Nothing
@@ -263,6 +265,99 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- then fires a 'variationModeChangedEvent' if the variation mode has changed.
   modifyVariationMode :: (VariationMode -> VariationMode) -> go ()
 
+  -- | Retrieves the stone assigned in the current node to a point by 'AB',
+  -- 'AE', or 'AW'.  The possible results are:
+  --
+  -- * @Nothing@: No stone has been assigned to the point.  The point could
+  -- still be in any state, e.g. from a play on the current node or some
+  -- property in an ancestor node.
+  --
+  -- * @Just Nothing@: The point has been assigned to be empty.
+  --
+  -- * @Just (Just Color)@: The point has been assigned to have a stone of the
+  -- given color.
+  getAssignedStone :: Coord -> go (Maybe (Maybe Color))
+  getAssignedStone coord =
+    fmap msum $ forM stoneAssignmentProperties $ \descriptor ->
+    ((\coords -> if coord `elem` coords
+                 then Just $ stoneAssignmentPropertyToStone descriptor
+                 else Nothing) <=<
+     fmap expandCoordList) <$>
+    getPropertyValue descriptor
+
+  -- | Looks up all stones that are assigned by 'AB', 'AE', or 'AW' properties
+  -- on the current node.  Returns a map from each point to the stone that is
+  -- assigned to the point.
+  getAllAssignedStones :: go (Map Coord (Maybe Color))
+  getAllAssignedStones =
+    fmap Map.unions $ forM stoneAssignmentProperties $ \descriptor ->
+    let stone = stoneAssignmentPropertyToStone descriptor
+    in Map.fromList . map (\coord -> (coord, stone)) . maybe [] expandCoordList <$>
+       getPropertyValue descriptor
+
+  -- | Modifies the state of currently assigned stones, keeping in mind that it
+  -- is invalid to mix 'MoveProperty' and 'SetupProperty' properties in a single
+  -- node.  This function has the behaviour of a user changing stone assignments
+  -- in a UI.  How this function works is:
+  --
+  -- * Pick a node to work with.  If there is a move property on the current
+  -- node and there is not already a setup property on the current node, then
+  -- we'll create and modify a new child node.  Otherwise, either there are no
+  -- move properties on the node (so we can add setup properties at will), or
+  -- there are both move and setup properties on the node (the node is already
+  -- invalid), so we'll just modify the current node.
+  --
+  -- * If we're modifying the current node, then apply the modification function
+  -- to the state of stone assignment for each coordinate.  See
+  -- 'getAssignedStone' for the meaning of @Maybe (Maybe Color)@.  Modify the
+  -- properties in the node as necessary to apply the result
+  -- ('propertiesModifiedEvent').  (__NOTE:__ Currently one event is fired for
+  -- each property modified; this may change in the future.)
+  --
+  -- * If we need to create a child node, then apply the modification function
+  -- to 'Nothing' to determine if we're actually adding assignments.  If the
+  -- function returns a 'Just', then we create a child node with the necessary
+  -- assignment properties, insert it ('childAddedEvent'), then navigate to it
+  -- ('navigationEvent').  If the function returns 'Nothing', then
+  -- 'modifyAssignedStones' does nothing.
+  modifyAssignedStones :: [Coord] -> (Maybe (Maybe Color) -> Maybe (Maybe Color)) -> go ()
+  modifyAssignedStones coords f = do
+    needChild <- ((&&) <$> notElem SetupProperty <*> elem MoveProperty) .
+                 map propertyType <$>
+                 getProperties
+    if needChild
+      then case f Nothing of
+        Nothing -> return ()
+        Just assignedStone -> do
+          addChild emptyNode { nodeProperties =
+                               [propertyBuilder (stoneToStoneAssignmentProperty assignedStone) $
+                                buildCoordList coords]
+                             }
+          goDown =<< subtract 1 . length . cursorChildren <$> getCursor
+      else do
+        -- Get a map from getAllAssignedStones: Map Coord (Maybe Color)
+        allAssignedStones <- getAllAssignedStones
+        let -- For each coord in coords, modify the map.
+            allAssignedStones' = foldr (Map.alter f) allAssignedStones coords
+            -- Invert both maps.
+            byStone, byStone' :: Map (Maybe Color) [Coord]
+            byStone = mapInvert allAssignedStones
+            byStone' = mapInvert allAssignedStones'
+            -- Compute a diff between the two maps.
+            diff :: Map (Maybe Color) ([Coord], [Coord])
+            diff = Map.mergeWithKey
+                   (\_ oldCoords newCoords -> if newCoords == oldCoords
+                                              then Nothing
+                                              else Just (oldCoords, newCoords))
+                   (Map.map $ \oldCoords -> (oldCoords, []))
+                   (Map.map $ \newCoords -> ([], newCoords))
+                   byStone
+                   byStone'
+        -- Run modifyProperties (AB|AE|AW) for the stones that have changed lists.
+        forM_ (Map.assocs diff) $ \(stone, (oldCoords, newCoords)) ->
+          when (newCoords /= oldCoords) $
+          modifyPropertyCoords (stoneToStoneAssignmentProperty stone) $ const newCoords
+
   -- | Returns the 'Mark' at a point on the current node.
   getMark :: Coord -> go (Maybe Mark)
   getMark = liftM coordMark . getCoordState
@@ -270,9 +365,9 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- | Calls the given function to modify the presence of a 'Mark' on the
   -- current node.
   modifyMark :: (Maybe Mark -> Maybe Mark) -> Coord -> go ()
-  modifyMark fn coord = do
+  modifyMark f coord = do
     maybeOldMark <- getMark coord
-    case (maybeOldMark, fn maybeOldMark) of
+    case (maybeOldMark, f maybeOldMark) of
       (Just oldMark, Nothing) -> remove oldMark
       (Nothing, Just newMark) -> add newMark
       (Just oldMark, Just newMark) | oldMark /= newMark -> remove oldMark >> add newMark

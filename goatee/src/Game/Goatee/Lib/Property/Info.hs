@@ -136,162 +136,162 @@ propertyUnknown name =
   (\(UnknownProperty _ value) -> value)
   (UnknownProperty name)
 
-allDescriptors :: [SomeDescriptor]
+allDescriptors :: [AnyDescriptor]
 allDescriptors =
-  [ SomeDescriptor propertyB
-  , SomeDescriptor propertyKO
-  , SomeDescriptor propertyMN
-  , SomeDescriptor propertyW
+  [ AnyDescriptor propertyB
+  , AnyDescriptor propertyKO
+  , AnyDescriptor propertyMN
+  , AnyDescriptor propertyW
 
-  , SomeDescriptor propertyAB
-  , SomeDescriptor propertyAE
-  , SomeDescriptor propertyAW
-  , SomeDescriptor propertyPL
+  , AnyDescriptor propertyAB
+  , AnyDescriptor propertyAE
+  , AnyDescriptor propertyAW
+  , AnyDescriptor propertyPL
 
-  , SomeDescriptor propertyC
-  , SomeDescriptor propertyDM
-  , SomeDescriptor propertyGB
-  , SomeDescriptor propertyGW
-  , SomeDescriptor propertyHO
-  , SomeDescriptor propertyN
-  , SomeDescriptor propertyUC
-  , SomeDescriptor propertyV
+  , AnyDescriptor propertyC
+  , AnyDescriptor propertyDM
+  , AnyDescriptor propertyGB
+  , AnyDescriptor propertyGW
+  , AnyDescriptor propertyHO
+  , AnyDescriptor propertyN
+  , AnyDescriptor propertyUC
+  , AnyDescriptor propertyV
 
-  , SomeDescriptor propertyBM
-  , SomeDescriptor propertyDO
-  , SomeDescriptor propertyIT
-  , SomeDescriptor propertyTE
+  , AnyDescriptor propertyBM
+  , AnyDescriptor propertyDO
+  , AnyDescriptor propertyIT
+  , AnyDescriptor propertyTE
 
-  , SomeDescriptor propertyAR
-  , SomeDescriptor propertyCR
-  , SomeDescriptor propertyDD
-  , SomeDescriptor propertyLB
-  , SomeDescriptor propertyLN
-  , SomeDescriptor propertyMA
-  , SomeDescriptor propertySL
-  , SomeDescriptor propertySQ
-  , SomeDescriptor propertyTR
+  , AnyDescriptor propertyAR
+  , AnyDescriptor propertyCR
+  , AnyDescriptor propertyDD
+  , AnyDescriptor propertyLB
+  , AnyDescriptor propertyLN
+  , AnyDescriptor propertyMA
+  , AnyDescriptor propertySL
+  , AnyDescriptor propertySQ
+  , AnyDescriptor propertyTR
 
-  , SomeDescriptor propertyAP
-  , SomeDescriptor propertyCA
-  , SomeDescriptor propertyFF
-  , SomeDescriptor propertyGM
-  , SomeDescriptor propertyST
-  , SomeDescriptor propertySZ
+  , AnyDescriptor propertyAP
+  , AnyDescriptor propertyCA
+  , AnyDescriptor propertyFF
+  , AnyDescriptor propertyGM
+  , AnyDescriptor propertyST
+  , AnyDescriptor propertySZ
 
-  , SomeDescriptor propertyAN
-  , SomeDescriptor propertyBR
-  , SomeDescriptor propertyBT
-  , SomeDescriptor propertyCP
-  , SomeDescriptor propertyDT
-  , SomeDescriptor propertyEV
-  , SomeDescriptor propertyGC
-  , SomeDescriptor propertyGN
-  , SomeDescriptor propertyON
-  , SomeDescriptor propertyOT
-  , SomeDescriptor propertyPB
-  , SomeDescriptor propertyPC
-  , SomeDescriptor propertyPW
-  , SomeDescriptor propertyRE
-  , SomeDescriptor propertyRO
-  , SomeDescriptor propertyRU
-  , SomeDescriptor propertySO
-  , SomeDescriptor propertyTM
-  , SomeDescriptor propertyUS
-  , SomeDescriptor propertyWR
-  , SomeDescriptor propertyWT
+  , AnyDescriptor propertyAN
+  , AnyDescriptor propertyBR
+  , AnyDescriptor propertyBT
+  , AnyDescriptor propertyCP
+  , AnyDescriptor propertyDT
+  , AnyDescriptor propertyEV
+  , AnyDescriptor propertyGC
+  , AnyDescriptor propertyGN
+  , AnyDescriptor propertyON
+  , AnyDescriptor propertyOT
+  , AnyDescriptor propertyPB
+  , AnyDescriptor propertyPC
+  , AnyDescriptor propertyPW
+  , AnyDescriptor propertyRE
+  , AnyDescriptor propertyRO
+  , AnyDescriptor propertyRU
+  , AnyDescriptor propertySO
+  , AnyDescriptor propertyTM
+  , AnyDescriptor propertyUS
+  , AnyDescriptor propertyWR
+  , AnyDescriptor propertyWT
 
-  , SomeDescriptor propertyBL
-  , SomeDescriptor propertyOB
-  , SomeDescriptor propertyOW
-  , SomeDescriptor propertyWL
+  , AnyDescriptor propertyBL
+  , AnyDescriptor propertyOB
+  , AnyDescriptor propertyOW
+  , AnyDescriptor propertyWL
 
-  , SomeDescriptor propertyVW
+  , AnyDescriptor propertyVW
 
-  , SomeDescriptor propertyHA
-  , SomeDescriptor propertyKM
-  , SomeDescriptor propertyTB
-  , SomeDescriptor propertyTW
+  , AnyDescriptor propertyHA
+  , AnyDescriptor propertyKM
+  , AnyDescriptor propertyTB
+  , AnyDescriptor propertyTW
   ]
 
-propertyInfo :: Property -> SomeDescriptor
+propertyInfo :: Property -> AnyDescriptor
 propertyInfo property = case property of
-  B {} -> SomeDescriptor propertyB
-  KO {} -> SomeDescriptor propertyKO
-  MN {} -> SomeDescriptor propertyMN
-  W {} -> SomeDescriptor propertyW
+  B {} -> AnyDescriptor propertyB
+  KO {} -> AnyDescriptor propertyKO
+  MN {} -> AnyDescriptor propertyMN
+  W {} -> AnyDescriptor propertyW
 
-  AB {} -> SomeDescriptor propertyAB
-  AE {} -> SomeDescriptor propertyAE
-  AW {} -> SomeDescriptor propertyAW
-  PL {} -> SomeDescriptor propertyPL
+  AB {} -> AnyDescriptor propertyAB
+  AE {} -> AnyDescriptor propertyAE
+  AW {} -> AnyDescriptor propertyAW
+  PL {} -> AnyDescriptor propertyPL
 
-  C {} -> SomeDescriptor propertyC
-  DM {} -> SomeDescriptor propertyDM
-  GB {} -> SomeDescriptor propertyGB
-  GW {} -> SomeDescriptor propertyGW
-  HO {} -> SomeDescriptor propertyHO
-  N {} -> SomeDescriptor propertyN
-  UC {} -> SomeDescriptor propertyUC
-  V {} -> SomeDescriptor propertyV
+  C {} -> AnyDescriptor propertyC
+  DM {} -> AnyDescriptor propertyDM
+  GB {} -> AnyDescriptor propertyGB
+  GW {} -> AnyDescriptor propertyGW
+  HO {} -> AnyDescriptor propertyHO
+  N {} -> AnyDescriptor propertyN
+  UC {} -> AnyDescriptor propertyUC
+  V {} -> AnyDescriptor propertyV
 
-  BM {} -> SomeDescriptor propertyBM
-  DO {} -> SomeDescriptor propertyDO
-  IT {} -> SomeDescriptor propertyIT
-  TE {} -> SomeDescriptor propertyTE
+  BM {} -> AnyDescriptor propertyBM
+  DO {} -> AnyDescriptor propertyDO
+  IT {} -> AnyDescriptor propertyIT
+  TE {} -> AnyDescriptor propertyTE
 
-  AR {} -> SomeDescriptor propertyAR
-  CR {} -> SomeDescriptor propertyCR
-  DD {} -> SomeDescriptor propertyDD
-  LB {} -> SomeDescriptor propertyLB
-  LN {} -> SomeDescriptor propertyLN
-  MA {} -> SomeDescriptor propertyMA
-  SL {} -> SomeDescriptor propertySL
-  SQ {} -> SomeDescriptor propertySQ
-  TR {} -> SomeDescriptor propertyTR
+  AR {} -> AnyDescriptor propertyAR
+  CR {} -> AnyDescriptor propertyCR
+  DD {} -> AnyDescriptor propertyDD
+  LB {} -> AnyDescriptor propertyLB
+  LN {} -> AnyDescriptor propertyLN
+  MA {} -> AnyDescriptor propertyMA
+  SL {} -> AnyDescriptor propertySL
+  SQ {} -> AnyDescriptor propertySQ
+  TR {} -> AnyDescriptor propertyTR
 
-  AP {} -> SomeDescriptor propertyAP
-  CA {} -> SomeDescriptor propertyCA
-  FF {} -> SomeDescriptor propertyFF
-  GM {} -> SomeDescriptor propertyGM
-  ST {} -> SomeDescriptor propertyST
-  SZ {} -> SomeDescriptor propertySZ
+  AP {} -> AnyDescriptor propertyAP
+  CA {} -> AnyDescriptor propertyCA
+  FF {} -> AnyDescriptor propertyFF
+  GM {} -> AnyDescriptor propertyGM
+  ST {} -> AnyDescriptor propertyST
+  SZ {} -> AnyDescriptor propertySZ
 
-  AN {} -> SomeDescriptor propertyAN
-  BR {} -> SomeDescriptor propertyBR
-  BT {} -> SomeDescriptor propertyBT
-  CP {} -> SomeDescriptor propertyCP
-  DT {} -> SomeDescriptor propertyDT
-  EV {} -> SomeDescriptor propertyEV
-  GC {} -> SomeDescriptor propertyGC
-  GN {} -> SomeDescriptor propertyGN
-  ON {} -> SomeDescriptor propertyON
-  OT {} -> SomeDescriptor propertyOT
-  PB {} -> SomeDescriptor propertyPB
-  PC {} -> SomeDescriptor propertyPC
-  PW {} -> SomeDescriptor propertyPW
-  RE {} -> SomeDescriptor propertyRE
-  RO {} -> SomeDescriptor propertyRO
-  RU {} -> SomeDescriptor propertyRU
-  SO {} -> SomeDescriptor propertySO
-  TM {} -> SomeDescriptor propertyTM
-  US {} -> SomeDescriptor propertyUS
-  WR {} -> SomeDescriptor propertyWR
-  WT {} -> SomeDescriptor propertyWT
+  AN {} -> AnyDescriptor propertyAN
+  BR {} -> AnyDescriptor propertyBR
+  BT {} -> AnyDescriptor propertyBT
+  CP {} -> AnyDescriptor propertyCP
+  DT {} -> AnyDescriptor propertyDT
+  EV {} -> AnyDescriptor propertyEV
+  GC {} -> AnyDescriptor propertyGC
+  GN {} -> AnyDescriptor propertyGN
+  ON {} -> AnyDescriptor propertyON
+  OT {} -> AnyDescriptor propertyOT
+  PB {} -> AnyDescriptor propertyPB
+  PC {} -> AnyDescriptor propertyPC
+  PW {} -> AnyDescriptor propertyPW
+  RE {} -> AnyDescriptor propertyRE
+  RO {} -> AnyDescriptor propertyRO
+  RU {} -> AnyDescriptor propertyRU
+  SO {} -> AnyDescriptor propertySO
+  TM {} -> AnyDescriptor propertyTM
+  US {} -> AnyDescriptor propertyUS
+  WR {} -> AnyDescriptor propertyWR
+  WT {} -> AnyDescriptor propertyWT
 
-  BL {} -> SomeDescriptor propertyBL
-  OB {} -> SomeDescriptor propertyOB
-  OW {} -> SomeDescriptor propertyOW
-  WL {} -> SomeDescriptor propertyWL
+  BL {} -> AnyDescriptor propertyBL
+  OB {} -> AnyDescriptor propertyOB
+  OW {} -> AnyDescriptor propertyOW
+  WL {} -> AnyDescriptor propertyWL
 
-  VW {} -> SomeDescriptor propertyVW
+  VW {} -> AnyDescriptor propertyVW
 
-  HA {} -> SomeDescriptor propertyHA
-  KM {} -> SomeDescriptor propertyKM
-  TB {} -> SomeDescriptor propertyTB
-  TW {} -> SomeDescriptor propertyTW
+  HA {} -> AnyDescriptor propertyHA
+  KM {} -> AnyDescriptor propertyKM
+  TB {} -> AnyDescriptor propertyTB
+  TW {} -> AnyDescriptor propertyTW
 
-  UnknownProperty name _ -> SomeDescriptor $ propertyUnknown name
+  UnknownProperty name _ -> AnyDescriptor $ propertyUnknown name
 
 instance Descriptor Property where
   propertyName = propertyName . propertyInfo
@@ -302,14 +302,41 @@ instance Descriptor Property where
   propertyValueRenderer = propertyValueRenderer . propertyInfo
   propertyValueRendererPretty = propertyValueRendererPretty . propertyInfo
 
-descriptorsByName :: Map String SomeDescriptor
+descriptorsByName :: Map String AnyDescriptor
 descriptorsByName = Map.fromList $ map (propertyName &&& id) allDescriptors
 
-descriptorForName :: String -> SomeDescriptor
-descriptorForName name = fromMaybe (SomeDescriptor $ propertyUnknown name) $ descriptorForName' name
+descriptorForName :: String -> AnyDescriptor
+descriptorForName name = fromMaybe (AnyDescriptor $ propertyUnknown name) $ descriptorForName' name
 
-descriptorForName' :: String -> Maybe SomeDescriptor
+descriptorForName' :: String -> Maybe AnyDescriptor
 descriptorForName' = flip Map.lookup descriptorsByName
+
+-- | Descriptors for setup properties that assign stones to the board.  For use
+-- with 'stoneAssignmentPropertyToStone' and 'stoneToStoneAssignmentProperty'.
+stoneAssignmentProperties :: [AnyCoordListDescriptor]
+stoneAssignmentProperties =
+  [ AnyCoordListDescriptor propertyAB
+  , AnyCoordListDescriptor propertyAE
+  , AnyCoordListDescriptor propertyAW
+  ]
+
+-- | Converts a descriptor in 'stoneAssignmentProperties' to the type of stone
+-- it assigns.
+stoneAssignmentPropertyToStone :: AnyCoordListDescriptor -> Maybe Color
+stoneAssignmentPropertyToStone (AnyCoordListDescriptor d) = case propertyName d of
+  "AB" -> Just Black
+  "AE" -> Nothing
+  "AW" -> Just White
+  _ -> error $ "stoneAssignmentPropertyToColor: " ++ show (propertyName d) ++
+       " is not a stone assignment property."
+
+-- | Converts a type of stone assignment to a descriptor in
+-- 'stoneAssignmentProperties'.
+stoneToStoneAssignmentProperty :: Maybe Color -> AnyCoordListDescriptor
+stoneToStoneAssignmentProperty stone = case stone of
+  Nothing -> AnyCoordListDescriptor propertyAE
+  Just Black -> AnyCoordListDescriptor propertyAB
+  Just White -> AnyCoordListDescriptor propertyAW
 
 -- | Returns the descriptor for a mark.
 markProperty :: Mark -> ValuedPropertyInfo CoordList

@@ -21,8 +21,11 @@ import Control.Applicative ((<$>))
 import Control.Arrow ((&&&), second)
 import Control.Monad (forM_, liftM, replicateM_, void)
 import Control.Monad.Writer (Writer, execWriter, runWriter, tell)
-import Data.List (unfoldr)
+import Data.List (sortBy, unfoldr)
+import qualified Data.Map as Map
 import Data.Maybe (fromJust, maybeToList)
+import Data.Monoid (Monoid)
+import Data.Ord (comparing)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board
 import Game.Goatee.Lib.Monad
@@ -32,7 +35,7 @@ import Game.Goatee.Lib.TestUtils
 import Game.Goatee.Lib.Tree (emptyNode, nodeChildren)
 import Game.Goatee.Lib.Types
 import Game.Goatee.Test.Common
-import Test.HUnit ((~:), (@=?), (@?=), Test (TestList))
+import Test.HUnit ((~:), (@=?), (@?=), Assertion, Test (TestList), assertFailure)
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
 
@@ -58,6 +61,9 @@ tests = "Game.Goatee.Lib.Monad" ~: TestList
   , modifyPropertyCoordsTests
   , modifyGameInfoTests
   , modifyVariationModeTests
+  , getAssignedStoneTests
+  , getAllAssignedStonesTests
+  , modifyAssignedStonesTests
   , getMarkTests
   , modifyMarkTests
   , addChildTests
@@ -561,6 +567,161 @@ modifyVariationModeTests = "modifyVariationMode" ~: TestList
           node (ST <$> maybeToList maybeExpectedST) @=?
           cursorNode (execGo (modifyVariationMode fn) $
                       rootCursor $ node $ ST <$> maybeToList maybeInitialST)
+
+getAssignedStoneTests = "getAssignedStone" ~: TestList
+  [ "should return Nothing for a point without an assignment" ~:
+    evalGo (getAssignedStone (0,0)) cursor @?= Nothing
+
+  , "should return Nothing for an assignment in a parent node" ~:
+    evalGo (getAssignedStone (1,0)) cursor @?= Nothing
+
+  , "should return Just for assigned points" ~: do
+    evalGo (getAssignedStone (2,0)) cursor @?= Just (Just Black)
+    evalGo (getAssignedStone (3,0)) cursor @?= Just (Just White)
+    evalGo (getAssignedStone (4,0)) cursor @?= Just Nothing
+  ]
+  where cursor = child 0 $ rootCursor $
+                 root 5 1 [AB $ coord1 (1,0),
+                           AW $ coord1 (4,0)]
+                 [node [AB $ coord1 (2,0),
+                        AW $ coord1 (3,0),
+                        AE $ coord1 (4,0)]]
+
+getAllAssignedStonesTests = "getAllAssignedStones" ~: TestList
+  [ "returns empty given no stone assignments" ~: do
+    Map.empty @=? evalGo getAllAssignedStones (rootCursor $ node [])
+    Map.empty @=? evalGo getAllAssignedStones (rootCursor $ node [B $ Just (0,0)])
+
+  , "ignores stone assignments in a parent node" ~:
+    Map.empty @=?
+    evalGo getAllAssignedStones (child 0 $ rootCursor $ root 1 1 [AB $ coord1 (0,0)] [node []])
+
+  , "finds a single stone assignment" ~:
+    Map.fromList [((0,0), Just Black)] @=?
+    evalGo getAllAssignedStones (rootCursor $ root 1 1 [AB $ coord1 (0,0)] [])
+
+  , "finds multiple stone assignments" ~:
+    Map.fromList [((0,0), Just Black),
+                  ((1,0), Just Black),
+                  ((3,0), Just White),
+                  ((4,0), Nothing),
+                  ((5,0), Just Black)] @=?
+    evalGo getAllAssignedStones (rootCursor $
+                                 root 6 1 [AB $ buildCoordList [(0,0), (1,0), (5,0)],
+                                           AW $ coord1 (3,0),
+                                           AE $ coord1 (4,0)]
+                                      [])
+  ]
+
+modifyAssignedStonesTests = "modifyAssignedStones" ~: TestList
+  [ "adds assignments to a node without" ~:
+    forM_ [Nothing, Just Black, Just White] $ \stone ->
+    test (rootCursor $ root 2 2 [] [])
+         (do modifyAssignedStones [(1,1)] $ const $ Just stone
+             getAllAssignedStones)
+         (Map.fromList [((1,1), stone)])
+         noLogAssertion
+
+  , "adds assignments to a node with existing assignments of the same type" ~:
+    test (rootCursor $ root 2 2 [AE $ coord1 (0,0)] [])
+         (do modifyAssignedStones [(0,1), (1,1)] $ const $ Just Nothing
+             getAllAssignedStones)
+         (Map.fromList [((0,0), Nothing), ((0,1), Nothing), ((1,1), Nothing)])
+         noLogAssertion
+
+  , "adds assignments to a node with existing assignments of a different type" ~:
+    test (rootCursor $ root 2 2 [AE $ coord1 (0,0)] [])
+         (do modifyAssignedStones [(0,1), (1,1)] $ const $ Just $ Just White
+             getAllAssignedStones)
+         (Map.fromList [((0,0), Nothing), ((0,1), Just White), ((1,1), Just White)])
+         noLogAssertion
+
+  , "assigning overwrites overlapping assignments of a different type" ~:
+    test (rootCursor $ root 2 2 [AE $ coord1 (0,0), AB $ coord1 (0,1), AW $ coord1 (1,1)] [])
+         (do modifyAssignedStones [(0,0), (0,1), (1,0), (1,1)] $ const $ Just $ Just White
+             getAllAssignedStones)
+         (Map.fromList $ (\coord -> (coord, Just White)) <$> [(0,0), (0,1), (1,0), (1,1)])
+         noLogAssertion
+
+  , "fires propertiesModifiedEvents when assignments change" ~:
+    test (rootCursor $ root 2 2 [AE $ coord1 (0,0), AB $ coord1 (0,1), AW $ coord1 (1,1)] [])
+         (do logPropertyChanges
+             modifyAssignedStones [(0,0), (0,1), (1,0), (1,1)] $ \old -> case old of
+               Just (Just color) -> Just $ Just $ cnot color
+               _ -> old)
+         ()
+         (Just $ \log -> case log of
+             -- Expect two events, since we're swapping AB and AW.  But don't
+             -- expect them in a particular order; just assert the start and end
+             -- states.
+             [(initial, _), (_, final)] ->
+               (initial, final) @=? ([AB $ coord1 (0,1), AE $ coord1 (0,0), AW $ coord1 (1,1)],
+                                     [AB $ coord1 (1,1), AE $ coord1 (0,0), AW $ coord1 (0,1)])
+             _ -> assertFailure $ "Expected two events: " ++ show log)
+
+  , "doesn't fire a propertiesModifiedEvent when assignments don't change" ~:
+    test (rootCursor $ root 2 2 [AE $ coord1 (0,0), AB $ coord1 (0,1), AW $ coord1 (1,1)] [])
+         (do on propertiesModifiedEvent $ \old new ->
+               tell [(sortBy (comparing propertyName) $
+                      filter ((`elem` ["AB", "AE", "AW"]) . propertyName) old,
+                      sortBy (comparing propertyName) $
+                      filter ((`elem` ["AB", "AE", "AW"]) . propertyName) new)]
+             modifyAssignedStones [(0,0), (0,1), (1,0), (1,1)] id)
+         ()
+         (Just (@?= []))
+
+  , "creates a child if the current node has a move property with no setup property" ~:
+    test (rootCursor $ root 2 1 [B $ Just (0,0)] [])
+         (do modifyAssignedStones [(1,0)] $ const $ Just $ Just White
+             goToRoot
+             cursorNode <$> getCursor)
+         (root 2 1 [B $ Just (0,0)] [node [AW $ coord1 (1,0)]])
+         noLogAssertion
+
+  , "doesn't create a child if the current node has a move property and a setup property" ~:
+    test (rootCursor $ root 3 1 [B $ Just (0,0), AB $ coord1 (1,0)] [])
+         (do logEventNames
+             modifyAssignedStones [(2,0)] $ const $ Just $ Just White
+             cursorNode <$> getCursor)
+         (root 3 1 [B $ Just (0,0), AB $ coord1 (1,0), AW $ coord1 (2,0)] [])
+         (Just (@?= ["Properties modified."]))
+
+  , "fires the correct events when the current node has a move property" ~:
+    test (rootCursor $ root 2 1 [B $ Just (0,0)] [])
+         (do logEventNames
+             modifyAssignedStones [(1,0)] $ const $ Just $ Just White)
+         ()
+         -- No propertiesModifiedEvent is fired: the child is added with the
+         -- assignment property already present.
+         (Just (@?= ["Child added.", "Navigated."]))
+  ]
+  where test :: (Eq a, Show a, Eq b, Monoid b, Show b)
+             => Cursor
+             -> GoT (Writer b) a
+             -> a
+             -> Maybe (b -> Assertion)
+             -> Assertion
+        test cursor action expected maybeLogAssertion = do
+          let (actual, log) = runWriter $ evalGoT action cursor
+          expected @=? actual
+          whenMaybe maybeLogAssertion ($ log)
+
+        logPropertyChanges :: GoT (Writer [([Property], [Property])]) ()
+        logPropertyChanges =
+          on propertiesModifiedEvent $ \old new ->
+            tell [(sortBy (comparing propertyName) $
+                   filter ((`elem` ["AB", "AE", "AW"]) . propertyName) old,
+                   sortBy (comparing propertyName) $
+                   filter ((`elem` ["AB", "AE", "AW"]) . propertyName) new)]
+
+        logEventNames :: GoT (Writer [String]) ()
+        logEventNames = do
+          on0 childAddedEvent $ tell ["Child added."]
+          on0 navigationEvent $ tell ["Navigated."]
+          on0 propertiesModifiedEvent $ tell ["Properties modified."]
+
+        noLogAssertion :: Maybe (() -> Assertion)
+        noLogAssertion = Nothing
 
 getMarkTests = "getMark" ~: TestList
   [ "returns Nothing for no mark" ~: do

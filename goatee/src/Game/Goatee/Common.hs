@@ -24,6 +24,7 @@ module Game.Goatee.Common (
   andEithers,
   for,
   mapTuple,
+  mapInvert,
   whenMaybe,
   cond,
   if',
@@ -37,6 +38,8 @@ module Game.Goatee.Common (
 import Control.Arrow ((***))
 import Control.Monad (forM_, join, when)
 import Data.Either (partitionEithers)
+import qualified Data.Map as Map
+import Data.Map (Map)
 
 -- | Drops the element at an index from a list.  If the index is out of bounds
 -- then the list is returned unmodified.
@@ -78,6 +81,13 @@ for = flip map
 -- | Transforms both values in a homogeneous tuple.
 mapTuple :: (a -> b) -> (a, a) -> (b, b)
 mapTuple = join (***)
+
+-- | Inverts a map, collecting all of the keys that map to a single value in one
+-- list in the result map.  No guarantees are made on the order of the keys in
+-- each value's list.  If you want the results in ascending order, apply
+-- @'Data.Map.map' 'Data.List.sort'@ to the result.
+mapInvert :: Ord v => Map k v -> Map v [k]
+mapInvert = Map.fromListWith (++) . map (\(k, v) -> (v, [k])) . Map.assocs
 
 -- | Executes the monadic function if a 'Maybe' contains a value.
 whenMaybe :: Monad m => Maybe a -> (a -> m ()) -> m ()

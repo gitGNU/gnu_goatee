@@ -29,13 +29,12 @@ import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
 import Data.Map (Map)
-import Data.Maybe (fromJust, fromMaybe, isJust)
+import Data.Maybe (fromJust, isJust)
 import Data.Tree (drawTree, unfoldTree)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board hiding (isValidMove)
 import Game.Goatee.Lib.Monad (
-  AnyEvent (..), childAddedEvent, childDeletedEvent, modifyMark, navigationEvent,
-  propertiesModifiedEvent,
+  AnyEvent (..), childAddedEvent, childDeletedEvent, navigationEvent, propertiesModifiedEvent,
   )
 import Game.Goatee.Lib.Property
 import Game.Goatee.Lib.Tree
@@ -72,11 +71,11 @@ import Graphics.UI.Gtk (
   DrawingArea,
   EventMask (ButtonPressMask, LeaveNotifyMask, PointerMotionMask),
   Modifier (Shift),
+  MouseButton,
   Widget,
-  buttonPressEvent,
+  buttonPressEvent, buttonReleaseEvent,
   drawingAreaNew,
-  drawWindowGetPointerPos,
-  eventCoordinates, eventKeyName, eventModifier,
+  eventButton, eventCoordinates, eventKeyName, eventModifier,
   exposeEvent,
   keyPressEvent,
   leaveNotifyEvent,
@@ -186,9 +185,6 @@ data Goban ui = Goban
   , myState :: ViewState
   , myWidget :: Widget
   , myDrawingArea :: DrawingArea
-  , myHoverStateRef :: IORef (Maybe HoverState)
-    -- ^ A reference to the cached current hover state.  Read with
-    -- 'readHoverState' to ensure you get a 'HoverState'.
   , myModesChangedHandler :: IORef (Maybe Registration)
   }
 
@@ -198,31 +194,9 @@ instance UiCtrl go ui => UiView go ui (Goban ui) where
   viewState = myState
   viewUpdate = update
 
--- | Holds data relating to the state of the mouse hovering over the board.
-data HoverState = HoverState
-  { hoverCoord :: Maybe Coord
-    -- ^ The board coordinate corresponding to the current mouse position.
-    -- Nothing if the mouse is not over the board.
-  , hoverIsValidMove :: Bool
-    -- ^ True iff the hovered point is legal to play on for the current player.
-  } deriving (Show)
-
--- | Augments a 'CoordState' with data that is only used for rendering purposes.
-data RenderedCoord = RenderedCoord
-  { renderedCoordState :: CoordState
-  , renderedCoordCurrent :: Bool
-  , renderedCoordVariation :: Maybe Color
-    -- ^ If a variation move exists at this point, then this will be the color
-    -- of the move.
-  } deriving (Show)
-
 -- | Creates a 'Goban' for rendering Go boards of the given size.
 create :: UiCtrl go ui => ui -> IO (Goban ui)
 create ui = do
-  hoverStateRef <- newIORef $ Just HoverState { hoverCoord = Nothing
-                                              , hoverIsValidMove = False
-                                              }
-
   drawingArea <- drawingAreaNew
   widgetSetCanFocus drawingArea True
   widgetAddEvents drawingArea [LeaveNotifyMask,
@@ -236,7 +210,6 @@ create ui = do
                  , myState = state
                  , myWidget = toWidget drawingArea
                  , myDrawingArea = drawingArea
-                 , myHoverStateRef = hoverStateRef
                  , myModesChangedHandler = modesChangedHandler
                  }
 
@@ -254,9 +227,15 @@ create ui = do
     return True
 
   on drawingArea buttonPressEvent $ do
-    liftIO $ widgetGrabFocus drawingArea
-    mouseXy <- eventCoordinates
-    liftIO $ doToolAtPoint ui drawingArea mouseXy
+    mouseButton <- eventButton
+    mouseCoord <- eventCoordinates
+    liftIO $ handleMouseDown me mouseButton mouseCoord
+    return True
+
+  on drawingArea buttonReleaseEvent $ do
+    mouseButton <- eventButton
+    mouseCoord <- eventCoordinates
+    liftIO $ handleMouseUp me mouseButton mouseCoord
     return True
 
   on drawingArea keyPressEvent $ do
@@ -307,92 +286,36 @@ destroy me = do
 
 update :: UiCtrl go ui => Goban ui -> IO ()
 update me = do
-  invalidateHoverState me
-  widgetQueueDraw $ myDrawingArea me
+  fireGobanEvent me GobanInvalidate
+  redraw me
 
--- | Called when the mouse is moved.  Updates the 'HoverState' according to the
--- new mouse location, and redraws the board if necessary.
-handleMouseMove :: UiCtrl go ui
-                => Goban ui
-                -> Maybe (Double, Double)
-                -> IO ()
-handleMouseMove me maybeClickCoord = do
-  let ui = myUi me
-      drawingArea = myDrawingArea me
-  maybeXy <- case maybeClickCoord of
-    Nothing -> return Nothing
-    Just (mouseX, mouseY) -> do
-      board <- fmap cursorBoard (readCursor ui)
-      gtkToBoardCoordinates board drawingArea mouseX mouseY
-  updateHoverState me maybeXy >>= flip when
-    (widgetQueueDraw drawingArea)
+-- | Notifies the active tool that a mouse button was pressed down over the
+-- board.
+handleMouseDown :: UiCtrl go ui => Goban ui -> MouseButton -> (Double, Double) -> IO ()
+handleMouseDown me mouseButton mouseCoord = do
+  widgetGrabFocus $ myDrawingArea me
+  maybeCoord <- gtkToBoardCoordinates me mouseCoord
+  fireGobanEvent me $ GobanClickStart mouseButton maybeCoord
 
--- | Applies the current tool at the given GTK coordinate, if such an action is
--- valid.
-doToolAtPoint :: UiCtrl go ui => ui -> DrawingArea -> (Double, Double) -> IO ()
-doToolAtPoint ui drawingArea (mouseX, mouseY) = do
-  cursor <- readCursor ui
-  let board = cursorBoard cursor
-  maybeXy <- gtkToBoardCoordinates board drawingArea mouseX mouseY
-  whenMaybe maybeXy $ \xy -> do
-    tool <- fmap uiTool (readModes ui)
+-- | Notifies the active tool that a mouse click or drag that started with the
+-- mouse being pressed down over the board has completed.
+handleMouseUp :: UiCtrl go ui => Goban ui -> MouseButton -> (Double, Double) -> IO ()
+handleMouseUp me mouseButton mouseCoord = do
+  maybeCoord <- gtkToBoardCoordinates me mouseCoord
+  fireGobanEvent me $ GobanClickFinish mouseButton maybeCoord
 
-    case tool of
-      ToolMarkCircle -> toggleMark ui xy MarkCircle
-      ToolMarkSelected -> toggleMark ui xy MarkSelected
-      ToolMarkSquare -> toggleMark ui xy MarkSquare
-      ToolMarkTriangle -> toggleMark ui xy MarkTriangle
-      ToolMarkX -> toggleMark ui xy MarkX
-      ToolPlay -> do
-        valid <- isValidMove ui xy
-        when valid $ playAt ui $ Just xy
-      _ -> return ()  -- TODO Support other tools.
-  where toggleMark ui xy mark = doUiGo ui $ modifyMark (toggleMark' mark) xy
-        toggleMark' mark maybeExistingMark = case maybeExistingMark of
-          Just existingMark | existingMark == mark -> Nothing
-          _ -> Just mark
+-- | notifies the active tool that the mouse has moved over the board.
+handleMouseMove :: UiCtrl go ui => Goban ui -> Maybe (Double, Double) -> IO ()
+handleMouseMove me maybeMouseCoord = do
+  maybeCoord <- maybe (return Nothing) (gtkToBoardCoordinates me) maybeMouseCoord
+  fireGobanEvent me $ GobanMouseMove maybeCoord
 
--- | Reads the cached hover state, building a new one only if the cache is
--- empty.
-readHoverState :: UiCtrl go ui => Goban ui -> IO HoverState
-readHoverState me = do
-  let ref = myHoverStateRef me
-  hoverState <- readIORef ref
-  case hoverState of
-    Just state -> return state
-    Nothing -> do updateHoverStateCurrent me
-                  fromMaybe (error "Goban.readHoverState") <$> readIORef ref
-
--- | Clears the cached hover state.
-invalidateHoverState :: Goban ui -> IO ()
-invalidateHoverState me = writeIORef (myHoverStateRef me) Nothing
-
--- | If the mouse has moved or the hover state is nothing, then this updates the
--- hover state based on the mouse being at the given board coordinate (see
--- 'gtkToBoardCoordinates'), and returns true.  Returns false if no update was
--- needed.
-updateHoverState :: UiCtrl go ui => Goban ui -> Maybe Coord -> IO Bool
-updateHoverState me maybeXy = do
-  let ui = myUi me
-      hoverStateRef = myHoverStateRef me
-  hoverState <- readIORef hoverStateRef
-  case hoverState of
-    Just state | hoverCoord state == maybeXy -> return False
-    _ -> do
-      valid <- case maybeXy of
-        Nothing -> return False
-        Just xy -> isValidMove ui xy
-      writeIORef hoverStateRef $ Just HoverState { hoverCoord = maybeXy
-                                                 , hoverIsValidMove = valid
-                                                 }
-      return True
-
--- | Updates the hover state based on the current mouse position.
-updateHoverStateCurrent :: UiCtrl go ui => Goban ui -> IO ()
-updateHoverStateCurrent me = do
-  (_, x, y, _) <- drawWindowGetPointerPos =<< widgetGetDrawWindow (myDrawingArea me)
-  updateHoverState me $ Just (x, y)
-  return ()
+-- | Sends an event to the active tool.
+fireGobanEvent :: UiCtrl go ui => Goban ui -> GobanEvent -> IO ()
+fireGobanEvent me event = do
+  AnyTool tool <- readTool $ myUi me
+  doRedraw <- toolGobanHandleEvent tool event
+  when doRedraw $ redraw me
 
 applyBoardCoordinates :: BoardState -> DrawingArea -> IO (Render ())
 applyBoardCoordinates board drawingArea = do
@@ -412,8 +335,11 @@ applyBoardCoordinates board drawingArea = do
 -- | Takes a GTK coordinate and, using a Cairo rendering context, returns the
 -- corresponding board coordinate, or @Nothing@ if the GTK coordinate is not
 -- over the board.
-gtkToBoardCoordinates :: BoardState -> DrawingArea -> Double -> Double -> IO (Maybe (Int, Int))
-gtkToBoardCoordinates board drawingArea x y = do
+gtkToBoardCoordinates :: UiCtrl go ui => Goban ui -> (Double, Double) -> IO (Maybe (Int, Int))
+gtkToBoardCoordinates me (x, y) = do
+  let ui = myUi me
+      drawingArea = myDrawingArea me
+  board <- cursorBoard <$> readCursor ui
   drawWindow <- widgetGetDrawWindow drawingArea
   changeCoords <- applyBoardCoordinates board drawingArea
   result@(bx, by) <- fmap (mapTuple floor) $
@@ -424,6 +350,10 @@ gtkToBoardCoordinates board drawingArea x y = do
            then Nothing
            else Just result
 
+-- | Schedules the goban to repaint.
+redraw :: UiCtrl go ui => Goban ui -> IO ()
+redraw = widgetQueueDraw . myDrawingArea
+
 -- | Fully redraws the board based on the current controller and UI state.
 drawBoard :: UiCtrl go ui => Goban ui -> IO ()
 drawBoard me = do
@@ -431,11 +361,10 @@ drawBoard me = do
       drawingArea = myDrawingArea me
   cursor <- readCursor ui
   modes <- readModes ui
-  hoverState <- readHoverState me
+  AnyTool tool <- readTool ui
 
-  let board = cursorBoard cursor
-      tool = uiTool modes
-      variationMode = rootInfoVariationMode $ gameInfoRootInfo $ boardGameInfo $ cursorBoard cursor
+  board <- toolGobanRenderGetBoard tool cursor
+  let variationMode = rootInfoVariationMode $ gameInfoRootInfo $ boardGameInfo $ cursorBoard cursor
 
       variations :: [(Coord, Color)]
       variations = if variationModeBoardMarkup variationMode
@@ -452,39 +381,14 @@ drawBoard me = do
                      cursorProperties cursor
                 else []
 
-      -- The state of the board's points, with all data for rendering.
-      renderedCoords :: [[RenderedCoord]]
-      renderedCoords =
-        -- Add current moves.
-        (flip .)
-        foldr (\(x, y) grid ->
-                listUpdate (flip listUpdate x $
-                            \renderedCoord -> renderedCoord { renderedCoordCurrent = True })
-                           y
-                           grid)
-              current $
-        -- Add variations.
-        foldr (\((x, y), color) grid ->
-                listUpdate (flip listUpdate x $
-                            \renderedCoord -> renderedCoord { renderedCoordVariation = Just color })
-                           y
-                           grid)
-              (map (map $ \state -> RenderedCoord state False Nothing) $
-               mapBoardCoords preprocessCoord board)
-              variations
-
       -- | Performs processing at the individual coord level based on UI state.
-      preprocessCoord :: Int -> Int -> CoordState -> CoordState
-      preprocessCoord y x =
-        let maybeAddHover = case hoverCoord hoverState of
-              Just (hx, hy) | x == hx && y == hy ->
-                modifyCoordForHover tool board hoverState
-              _ -> id
-            applyStoneViewMode = case uiViewStonesMode modes of
+      preprocessCoord :: CoordState -> CoordState
+      preprocessCoord =
+        let applyStoneViewMode = case uiViewStonesMode modes of
               ViewStonesRegularMode -> id
               ViewStonesOneColorMode -> coerceStone $ uiViewStonesOneColorModeColor modes
               ViewStonesBlindMode -> setStone Nothing
-        in applyStoneViewMode . maybeAddHover
+        in applyStoneViewMode
 
       -- | Replaces an existing stone of color opposite to the one given with a
       -- stone of the given color.
@@ -498,6 +402,27 @@ drawBoard me = do
       setStone color state = if coordStone state == color
                              then state
                              else state { coordStone = color }
+
+  -- The state of the board's points, with all data for rendering.
+  renderedCoords <-
+    toolGobanRenderModifyCoords tool board $
+    -- Add current moves.
+    (flip .)
+    foldr (\(x, y) grid ->
+            listUpdate (flip listUpdate x $
+                        \renderedCoord -> renderedCoord { renderedCoordCurrent = True })
+                        y
+                        grid)
+          current $
+    -- Add variations.
+    foldr (\((x, y), color) grid ->
+            listUpdate (flip listUpdate x $
+                        \renderedCoord -> renderedCoord { renderedCoordVariation = Just color })
+                        y
+                        grid)
+          (map (map $ (\state -> RenderedCoord state False Nothing) . preprocessCoord) $
+           boardCoordStates board)
+          variations
 
   drawWindow <- widgetGetDrawWindow drawingArea
   changeCoords <- applyBoardCoordinates board drawingArea
@@ -577,40 +502,6 @@ drawCoord board gridWidth gridBorderWidth x y renderedCoord = do
     _ -> return ()
   -- Restore the coordinate system for the next stone.
   translate (-x') (-y')
-
--- | Given a current tool, board, and hover, modifies a 'CoordState' to reflect
--- that the user is hovering over the point.  The effect depends on the tool.
--- The effect is to suggest what would happen if the point were clicked.
-modifyCoordForHover :: Tool -> BoardState -> HoverState -> CoordState -> CoordState
-modifyCoordForHover tool board hover coord = case tool of
-  ToolPlay -> if hoverIsValidMove hover
-              then coord { coordStone = Just (boardPlayerTurn board) }
-              else coord
-  ToolJump -> coord  -- TODO Hover for ToolJump.
-  ToolScore -> coord  -- TODO Hover for ToolScore.
-  ToolBlack -> coord { coordStone = Just (toolToColor tool) }
-  ToolWhite -> coord { coordStone = Just (toolToColor tool) }
-  ToolErase -> coord { coordStone = Nothing }
-  ToolArrow -> coord  -- TODO Hover for ToolArrow.
-  ToolMarkCircle -> toggleMark MarkCircle coord
-  ToolLabel -> coord  -- TODO Hover for ToolLabel.
-  ToolLine -> coord  -- TODO Hover for ToolLine.
-  ToolMarkX -> toggleMark MarkX coord
-  ToolMarkSelected -> toggleMark MarkSelected coord
-  ToolMarkSquare -> toggleMark MarkSquare coord
-  ToolMarkTriangle -> toggleMark MarkTriangle coord
-  ToolVisible -> coord { coordVisible = not $ coordVisible coord }
-  ToolDim -> coord { coordDimmed = not $ coordDimmed coord }
-
--- | Toggles a specific mark on a 'CoordState'.  If the @CoordState@ already has
--- that mark, then it is removed.  If the @CoordState@ has no mark or has
--- another mark, then the given mark is added to the @CoordState@, overwriting
--- an existing mark if there is one.
-toggleMark :: Mark -> CoordState -> CoordState
-toggleMark mark coord = let justMark = Just mark
-                        in if coordMark coord == justMark
-                           then coord { coordMark = Nothing }
-                           else coord { coordMark = justMark }
 
 -- | Draws the gridlines for a single point on the board.
 drawGrid :: BoardState -> Double -> Double -> Int -> Int -> Render ()

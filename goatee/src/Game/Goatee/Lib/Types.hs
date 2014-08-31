@@ -352,12 +352,12 @@ type RealValue = BF.Bigfloat
 -- | An SGF double value: either 1 or 2, nothing else.
 data DoubleValue = Double1
                  | Double2
-                 deriving (Eq, Show)
+                 deriving (Bounded, Enum, Eq, Ord, Show)
 
 -- | Stone color: black or white.
 data Color = Black
            | White
-           deriving (Eq, Show)
+           deriving (Bounded, Enum, Eq, Ord, Show)
 
 -- | Returns the logical negation of a stone color, yang for yin and
 -- yin for yang.
@@ -380,7 +380,7 @@ data VariationModeSource =
   -- ^ Show children of the current move.
   | ShowCurrentVariations
     -- ^ Show alternatives to the current move.
-  deriving (Bounded, Enum, Eq, Show)
+  deriving (Bounded, Enum, Eq, Ord, Show)
 
 -- | The default variation mode as defined by the SGF spec is @VariationMode
 -- ShowChildVariations True@.
@@ -417,7 +417,7 @@ type LabelList = [(Coord, SimpleText)]
 
 -- | The markings that SGF supports annotating coordinates with.
 data Mark = MarkCircle | MarkSquare | MarkTriangle | MarkX | MarkSelected
-          deriving (Bounded, Enum, Eq, Show)
+          deriving (Bounded, Enum, Eq, Ord, Show)
 
 data GameResult = GameResultWin Color WinReason
                 | GameResultDraw
@@ -484,7 +484,7 @@ data RulesetType = RulesetAga
                  | RulesetIng
                  | RulesetJapanese
                  | RulesetNewZealand
-                 deriving (Bounded, Enum, Eq, Show)
+                 deriving (Bounded, Enum, Eq, Ord, Show)
 
 -- | Returns the string representation for a ruleset.
 fromRuleset :: Ruleset -> String

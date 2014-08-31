@@ -27,9 +27,8 @@ module Game.Goatee.Lib.Property.Base (
   Property (..),
   -- * Property metadata
   PropertyType (..),
-  Descriptor (..),
-  SomeDescriptor (..),
-  ValuedDescriptor (..),
+  Descriptor (..), ValuedDescriptor (..),
+  AnyDescriptor (..), AnyCoordListDescriptor (..),
   PropertyInfo,
   ValuedPropertyInfo (ValuedPropertyInfo),
   -- * Property declaration
@@ -178,25 +177,40 @@ class Descriptor a where
   -- a human-readable format.
   propertyValueRendererPretty :: a -> Property -> Render ()
 
-data SomeDescriptor = forall a. Descriptor a => SomeDescriptor a
-
-instance Descriptor SomeDescriptor where
-  propertyName (SomeDescriptor d) = propertyName d
-  propertyType (SomeDescriptor d) = propertyType d
-  propertyInherited (SomeDescriptor d) = propertyInherited d
-  propertyPredicate (SomeDescriptor d) = propertyPredicate d
-  propertyValueParser (SomeDescriptor d) = propertyValueParser d
-  propertyValueRenderer (SomeDescriptor d) = propertyValueRenderer d
-  propertyValueRendererPretty (SomeDescriptor d) = propertyValueRendererPretty d
-
 -- | A class for 'Descriptor's of 'Property's that also contain values.
-class (Descriptor a, Eq v) => ValuedDescriptor a v | a -> v where
+class (Descriptor a, Eq v) => ValuedDescriptor v a | a -> v where
   -- | Extracts the value from a property of the given type.  Behaviour is
   -- undefined if the property is not of the given type.
   propertyValue :: a -> Property -> v
 
   -- | Builds a property from a given value.
   propertyBuilder :: a -> v -> Property
+
+data AnyDescriptor = forall a. Descriptor a => AnyDescriptor a
+
+instance Descriptor AnyDescriptor where
+  propertyName (AnyDescriptor d) = propertyName d
+  propertyType (AnyDescriptor d) = propertyType d
+  propertyInherited (AnyDescriptor d) = propertyInherited d
+  propertyPredicate (AnyDescriptor d) = propertyPredicate d
+  propertyValueParser (AnyDescriptor d) = propertyValueParser d
+  propertyValueRenderer (AnyDescriptor d) = propertyValueRenderer d
+  propertyValueRendererPretty (AnyDescriptor d) = propertyValueRendererPretty d
+
+data AnyCoordListDescriptor = forall a. ValuedDescriptor CoordList a => AnyCoordListDescriptor a
+
+instance Descriptor AnyCoordListDescriptor where
+  propertyName (AnyCoordListDescriptor d) = propertyName d
+  propertyType (AnyCoordListDescriptor d) = propertyType d
+  propertyInherited (AnyCoordListDescriptor d) = propertyInherited d
+  propertyPredicate (AnyCoordListDescriptor d) = propertyPredicate d
+  propertyValueParser (AnyCoordListDescriptor d) = propertyValueParser d
+  propertyValueRenderer (AnyCoordListDescriptor d) = propertyValueRenderer d
+  propertyValueRendererPretty (AnyCoordListDescriptor d) = propertyValueRendererPretty d
+
+instance ValuedDescriptor CoordList AnyCoordListDescriptor where
+  propertyValue (AnyCoordListDescriptor d) = propertyValue d
+  propertyBuilder (AnyCoordListDescriptor d) = propertyBuilder d
 
 -- | Metadata for a property that does not contain a value.  Corresponds to a
 -- single nullary data constructor of 'Property'.
@@ -259,7 +273,7 @@ instance Descriptor (ValuedPropertyInfo v) where
     pvtRendererPretty (valuedPropertyInfoValueType descriptor) $
     valuedPropertyInfoValue descriptor property
 
-instance Eq v => ValuedDescriptor (ValuedPropertyInfo v) v where
+instance Eq v => ValuedDescriptor v (ValuedPropertyInfo v) where
   propertyValue = valuedPropertyInfoValue
   propertyBuilder = valuedPropertyInfoBuilder
 

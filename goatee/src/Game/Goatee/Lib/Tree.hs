@@ -103,11 +103,11 @@ findProperty' :: Descriptor a => a -> [Property] -> Maybe Property
 findProperty' = find . propertyPredicate
 
 -- | Retrieves the value of a property in a node's property list.
-findPropertyValue :: ValuedDescriptor a v => a -> Node -> Maybe v
+findPropertyValue :: ValuedDescriptor v a => a -> Node -> Maybe v
 findPropertyValue descriptor node = propertyValue descriptor <$> findProperty descriptor node
 
 -- | Retrieves the value of a property in a property list.
-findPropertyValue' :: ValuedDescriptor a v => a -> [Property] -> Maybe v
+findPropertyValue' :: ValuedDescriptor v a => a -> [Property] -> Maybe v
 findPropertyValue' descriptor properties =
   propertyValue descriptor <$> findProperty' descriptor properties
 

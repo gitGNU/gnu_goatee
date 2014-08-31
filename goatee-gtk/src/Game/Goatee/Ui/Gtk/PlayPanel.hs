@@ -23,7 +23,9 @@ module Game.Goatee.Ui.Gtk.PlayPanel (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (void)
+import Control.Monad ((>=>), void, when)
+import Data.Foldable (forM_, mapM_)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board
 import qualified Game.Goatee.Lib.Monad as Monad
@@ -33,8 +35,6 @@ import Game.Goatee.Lib.Monad (
 import Game.Goatee.Lib.Property
 import Game.Goatee.Lib.Tree
 import Game.Goatee.Lib.Types
-import qualified Game.Goatee.Ui.Gtk.Actions as Actions
-import Game.Goatee.Ui.Gtk.Actions (Actions)
 import Game.Goatee.Ui.Gtk.Common
 import Game.Goatee.Ui.Gtk.Utils
 import Graphics.UI.Gtk (
@@ -43,7 +43,7 @@ import Graphics.UI.Gtk (
   TextView,
   Widget,
   WrapMode (WrapWord),
-  actionActivate,
+  afterShow,
   boxPackStart,
   buttonActivated, buttonNewWithLabel,
   containerAdd,
@@ -53,7 +53,9 @@ import Graphics.UI.Gtk (
   textViewNew, textViewSetWrapMode,
   toWidget,
   vBoxNew,
+  widgetHide, widgetShow,
   )
+import Prelude hiding (mapM_)
 
 data PlayPanel ui = PlayPanel
   { myUi :: ui
@@ -61,6 +63,7 @@ data PlayPanel ui = PlayPanel
   , myWidget :: Widget
   , myComment :: TextView
   , myCommentSetter :: String -> IO ()
+  , myModesChangedHandler :: IORef (Maybe Registration)
   }
 
 instance UiCtrl go ui => UiView go ui (PlayPanel ui) where
@@ -69,8 +72,8 @@ instance UiCtrl go ui => UiView go ui (PlayPanel ui) where
   viewState = myState
   viewUpdate = update
 
-create :: UiCtrl go ui => ui -> Actions ui -> IO (PlayPanel ui)
-create ui actions = do
+create :: UiCtrl go ui => ui -> IO (PlayPanel ui)
+create ui = do
   box <- vBoxNew False 0
 
   navBox <- hBoxNew True 0
@@ -87,9 +90,10 @@ create ui actions = do
   on endButton buttonActivated $ doUiGo ui $
     whileM ((> 0) . length . cursorChildren <$> getCursor) $ Monad.goDown 0
 
-  passButton <- buttonNewWithLabel "Pass"
-  boxPackStart box passButton PackNatural 0
-  on passButton buttonActivated $ actionActivate $ Actions.myGamePassAction actions
+  -- Add the widgets of all of the tools.
+  forM_ [minBound..] $ findTool ui >=> \(AnyTool tool) ->
+    forM_ (toolPanelWidget tool) $ \widget ->
+    boxPackStart box widget PackNatural 0
 
   comment <- textViewNew
   textViewSetWrapMode comment WrapWord
@@ -102,6 +106,7 @@ create ui actions = do
     doUiGo ui $ modifyPropertyString propertyC $ const value
 
   state <- viewStateNew
+  modesChangedHandler <- newIORef Nothing
 
   let me = PlayPanel
         { myUi = ui
@@ -109,23 +114,60 @@ create ui actions = do
         , myWidget = toWidget box
         , myComment = comment
         , myCommentSetter = commentSetter
+        , myModesChangedHandler = modesChangedHandler
         }
+
+  -- After the panel is shown, we only want the tool widget for the active tool
+  -- to be visible.
+  afterShow (myWidget me) $ updateVisibleToolWidget me
 
   initialize me
   return me
 
 initialize :: UiCtrl go ui => PlayPanel ui -> IO ()
 initialize me = do
+  let ui = myUi me
+
   register me
     [ AnyEvent navigationEvent
     , AnyEvent propertiesModifiedEvent
     ]
+
+  writeIORef (myModesChangedHandler me) =<<
+    fmap Just (registerModesChangedHandler ui "PlayPanel" $ checkForToolChange me)
+
   viewUpdate me
 
 destroy :: UiCtrl go ui => PlayPanel ui -> IO ()
-destroy = viewDestroy
+destroy me = do
+  let ui = myUi me
+  mapM_ (unregisterModesChangedHandler ui) =<< readIORef (myModesChangedHandler me)
+  viewDestroy me
 
 update :: UiCtrl go ui => PlayPanel ui -> IO ()
 update me =
   readCursor (myUi me) >>=
   myCommentSetter me . maybe "" fromText . findPropertyValue propertyC . cursorNode
+
+-- | Updates the visibility of all tool widgets, hiding all widgets of inactive
+-- tools and showing the widget of the active tool.
+updateVisibleToolWidget :: UiCtrl go ui => PlayPanel ui -> IO ()
+updateVisibleToolWidget me = do
+  let ui = myUi me
+  activeToolType <- (\(AnyTool tool) -> toolType tool) <$> readTool ui
+  forM_ [minBound..] $ \toolType ->
+    findTool ui toolType >>= \(AnyTool tool) ->
+    forM_ (toolPanelWidget tool) $ \widget ->
+    (if toolType == activeToolType then widgetShow else widgetHide) widget
+
+-- | Checks for a change in active tool between the two modes; if one is found,
+-- the deactivating tool's widget is hidden and the activating tool's widget is
+-- shown.
+checkForToolChange :: UiCtrl go ui => PlayPanel ui -> UiModes -> UiModes -> IO ()
+checkForToolChange me oldModes newModes = do
+  let ui = myUi me
+      oldTool = uiToolType oldModes
+      newTool = uiToolType newModes
+  when (newTool /= oldTool) $ do
+    findTool ui oldTool >>= \(AnyTool tool) -> mapM_ widgetHide $ toolPanelWidget tool
+    findTool ui newTool >>= \(AnyTool tool) -> mapM_ widgetShow $ toolPanelWidget tool

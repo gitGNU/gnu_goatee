@@ -22,6 +22,9 @@ import Control.Monad.Identity (runIdentity)
 import Control.Monad.State (get, put, runStateT)
 import Control.Monad.Writer (execWriter, tell)
 import Data.IORef (modifyIORef, newIORef, readIORef)
+import Data.List (sort)
+import qualified Data.Map as Map
+import Data.Map (Map)
 import Game.Goatee.Common
 import Test.HUnit ((~:), (@=?), Test (TestList), assertFailure)
 
@@ -34,6 +37,7 @@ tests = "Game.Goatee.Common" ~: TestList
   , andEithersTests
   , forTests
   , mapTupleTests
+  , mapInvertTests
   , whenMaybeTests
   , condTests
   , if'Tests
@@ -144,6 +148,19 @@ forTests = "for" ~: TestList
 mapTupleTests = "mapTuple" ~: TestList
   [ "updates both values" ~:
     (9, 16) @=? mapTuple (^ 2) (3, 4)
+  ]
+
+mapInvertTests = "mapInvert" ~: TestList
+  [ "accepts an empty map" ~:
+    Map.empty @=? mapInvert (Map.empty :: Map () ())
+
+  , "inverts a map with no duplicates" ~:
+    Map.map sort (Map.fromList [(1, ["one"]), (2, ["two"]), (3, ["three"])]) @=?
+    Map.map sort (mapInvert (Map.fromList [("one", 1), ("two", 2), ("three", 3)]))
+
+  , "inverts a map with duplicates" ~:
+    Map.map sort (Map.fromList [('a', [1, 3]), ('b', [2]), ('c', [4, 5])]) @=?
+    Map.map sort (mapInvert (Map.fromList [(1, 'a'), (2, 'b'), (3, 'a'), (4, 'c'), (5, 'c')]))
   ]
 
 whenMaybeTests = "whenMaybeTests" ~: TestList

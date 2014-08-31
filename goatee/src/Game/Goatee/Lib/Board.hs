@@ -22,7 +22,8 @@ module Game.Goatee.Lib.Board (
   RootInfo(..), GameInfo(..), emptyGameInfo, internalIsGameInfoNode,
   gameInfoToProperties,
   BoardState(..), boardWidth, boardHeight,
-  CoordState(..), rootBoardState, boardCoordState, mapBoardCoords,
+  CoordState(..), emptyBoardState, rootBoardState, emptyCoordState, boardCoordState,
+  boardCoordModify, mapBoardCoords,
   isValidMove, isCurrentValidMove,
   Cursor(..), rootCursor, cursorRoot, cursorChild, cursorChildren,
   cursorChildCount, cursorChildPlayingAt, cursorProperties,
@@ -210,7 +211,7 @@ data CoordState = CoordState
   , coordMark :: Maybe Mark
   , coordVisible :: Bool
   , coordDimmed :: Bool
-  }
+  } deriving (Eq)
 
 instance Show CoordState where
   show c = if not $ coordVisible c
@@ -247,18 +248,13 @@ emptyBoardState width height = BoardState
                             , rootInfoHeight = height
                             , rootInfoVariationMode = defaultVariationMode
                             }
-        emptyCoord = CoordState { coordStar = False
-                                , coordStone = Nothing
-                                , coordMark = Nothing
-                                , coordVisible = True
-                                , coordDimmed = False
-                                }
-        starCoord = emptyCoord { coordStar = True }
+        starCoordState = emptyCoordState { coordStar = True }
         isStarPoint' = isStarPoint width height
-        coords = map (\y -> map (\x -> if isStarPoint' x y then starCoord else emptyCoord)
+        coords = map (\y -> map (\x -> if isStarPoint' x y then starCoordState else emptyCoordState)
                                 [0..width-1])
                      [0..height-1]
 
+-- Initializes a 'BoardState' from the properties on a given root 'Node'.
 rootBoardState :: Node -> BoardState
 rootBoardState rootNode =
   foldr applyProperty
@@ -267,9 +263,26 @@ rootBoardState rootNode =
   where SZ width height = fromMaybe (SZ boardSizeDefault boardSizeDefault) $
                           findProperty propertySZ rootNode
 
+-- | A 'CoordState' for an empty point on the board.
+emptyCoordState :: CoordState
+emptyCoordState = CoordState
+  { coordStar = False
+  , coordStone = Nothing
+  , coordMark = Nothing
+  , coordVisible = True
+  , coordDimmed = False
+  }
+
 -- | Returns the 'CoordState' for a coordinate on a board.
 boardCoordState :: Coord -> BoardState -> CoordState
 boardCoordState (x, y) board = boardCoordStates board !! y !! x
+
+-- | Modifies a 'BoardState' by updating the 'CoordState' at a single point.
+boardCoordModify :: BoardState -> Coord -> (CoordState -> CoordState) -> BoardState
+boardCoordModify board (x, y) f =
+  board { boardCoordStates =
+          listUpdate (listUpdate f x) y $ boardCoordStates board
+        }
 
 -- | Maps a function over each 'CoordState' in a 'BoardState', returning a
 -- list-of-lists with the function's values.  The function is called like @fn y
