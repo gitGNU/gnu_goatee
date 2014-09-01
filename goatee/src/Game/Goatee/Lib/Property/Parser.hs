@@ -16,8 +16,6 @@
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
 -- | Parsers of property values.
---
--- Import "Game.Goatee.Lib.Property" rather than importing this module.
 module Game.Goatee.Lib.Property.Parser (
   colorParser,
   coordElistParser,

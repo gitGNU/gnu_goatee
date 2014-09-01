@@ -21,7 +21,91 @@
 -- | Property metadata declarations.
 --
 -- Import "Game.Goatee.Lib.Property" rather than importing this module.
-module Game.Goatee.Lib.Property.Info where
+module Game.Goatee.Lib.Property.Info (
+  -- * Known property metadata
+  propertyB,
+  propertyKO,
+  propertyMN,
+  propertyW,
+
+  propertyAB,
+  propertyAE,
+  propertyAW,
+  propertyPL,
+
+  propertyC,
+  propertyDM,
+  propertyGB,
+  propertyGW,
+  propertyHO,
+  propertyN,
+  propertyUC,
+  propertyV,
+
+  propertyBM,
+  propertyDO,
+  propertyIT,
+  propertyTE,
+
+  propertyAR,
+  propertyCR,
+  propertyDD,
+  propertyLB,
+  propertyLN,
+  propertyMA,
+  propertySL,
+  propertySQ,
+  propertyTR,
+
+  propertyAP,
+  propertyCA,
+  propertyFF,
+  propertyGM,
+  propertyST,
+  propertySZ,
+
+  propertyAN,
+  propertyBR,
+  propertyBT,
+  propertyCP,
+  propertyDT,
+  propertyEV,
+  propertyGC,
+  propertyGN,
+  propertyON,
+  propertyOT,
+  propertyPB,
+  propertyPC,
+  propertyPW,
+  propertyRE,
+  propertyRO,
+  propertyRU,
+  propertySO,
+  propertyTM,
+  propertyUS,
+  propertyWR,
+  propertyWT,
+
+  propertyBL,
+  propertyOB,
+  propertyOW,
+  propertyWL,
+
+  propertyVW,
+
+  propertyHA,
+  propertyKM,
+  propertyTB,
+  propertyTW,
+
+  -- * Property metadata utilities
+  allKnownDescriptors,
+  propertyUnknown,
+  propertyInfo,
+  descriptorForName, descriptorForName',
+  stoneAssignmentProperties, stoneAssignmentPropertyToStone, stoneToStoneAssignmentProperty,
+  markProperty,
+  ) where
 
 import Control.Arrow ((&&&))
 import qualified Data.Map as Map
@@ -126,18 +210,9 @@ $(defValuedProperty "KM" 'GameInfoProperty False 'realPvt)
 $(defValuedProperty "TB" 'GeneralProperty False 'coordElistPvt)
 $(defValuedProperty "TW" 'GeneralProperty False 'coordElistPvt)
 
-propertyUnknown :: String -> ValuedPropertyInfo UnknownPropertyValue
-propertyUnknown name =
-  ValuedPropertyInfo name GeneralProperty False
-  (\x -> case x of
-      UnknownProperty name' _ | name' == name -> True
-      _ -> False)
-  unknownPropertyPvt
-  (\(UnknownProperty _ value) -> value)
-  (UnknownProperty name)
-
-allDescriptors :: [AnyDescriptor]
-allDescriptors =
+-- | A list of descriptors for all known 'Property's.
+allKnownDescriptors :: [AnyDescriptor]
+allKnownDescriptors =
   [ AnyDescriptor propertyB
   , AnyDescriptor propertyKO
   , AnyDescriptor propertyMN
@@ -214,6 +289,22 @@ allDescriptors =
   , AnyDescriptor propertyTW
   ]
 
+-- | Builds a 'ValuedPropertyInfo' for an unknown property with the given name.
+-- /Does not check that the name is actually unknown./
+propertyUnknown :: String -> ValuedPropertyInfo UnknownPropertyValue
+propertyUnknown name =
+  ValuedPropertyInfo name GeneralProperty False
+  (\x -> case x of
+      UnknownProperty name' _ | name' == name -> True
+      _ -> False)
+  unknownPropertyPvt
+  (\(UnknownProperty _ value) -> value)
+  (UnknownProperty name)
+
+-- | Returns a descriptor for any 'Property', known or unknown.  Because a
+-- 'Property' has a 'Descriptor' instance, this function is not normally
+-- necessary for use outside of this module, but it can be used to throw away a
+-- value associated with a 'Property' and retain only the metadata.
 propertyInfo :: Property -> AnyDescriptor
 propertyInfo property = case property of
   B {} -> AnyDescriptor propertyB
@@ -303,11 +394,15 @@ instance Descriptor Property where
   propertyValueRendererPretty = propertyValueRendererPretty . propertyInfo
 
 descriptorsByName :: Map String AnyDescriptor
-descriptorsByName = Map.fromList $ map (propertyName &&& id) allDescriptors
+descriptorsByName = Map.fromList $ map (propertyName &&& id) allKnownDescriptors
 
+-- | Returns a descriptor for the given property name.  The name does not have
+-- to be for a known property; an unknown property will use 'propertyUnknown'.
 descriptorForName :: String -> AnyDescriptor
 descriptorForName name = fromMaybe (AnyDescriptor $ propertyUnknown name) $ descriptorForName' name
 
+-- | Returns a descriptor for a known property with the given name, or 'Nothing'
+-- if the name does not belong to a known property.
 descriptorForName' :: String -> Maybe AnyDescriptor
 descriptorForName' = flip Map.lookup descriptorsByName
 

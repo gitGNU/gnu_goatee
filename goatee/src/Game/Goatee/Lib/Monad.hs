@@ -200,7 +200,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- | Sets a property on the current node, replacing an existing property with
   -- the same name, if one exists.
   putProperty :: Property -> go ()
-  putProperty property = modifyProperty (propertyInfo property) $ const $ Just property
+  putProperty property = modifyProperty property $ const $ Just property
 
   -- | Deletes a property from the current node, if it's set.
   --

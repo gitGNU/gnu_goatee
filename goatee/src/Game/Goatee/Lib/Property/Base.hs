@@ -31,7 +31,7 @@ module Game.Goatee.Lib.Property.Base (
   AnyDescriptor (..), AnyCoordListDescriptor (..),
   PropertyInfo,
   ValuedPropertyInfo (ValuedPropertyInfo),
-  -- * Property declaration
+  -- * (Internal) Property metadata declaration
   defProperty, defValuedProperty,
   ) where
 
@@ -46,7 +46,10 @@ import Language.Haskell.TH (
   )
 import Text.ParserCombinators.Parsec (Parser)
 
--- | An SGF property that gives a node meaning.
+-- | An SGF property that gives a node meaning.  A property is /known/ if its
+-- meaning is defined by the SGF specification, and /unknown/ otherwise.  Known
+-- properties each have their own data constructors.  Unknown properties are
+-- represented by the 'UnknownProperty' data constructor.
 data Property =
   -- Move properties.
     B (Maybe Coord)      -- ^ Black move (nothing iff pass).
@@ -149,7 +152,13 @@ data PropertyType = MoveProperty     -- ^ Cannot mix with setup nodes.
                   | GeneralProperty  -- ^ May appear anywhere in the game tree.
                   deriving (Eq, Show)
 
--- | A class for types that contain metadata about a 'Property'.
+-- | A class for types that contain metadata about a 'Property'.  The main
+-- instance of this class is 'Property' itself; 'Property's can be treated as
+-- though they have metadata directly.  When referring to a property in general
+-- rather than a specific instance, use the values of 'PropertyInfo' and
+-- 'ValuedPropertyInfo'.
+--
+-- See also 'ValuedDescriptor'.
 class Descriptor a where
   -- | Returns the name of the property, as used in SGF files.
   propertyName :: a -> String
@@ -177,7 +186,7 @@ class Descriptor a where
   -- a human-readable format.
   propertyValueRendererPretty :: a -> Property -> Render ()
 
--- | A class for 'Descriptor's of 'Property's that also contain values.
+-- | A class for 'Descriptor's of properties that also contain values.
 class (Descriptor a, Eq v) => ValuedDescriptor v a | a -> v where
   -- | Extracts the value from a property of the given type.  Behaviour is
   -- undefined if the property is not of the given type.
@@ -186,6 +195,9 @@ class (Descriptor a, Eq v) => ValuedDescriptor v a | a -> v where
   -- | Builds a property from a given value.
   propertyBuilder :: a -> v -> Property
 
+-- | An existential type for any property descriptor.  'AnyDescriptor' has a
+-- 'Descriptor' instance, so there is no need to extract the value with a
+-- pattern match before using 'Descriptor' methods.
 data AnyDescriptor = forall a. Descriptor a => AnyDescriptor a
 
 instance Descriptor AnyDescriptor where
@@ -197,6 +209,9 @@ instance Descriptor AnyDescriptor where
   propertyValueRenderer (AnyDescriptor d) = propertyValueRenderer d
   propertyValueRendererPretty (AnyDescriptor d) = propertyValueRendererPretty d
 
+-- | An existential type for any descriptor of a property that holds a
+-- 'CoordList' value.  Has instances for 'Descriptor' and @'ValuedDescriptor'
+-- 'CoordList'@, similar to 'AnyDescriptor'.
 data AnyCoordListDescriptor = forall a. ValuedDescriptor CoordList a => AnyCoordListDescriptor a
 
 instance Descriptor AnyCoordListDescriptor where
@@ -213,7 +228,7 @@ instance ValuedDescriptor CoordList AnyCoordListDescriptor where
   propertyBuilder (AnyCoordListDescriptor d) = propertyBuilder d
 
 -- | Metadata for a property that does not contain a value.  Corresponds to a
--- single nullary data constructor of 'Property'.
+-- nullary data constructor of 'Property'.
 data PropertyInfo = PropertyInfo
   { propertyInfoName :: String
     -- ^ The SGF textual name for the property.
@@ -234,8 +249,8 @@ instance Descriptor PropertyInfo where
   propertyValueRenderer _ _ = pvtRenderer nonePvt ()
   propertyValueRendererPretty _ _ = pvtRendererPretty nonePvt ()
 
--- | Metadata for a property that contains a value.  Corresponds to a single
--- unary data constructor of 'Property'.
+-- | Metadata for a property that contains a value.  Corresponds to a
+-- non-nullary data constructor of 'Property'.
 data ValuedPropertyInfo v = ValuedPropertyInfo
   { valuedPropertyInfoName :: String
     -- ^ The SGF textual name for the property (also the name of the data
@@ -277,8 +292,8 @@ instance Eq v => ValuedDescriptor v (ValuedPropertyInfo v) where
   propertyValue = valuedPropertyInfoValue
   propertyBuilder = valuedPropertyInfoBuilder
 
--- | Template Haskell function to declare a property that does not contain a
--- value.
+-- | Internal to this module, do not use outside.  Template Haskell function to
+-- declare a property that does not contain a value.
 --
 -- > $(defProperty "KO" 'MoveProperty False)
 --
@@ -301,7 +316,8 @@ defProperty name propType inherited = do
          []
     ]
 
--- | Template Haskell function to declare a property that contains a value.
+-- | Internal to this module, do not use outside.  Template Haskell function to
+-- declare a property that contains a value.
 --
 -- > $(defValuedProperty "B" 'MoveProperty False 'maybeCoordPrinter)
 --

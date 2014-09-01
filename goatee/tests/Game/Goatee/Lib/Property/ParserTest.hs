@@ -23,6 +23,7 @@ import Data.Maybe (catMaybes)
 import Game.Goatee.Common
 import Game.Goatee.Lib.ParserTestUtils
 import Game.Goatee.Lib.Property
+import Game.Goatee.Lib.Property.Parser
 import Game.Goatee.Lib.TestInstances ()
 import Game.Goatee.Lib.TestUtils
 import Game.Goatee.Lib.Types

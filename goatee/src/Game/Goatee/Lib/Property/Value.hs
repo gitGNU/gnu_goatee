@@ -17,7 +17,8 @@
 
 -- | Metadata about the types of property values.
 --
--- Import "Game.Goatee.Lib.Property" rather than importing this module.
+-- This module is internal to "Game.Goatee.Lib.Property"; you should not need
+-- these structures elsewhere.
 module Game.Goatee.Lib.Property.Value (
   PropertyValueType, pvtParser, pvtRenderer, pvtRendererPretty,
   colorPvt,
