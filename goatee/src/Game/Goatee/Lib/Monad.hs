@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 -- | A monad for working with game trees.
 module Game.Goatee.Lib.Monad (
   -- * The Go monad
@@ -37,6 +39,9 @@ module Game.Goatee.Lib.Monad (
   ) where
 
 import Control.Applicative ((<$>), Applicative ((<*>), pure))
+#if !MIN_VERSION_containers(0,5,0)
+import Control.Arrow (second)
+#endif
 import Control.Monad ((<=<), ap, forM, forM_, liftM, msum, when)
 import Control.Monad.Identity (Identity, runIdentity)
 import qualified Control.Monad.State as State
@@ -346,6 +351,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
             byStone' = mapInvert allAssignedStones'
             -- Compute a diff between the two maps.
             diff :: Map (Maybe Color) ([Coord], [Coord])
+#if MIN_VERSION_containers(0,5,0)
             diff = Map.mergeWithKey
                    (\_ oldCoords newCoords -> if newCoords == oldCoords
                                               then Nothing
@@ -354,6 +360,16 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
                    (Map.map $ \newCoords -> ([], newCoords))
                    byStone
                    byStone'
+#else
+            -- GHC 7.4.2 / containers <0.5.0 don't provide map merging.
+            diff = (\partialDiff ->
+                     foldr (\(stone, new) ->
+                             Map.alter (Just . maybe ([], new) (second $ const new))
+                                       stone)
+                           partialDiff
+                           (Map.assocs byStone')) $
+                   Map.map (\old -> (old, [])) byStone
+#endif
         -- Run modifyProperties (AB|AE|AW) for the stones that have changed lists.
         forM_ (Map.assocs diff) $ \(stone, (oldCoords, newCoords)) ->
           when (newCoords /= oldCoords) $
