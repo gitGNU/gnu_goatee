@@ -265,20 +265,20 @@ propertiesTests = "properties" ~: TestList
   , "modifyProperties" ~: TestList
     [ "adds properties" ~:
       let cursor = rootCursor $ node [FF 1]
-          action = do modifyProperties $ \props -> return $ props ++ [B Nothing, W Nothing]
+          action = do modifyProperties $ \props -> props ++ [B Nothing, W Nothing]
                       getProperties
       in evalGo action cursor @?= [FF 1, B Nothing, W Nothing]
 
     , "removes properties" ~:
       let cursor = rootCursor $ node [W Nothing, FF 1, B Nothing]
-          action = do modifyProperties $ \props -> return $ filter (not . isMoveProperty) props
+          action = do modifyProperties $ \props -> filter (not . isMoveProperty) props
                       getProperties
       in evalGo action cursor @?= [FF 1]
 
     , "fires a properties modified event" ~:
       let cursor = rootCursor $ node [FF 1]
           action = do on propertiesModifiedEvent $ \old new -> tell [(old, new)]
-                      modifyProperties $ const $ return [FF 2]
+                      modifyProperties $ const [FF 2]
           log = execWriter (runGoT action cursor)
       in log @?= [([FF 1], [FF 2])]
     ]
@@ -1036,9 +1036,9 @@ gameInfoChangedTests = "gameInfoChangedEvent" ~: TestList
   , "fires when modifying properties" ~:
     let cursor = rootCursor $ node []
         action = do on gameInfoChangedEvent onInfo
-                    modifyProperties $ const $ return [GN $ toSimpleText "Foo"]
-                    modifyProperties $ const $ return [GN $ toSimpleText "Bar"]
-                    modifyProperties $ const $ return []
+                    modifyProperties $ const [GN $ toSimpleText "Foo"]
+                    modifyProperties $ const [GN $ toSimpleText "Bar"]
+                    modifyProperties $ const []
     in execWriter (runGoT action cursor) @?=
        [(Nothing, Just $ toSimpleText "Foo"),
         (Just $ toSimpleText "Foo", Just $ toSimpleText "Bar"),

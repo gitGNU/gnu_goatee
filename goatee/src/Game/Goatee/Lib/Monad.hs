@@ -184,10 +184,10 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   getProperties :: go [Property]
   getProperties = liftM cursorProperties getCursor
 
-  -- | Modifies the set of properties on the current node.
-  --
-  -- The given function must end on the same node on which it started.
-  modifyProperties :: ([Property] -> go [Property]) -> go ()
+  -- | Modifies the set of properties on the current node.  Fires
+  -- 'propertiesModifiedEvent' after modifying if the new property set is
+  -- different from the old property set (order is irrelevant).
+  modifyProperties :: ([Property] -> [Property]) -> go ()
 
   -- | Searches for a property on the current node, returning it if found.
   getProperty :: Descriptor d => d -> go (Maybe Property)
@@ -198,11 +198,13 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   getPropertyValue descriptor = liftM (liftM $ propertyValue descriptor) $ getProperty descriptor
 
   -- | Sets a property on the current node, replacing an existing property with
-  -- the same name, if one exists.
+  -- the same name, if one exists.  Fires 'propertiesModifiedEvent' if the
+  -- property has changed.
   putProperty :: Property -> go ()
   putProperty property = modifyProperty property $ const $ Just property
 
-  -- | Deletes a property from the current node, if it's set.
+  -- | Deletes a property from the current node, if it's set, and fires
+  -- 'propertiesModifiedEvent'.
   --
   -- Note that although a 'Property' is a 'Descriptor', giving a valued
   -- @Property@ here will not cause deletion to match on the value of the
@@ -217,16 +219,17 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
 
   -- | Calls the given function to modify the state of the given property
   -- (descriptor) on the current node.  'Nothing' represents the property not
-  -- existing on the node, and a 'Just' marks the property's presence.  This
-  -- function does not do any validation to check that the resulting tree state
-  -- is valid.
+  -- existing on the node, and a 'Just' marks the property's presence.  Fires
+  -- 'propertiesModifiedEvent' if the property changed.  This function does not
+  -- do any validation to check that the resulting tree state is valid.
   modifyProperty :: Descriptor d => d -> (Maybe Property -> Maybe Property) -> go ()
 
   -- | Calls the given function to modify the state of the given valued property
   -- (descriptor) on the current node.  'Nothing' represents the property not
   -- existing on the node, and a 'Just' with the property's value marks the
-  -- property's presence.  This function does not do any validation to check
-  -- that the resulting tree state is valid.
+  -- property's presence.  Fires 'propertiesModifiedEvent' if the property
+  -- changed.  This function does not do any validation to check that the
+  -- resulting tree state is valid.
   modifyPropertyValue :: ValuedDescriptor v d => d -> (Maybe v -> Maybe v) -> go ()
   modifyPropertyValue descriptor fn = modifyProperty descriptor $ \old ->
     propertyBuilder descriptor <$> fn (propertyValue descriptor <$> old)
@@ -235,7 +238,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- to the given function.  The input string will be empty if the current node
   -- either has the property with an empty value, or doesn't have the property.
   -- Returning an empty string removes the property from the node, if it was
-  -- set.
+  -- set.  Fires 'propertiesModifiedEvent' if the property changed.
   modifyPropertyString :: (Stringlike s, ValuedDescriptor s d) => d -> (String -> String) -> go ()
   modifyPropertyString descriptor fn =
     modifyPropertyValue descriptor $ \value -> case fn (maybe "" sgfToString value) of
@@ -255,6 +258,8 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   -- Importantly, this might not be specific enough for properties such as 'DD'
   -- and 'VW' where a present, empty list has different semantics from the
   -- property not being present.  In that case, 'modifyPropertyValue' is better.
+  --
+  -- Fires 'propertiesModifiedEvent' if the property changed.
   modifyPropertyCoords :: ValuedDescriptor CoordList d => d -> ([Coord] -> [Coord]) -> go ()
   modifyPropertyCoords descriptor fn =
     modifyPropertyValue descriptor $ \value -> case fn $ maybe [] expandCoordList value of
@@ -370,7 +375,7 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
                            (Map.assocs byStone')) $
                    Map.map (\old -> (old, [])) byStone
 #endif
-        -- Run modifyProperties (AB|AE|AW) for the stones that have changed lists.
+        -- Modify the AB,AE,AW properties for the stones that have changed lists.
         forM_ (Map.assocs diff) $ \(stone, (oldCoords, newCoords)) ->
           when (newCoords /= oldCoords) $
           modifyPropertyCoords (stoneToStoneAssignmentProperty stone) $ const newCoords
@@ -563,7 +568,7 @@ instance Monad m => MonadGo (GoT m) where
   modifyProperties fn = do
     oldCursor <- getCursor
     let oldProperties = cursorProperties oldCursor
-    newProperties <- fn oldProperties
+        newProperties = fn oldProperties
     modifyState $ \state ->
       state { stateCursor = cursorModifyNode
                             (\node -> node { nodeProperties = newProperties })
@@ -595,10 +600,10 @@ instance Monad m => MonadGo (GoT m) where
       fail $ "modifyProperty: May not change property type: " ++
       show old ++ " -> " ++ show new ++ "."
     case (old, new) of
-      (Just _, Nothing) -> modifyProperties $ return . remove descriptor
-      (Nothing, Just value') -> modifyProperties $ return . add value'
+      (Just _, Nothing) -> modifyProperties $ remove descriptor
+      (Nothing, Just value') -> modifyProperties $ add value'
       (Just value, Just value') | value /= value' ->
-        modifyProperties $ return . add value' . remove descriptor
+        modifyProperties $ add value' . remove descriptor
       _ -> return ()
     where remove descriptor = filter (not . propertyPredicate descriptor)
           add value = (value:)
@@ -612,7 +617,7 @@ instance Monad m => MonadGo (GoT m) where
     pushPosition
     goToGameInfoNode True
     modifyProperties $ \props ->
-      return $ gameInfoToProperties info' ++ filter ((GameInfoProperty /=) . propertyType) props
+      gameInfoToProperties info' ++ filter ((GameInfoProperty /=) . propertyType) props
     popPosition
     return info'
 
