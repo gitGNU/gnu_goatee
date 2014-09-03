@@ -410,15 +410,15 @@ descriptorForName' = flip Map.lookup descriptorsByName
 -- with 'stoneAssignmentPropertyToStone' and 'stoneToStoneAssignmentProperty'.
 stoneAssignmentProperties :: [AnyCoordListDescriptor]
 stoneAssignmentProperties =
-  [ AnyCoordListDescriptor propertyAB
-  , AnyCoordListDescriptor propertyAE
-  , AnyCoordListDescriptor propertyAW
+  [ AnyValuedDescriptor propertyAB
+  , AnyValuedDescriptor propertyAE
+  , AnyValuedDescriptor propertyAW
   ]
 
 -- | Converts a descriptor in 'stoneAssignmentProperties' to the type of stone
 -- it assigns.
 stoneAssignmentPropertyToStone :: AnyCoordListDescriptor -> Maybe Color
-stoneAssignmentPropertyToStone (AnyCoordListDescriptor d) = case propertyName d of
+stoneAssignmentPropertyToStone (AnyValuedDescriptor d) = case propertyName d of
   "AB" -> Just Black
   "AE" -> Nothing
   "AW" -> Just White
@@ -429,9 +429,9 @@ stoneAssignmentPropertyToStone (AnyCoordListDescriptor d) = case propertyName d 
 -- 'stoneAssignmentProperties'.
 stoneToStoneAssignmentProperty :: Maybe Color -> AnyCoordListDescriptor
 stoneToStoneAssignmentProperty stone = case stone of
-  Nothing -> AnyCoordListDescriptor propertyAE
-  Just Black -> AnyCoordListDescriptor propertyAB
-  Just White -> AnyCoordListDescriptor propertyAW
+  Nothing -> AnyValuedDescriptor propertyAE
+  Just Black -> AnyValuedDescriptor propertyAB
+  Just White -> AnyValuedDescriptor propertyAW
 
 -- | Returns the descriptor for a mark.
 markProperty :: Mark -> ValuedPropertyInfo CoordList
