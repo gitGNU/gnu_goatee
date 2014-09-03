@@ -26,6 +26,7 @@ import Data.Map (Map)
 import Game.Goatee.Lib.Types
 import Game.Goatee.Ui.Gtk.Common
 import qualified Game.Goatee.Ui.Gtk.Tool.AssignStone as AssignStone
+import qualified Game.Goatee.Ui.Gtk.Tool.Line as Line
 import qualified Game.Goatee.Ui.Gtk.Tool.Mark as Mark
 import qualified Game.Goatee.Ui.Gtk.Tool.Null as Null
 import qualified Game.Goatee.Ui.Gtk.Tool.Play as Play
@@ -46,10 +47,12 @@ createTools ui =
       ToolWhite -> AnyTool <$> (AssignStone.create ui (Just White) =<<
                                 newState "Paint white stones")
       ToolErase -> AnyTool <$> (AssignStone.create ui Nothing =<< newState "Erase stones")
-      ToolArrow -> AnyTool <$> (Null.create ui =<< newState "Draw arrows")
+      ToolArrow -> AnyTool <$> (Line.create ui Line.arrowDescriptor =<<
+                                newState "Draw arrows")
       ToolMarkCircle -> AnyTool <$> (Mark.create ui MarkCircle =<< newState "Mark circles")
       ToolLabel -> AnyTool <$> (Null.create ui =<< newState "Label points")
-      ToolLine -> AnyTool <$> (Null.create ui =<< newState "Draw lines")
+      ToolLine -> AnyTool <$> (Line.create ui Line.lineDescriptor =<<
+                               newState "Draw lines")
       ToolMarkX -> AnyTool <$> (Mark.create ui MarkX =<< newState "Mark Xs")
       ToolMarkSelected -> AnyTool <$> (Mark.create ui MarkSelected =<< newState "Mark selected")
       ToolMarkSquare -> AnyTool <$> (Mark.create ui MarkSquare =<< newState "Mark squares")

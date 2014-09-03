@@ -15,21 +15,17 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-module Main (main) where
+module Game.Goatee.Ui.Gtk.CommonTest (tests) where
 
-import qualified Game.Goatee.Ui.Gtk.CommonTest
-import qualified Game.Goatee.Ui.Gtk.LatchTest
-import System.Exit (exitFailure, exitSuccess)
-import Test.HUnit (Counts (errors, failures), Test (TestList), runTestTT)
+import Data.List (sort)
+import Game.Goatee.Ui.Gtk.Common
+import Test.HUnit ((~:), (@=?), Test (TestList))
 
-tests = TestList
-  [ Game.Goatee.Ui.Gtk.CommonTest.tests
-  , Game.Goatee.Ui.Gtk.LatchTest.tests
+tests = "Game.Goatee.Ui.Gtk.Common" ~: TestList
+  [ toolOrderingTests
   ]
 
-main :: IO ()
-main = do
-  counts <- runTestTT tests
-  if errors counts > 0 || failures counts > 0
-    then exitFailure
-    else exitSuccess
+toolOrderingTests = "toolOrdering" ~: TestList
+  [ "contains each ToolType exactly once" ~:
+    [minBound..] @=? sort (concat toolOrdering)
+  ]

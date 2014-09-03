@@ -248,6 +248,21 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
                  -- the conversion back to a string for emptiness.
              in if null $ sgfToString sgf then Nothing else Just sgf
 
+  -- | Mutates the list-valued property attached to the current node
+  -- according to the given function.  The input list will be empty if the
+  -- current node either has the property with an empty value, or doesn't have
+  -- the property.  Returning an empty list removes the property from the node,
+  -- if it was set.
+  --
+  -- Fires 'propertiesModifiedEvent' if the property changed.
+  --
+  -- See also 'modifyPropertyCoords'.
+  modifyPropertyList :: ValuedDescriptor [v] d => d -> ([v] -> [v]) -> go ()
+  modifyPropertyList descriptor fn =
+    modifyPropertyValue descriptor $ \value -> case fn $ fromMaybe [] value of
+      [] -> Nothing
+      value' -> Just value'
+
   -- | Mutates the 'CoordList'-valued property attached to the current node
   -- according to the given function.  Conversion between @CoordList@ and
   -- @[Coord]@ is performed automatically.  The input list will be empty if the

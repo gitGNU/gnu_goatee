@@ -39,7 +39,7 @@ module Game.Goatee.Lib.Types (
   Color (..), cnot,
   VariationMode (..), VariationModeSource (..), defaultVariationMode,
   toVariationMode, fromVariationMode,
-  ArrowList, LineList, LabelList, Mark (..),
+  ArrowList, LineList, Line (..), lineToPair, LabelList, Mark (..),
   GameResult (..),
   WinReason (..),
   Ruleset (..), RulesetType (..), fromRuleset, toRuleset,
@@ -409,7 +409,18 @@ fromVariationMode mode = case mode of
 type ArrowList = [(Coord, Coord)]
 
 -- | A list of lines, each specified as @(startCoord, endCoord)@.
-type LineList = [(Coord, Coord)]
+type LineList = [Line]
+
+-- | An undirected line between two coordinates.
+data Line = Line Coord Coord
+          deriving (Show)
+
+instance Eq Line where
+  (Line a b) == (Line c d) = a == c && b == d || a == d && b == c
+
+-- | Converts a 'Line' to a pair of 'Coord's representing the line's endpoints.
+lineToPair :: Line -> (Coord, Coord)
+lineToPair (Line a b) = (a, b)
 
 -- | A list of labels, each specified with a string and a coordinate about which
 -- to center the string.

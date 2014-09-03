@@ -58,6 +58,7 @@ tests = "Game.Goatee.Lib.Monad" ~: TestList
   , modifyPropertyTests
   , modifyPropertyValueTests
   , modifyPropertyStringTests
+  , modifyPropertyListTests
   , modifyPropertyCoordsTests
   , modifyGameInfoTests
   , modifyVariationModeTests
@@ -445,6 +446,47 @@ modifyPropertyStringTests =
             let result = execGo (modifyPropertyString property id) $ rootCursor $ node []
             in cursorProperties result @?= []
           ]
+
+modifyPropertyListTests = "modifyPropertyList" ~: TestList
+  [ "adds a property where there was none" ~:
+    let cursor = rootCursor $ node []
+        arrows = [((0,0), (1,1)), ((0,1), (1,0))]
+        action = modifyPropertyList propertyAR $ \[] -> arrows
+    in [AR arrows] @=? cursorProperties (execGo action cursor)
+
+  , "removes a property where there was one" ~:
+    let lines = [Line (0,0) (0,1), Line (1,0) (1,1)]
+        cursor = rootCursor $ node [LN lines]
+        action = modifyPropertyList propertyLN $ \old ->
+          if old == lines then [] else error $ "Unexpected old value: " ++ show old
+    in [] @=? cursorProperties (execGo action cursor)
+
+  , "modifies an existing property" ~:
+    let lines = [Line (0,0) (0,1), Line (1,0) (1,1)]
+        lines' = [head lines]
+        cursor = rootCursor $ node [LN lines]
+        action = modifyPropertyList propertyLN $ \old ->
+          if old == lines then lines' else error $ "Unexpected old value: " ++ show old
+    in [LN lines'] @=? cursorProperties (execGo action cursor)
+
+  , "fires propertiesModifiedEvent when changed" ~:
+    let lines = [Line (0,0) (0,1), Line (1,0) (1,1)]
+        lines' = [head lines]
+        cursor = rootCursor $ node [LN lines]
+        action = do
+          on propertiesModifiedEvent $ \old new -> tell [(old, new)]
+          modifyPropertyList propertyLN $ \old ->
+            if old == lines then lines' else error $ "Unexpected old value: " ++ show old
+    in [([LN lines], [LN lines'])] @=? execWriter (runGoT action cursor)
+
+  , "doesn't fire propertiesModifiedEvent when not changed" ~:
+    let lines = [Line (0,0) (0,1), Line (1,0) (1,1)]
+        cursor = rootCursor $ node [LN lines]
+        action = do
+          on propertiesModifiedEvent $ \old new -> tell [(old, new)]
+          modifyPropertyList propertyLN id
+    in [] @=? execWriter (runGoT action cursor)
+  ]
 
 modifyPropertyCoordsTests = "modifyPropertyCoords" ~: TestList
   [ "adds a property where there was none" ~:

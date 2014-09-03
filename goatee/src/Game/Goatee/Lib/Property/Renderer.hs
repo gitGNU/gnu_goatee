@@ -38,6 +38,8 @@ module Game.Goatee.Lib.Property.Renderer (
   renderIntegralPretty,
   renderLabelListBracketed,
   renderLabelListPretty,
+  renderLineListBracketed,
+  renderLineListPretty,
   renderMoveBracketed,
   renderMovePretty,
   renderNoneBracketed,
@@ -253,6 +255,14 @@ renderLabelListPretty = rendererOf "label list pretty" $ \list ->
                tell ":"
                renderStringlikePretty text)
        list
+
+renderLineListBracketed :: [Line] -> Render ()
+renderLineListBracketed = rendererOf "line list bracketed" $
+  renderCoordPairListBracketed . map lineToPair
+
+renderLineListPretty :: [Line] -> Render ()
+renderLineListPretty = rendererOf "line list pretty" $
+  renderCoordPairListPretty . map lineToPair
 
 renderMoveBracketed :: Maybe Coord -> Render ()
 renderMoveBracketed = rendererOf "move bracketed" $ maybe (tell "[]") renderCoordBracketed

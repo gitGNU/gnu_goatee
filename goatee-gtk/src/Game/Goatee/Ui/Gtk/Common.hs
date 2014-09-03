@@ -674,8 +674,8 @@ toolOrdering :: [[ToolType]]
 toolOrdering =
   [[ToolPlay, ToolJump, ToolScore],
    [ToolBlack, ToolWhite, ToolErase],
-   [ToolArrow, ToolMarkCircle, ToolLabel, ToolLine, ToolMarkX, ToolMarkSelected,
-    ToolMarkSquare, ToolMarkTriangle],
+   [ToolMarkCircle, ToolMarkX, ToolMarkSelected, ToolMarkSquare, ToolMarkTriangle,
+    ToolArrow, ToolLine, ToolLabel],
    [ToolVisible, ToolDim]]
 
 -- | Converts 'ToolBlack' and 'ToolWhite' into 'Color's.  Does not accept any

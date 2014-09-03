@@ -29,6 +29,7 @@ module Game.Goatee.Lib.Property.Value (
   gameResultPvt,
   integralPvt,
   labelListPvt,
+  lineListPvt,
   movePvt,
   nonePvt,
   realPvt,
@@ -107,6 +108,13 @@ labelListPvt = PropertyValueType
   { pvtParser = P.labelListParser
   , pvtRenderer = R.renderLabelListBracketed
   , pvtRendererPretty = R.renderLabelListPretty
+  }
+
+lineListPvt :: PropertyValueType [Line]
+lineListPvt = PropertyValueType
+  { pvtParser = P.lineListParser
+  , pvtRenderer = R.renderLineListBracketed
+  , pvtRendererPretty = R.renderLineListPretty
   }
 
 movePvt :: PropertyValueType (Maybe Coord)

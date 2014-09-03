@@ -30,6 +30,7 @@ tests = "Game.Goatee.Lib.Types" ~: TestList
   , handicapStonesTests
   , simpleTextTests
   , cnotTests
+  , lineTests
   ]
 
 expandCoordListTests = "expandCoordList" ~: TestList
@@ -237,4 +238,17 @@ simpleTextTests = "SimpleText" ~: TestList
 cnotTests = "cnot" ~: TestList
   [ "changes Black to White" ~: White @=? cnot Black
   , "changes White to Black" ~: Black @=? cnot White
+  ]
+
+lineTests = "Line" ~: TestList
+  [ "Eq instance" ~: TestList
+    [ "Line a b == Line a b" ~: Line (1,2) (3,4) @=? Line (1,2) (3,4)
+    , "Line a b == Line b a" ~: Line (1,2) (3,4) @=? Line (3,4) (1,2)
+    , "Line a b /= Line c b" ~: do Line (1,2) (3,4) @/=? Line (0,2) (3,4)
+                                   Line (1,2) (3,4) @/=? Line (1,0) (3,4)
+    , "Line a b /= Line a c" ~: do Line (1,2) (3,4) @/=? Line (1,2) (0,4)
+                                   Line (1,2) (3,4) @/=? Line (1,2) (3,0)
+    ]
+  , "lineToPair" ~:
+    ((10,2), (5,7)) @=? lineToPair (Line (10,2) (5,7))
   ]

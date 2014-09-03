@@ -111,7 +111,7 @@ markupPropertiesTests = "markup properties" ~: TestList
   , "adds more complex annotations to a BoardState" ~: TestList
     [ "AR" ~: [((0,0), (1,1))] @=? boardArrows (rootCoord $ node [AR [((0,0), (1,1))]])
     , "LB" ~: [((0,0), st "Hi")] @=? boardLabels (rootCoord $ node [LB [((0,0), st "Hi")]])
-    , "LN" ~: [((0,0), (1,1))] @=? boardLines (rootCoord $ node [LN [((0,0), (1,1))]])
+    , "LN" ~: [Line (0,0) (1,1)] @=? boardLines (rootCoord $ node [LN [Line (0,0) (1,1)]])
     ]
 
   , "clears annotations when moving to a child node" ~: do
@@ -123,7 +123,7 @@ markupPropertiesTests = "markup properties" ~: TestList
                       TR $ coords [(1,1)],
                       AR [((0,0), (2,1))],
                       LB [((2,1), st "Empty")],
-                      LN [((1,1), (2,0))]] $
+                      LN [Line (1,1) (2,0)]] $
                  node []
         board = cursorBoard $ child 0 $ rootCursor root
     mapM_ (mapM_ ((Nothing @=?) . coordMark)) $ boardCoordStates board

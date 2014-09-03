@@ -24,6 +24,7 @@ module Game.Goatee.Lib.Property.Parser (
   doubleParser,
   gameResultParser,
   labelListParser,
+  lineListParser,
   moveParser,
   noneParser,
   integralParser,
@@ -153,6 +154,9 @@ gameResultParser = single (convertStringlike <$> simpleText False) <?> "game res
 labelListParser :: Parser [(Coord, SimpleText)]
 labelListParser =
   listOf (compose coord $ simpleText True) <?> "list of points and labels"
+
+lineListParser :: Parser [Line]
+lineListParser = map (uncurry Line) <$> coordPairListParser <?> "list of lines"
 
 moveParser :: Parser (Maybe Coord)
 moveParser =

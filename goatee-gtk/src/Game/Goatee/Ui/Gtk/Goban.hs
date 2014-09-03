@@ -461,7 +461,7 @@ drawBoard me = do
     unless (null (boardLines board) && null (boardArrows board)) $ do
       setSourceRGB 0 0 0
       setLineWidth boardAnnotationLineWidth
-      mapM_ (uncurry drawLine) $ boardLines board
+      mapM_ (uncurry drawLine . lineToPair) $ boardLines board
       mapM_ (uncurry drawArrow) $ boardArrows board
   return ()
 
