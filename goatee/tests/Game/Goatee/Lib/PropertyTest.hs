@@ -34,27 +34,40 @@ propertyMetadataTests = "property metadata" ~: TestList
   , "root properties" ~: rootProperties @=? filterTo RootProperty allProperties
   , "setup properties" ~: setupProperties @=? filterTo SetupProperty allProperties
 
-  , "inherited properties" ~: [DD cl] @=? filter propertyInherited allProperties
+  , "inherited properties" ~: [DD cl, VW cl] @=? filter propertyInherited allProperties
   ]
   where filterTo propType = filter ((propType ==) . propertyType)
-        moveProperties = [-- Move properties.
-                          B Nothing, KO, MN 1, W Nothing,
-                          -- Move annotation properties.
-                          BM db, DO, IT, TE db]
-        setupProperties = [-- Setup properties.
-                           AB cl, AE cl, AW cl, PL Black]
-        generalProperties = [-- Node annotation properties.
-                             C tx, DM db, GB db, GW db, HO db, N st, UC db, V rv,
-                             -- Markup properties.
-                             AR [], CR cl, DD cl, LB [], LN [], MA cl, SL cl, SQ cl, TR cl,
-                             -- Guess this fits here.
-                             UnknownProperty "" (toUnknownPropertyValue "")]
-        rootProperties = [-- Root properties.
-                          AP st st, CA st, FF 1, GM 1, ST vm, SZ 1 1]
-        gameInfoProperties = [-- Game info properties.
-                              AN st, BR st, BT st, CP st, DT st, EV st, GC tx, GN st, ON st, OT st,
-                              PB st, PC st, PW st, RE GameResultVoid, RO st, RU ru,
-                              SO st, TM rv, US st, WR st, WT st]
+        moveProperties = [ -- Move properties.
+                           B Nothing, KO, MN 1, W Nothing
+                           -- Move annotation properties.
+                         , BM db, DO, IT, TE db
+                           -- Timing properties.
+                         , BL rv, OB 1, OW 1, WL rv
+                         ]
+        setupProperties = [ -- Setup properties.
+                            AB cl, AE cl, AW cl, PL Black
+                          ]
+        generalProperties = [ -- Node annotation properties.
+                              C tx, DM db, GB db, GW db, HO db, N st, UC db, V rv
+                              -- Markup properties.
+                            , AR [], CR cl, DD cl, LB [], LN [], MA cl, SL cl, SQ cl, TR cl
+                              -- Miscellaneous properties.
+                            , VW cl
+                              -- Go-specific properties.
+                            , TB cl, TW cl
+                              -- Guess this fits here.
+                            , UnknownProperty "" (toUnknownPropertyValue "")
+                            ]
+        rootProperties = [ -- Root properties.
+                           AP st st, CA st, FF 1, GM 1, ST vm, SZ 1 1
+                         ]
+        gameInfoProperties = [ -- Game info properties.
+                               AN st, BR st, BT st, CP st, DT st, EV st, GC tx, GN st, ON st, OT st
+                             , PB st, PC st, PW st, RE GameResultVoid, RO st, RU ru
+                             , SO st, TM rv, US st, WR st, WT st
+                               -- Go-specific properties.
+                             , HA 1, KM rv
+                             ]
         allProperties = moveProperties ++ setupProperties ++ generalProperties ++
                         rootProperties ++ gameInfoProperties
         cl = emptyCoordList
