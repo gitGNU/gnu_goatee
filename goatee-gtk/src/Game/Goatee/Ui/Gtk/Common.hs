@@ -42,7 +42,7 @@ module Game.Goatee.Ui.Gtk.Common (
   ViewStonesMode (..),
   defaultUiModes,
   -- * Tools
-  ToolType (..), UiTool (..), AnyTool (..), toolType, toolLabel,
+  ToolType (..), UiTool (..), AnyTool (..), toolDestroy, toolType, toolLabel,
   ToolState, toolStateNew, toolStateType, toolStateLabel,
   ToolGobanState (..), toolGetGobanState, toolGobanStateStartCoord, toolGobanStateCurrentCoord,
   GobanEvent (..),
@@ -485,11 +485,7 @@ data ToolType =
 -- The goban sends events to the active tool as they occur, via
 -- 'toolGobanHandleEvent'.  The tool can then affect what the goban displays by
 -- overriding 'toolGobanRenderGetBoard' and/or 'toolGobanRenderModifyCoords'.
-class UiCtrl go ui => UiTool go ui tool | tool -> ui where
-  -- | Performs tool-specific clean-up during 'UiCtrl' shutdown.
-  toolDestroy :: tool -> IO ()
-  toolDestroy _ = return ()
-
+class UiView go ui tool => UiTool go ui tool where
   -- | Returns the state given to 'toolCreate''.
   toolState :: tool -> ToolState
 
@@ -506,6 +502,12 @@ class UiCtrl go ui => UiTool go ui tool | tool -> ui where
   -- this function.
   toolPanelWidget :: tool -> Maybe Widget
   toolPanelWidget _ = Nothing
+
+  -- | A handler that is called when the tool is being destroyed as part of UI
+  -- shutdown.  The default handler does nothing.  This does not need to call
+  -- 'viewDestroy', which is already called after this handler.
+  toolOnDestroy :: tool -> IO ()
+  toolOnDestroy _ = return ()
 
   -- | A handler that is called when the user activates the tool.  Runs before
   -- the tool becomes active and before the tool's widgets are displayed.  The
@@ -555,6 +557,12 @@ class UiCtrl go ui => UiTool go ui tool | tool -> ui where
 
 -- | An existential type for any tool under a specific UI controller.
 data AnyTool go ui = forall tool. UiTool go ui tool => AnyTool tool
+
+-- | Performs tool-specific clean-up during 'UiCtrl' shutdown.
+toolDestroy :: UiTool go ui tool => tool -> IO ()
+toolDestroy tool = do
+  toolOnDestroy tool
+  viewDestroy tool
 
 -- | Returns the 'ToolType' that a 'UiCtrl' was instantiated for.
 toolType :: UiTool go ui tool => tool -> ToolType

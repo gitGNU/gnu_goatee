@@ -34,10 +34,20 @@ import Graphics.UI.Gtk (
 -- move is valid.  A pass button is shown in the panel.
 data PlayTool ui = PlayTool
   { myUi :: ui
+  , myViewState :: ViewState
   , myToolState :: ToolState
   , myPassButton :: Button
   , myIsValidMoveCache :: IORef (Maybe (Coord, Bool))
   }
+
+instance UiCtrl go ui => UiView go ui (PlayTool ui) where
+  viewName = const "PlayTool"
+
+  viewCtrl = myUi
+
+  viewState = myViewState
+
+  viewUpdate = const $ return ()
 
 instance UiCtrl go ui => UiTool go ui (PlayTool ui) where
   toolState = myToolState
@@ -74,11 +84,13 @@ instance UiCtrl go ui => UiTool go ui (PlayTool ui) where
 
 create :: UiCtrl go ui => ui -> ToolState -> IO (PlayTool ui)
 create ui toolState = do
+  viewState <- viewStateNew
   passButton <- buttonNewWithLabel "Pass"
   isValidMoveCache <- newIORef Nothing
 
   let me = PlayTool
         { myUi = ui
+        , myViewState = viewState
         , myToolState = toolState
         , myPassButton = passButton
         , myIsValidMoveCache = isValidMoveCache

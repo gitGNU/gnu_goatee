@@ -44,6 +44,7 @@ import Graphics.UI.Gtk (
 -- | A 'UiTool' that toggles assigned stones in rectangles on the board.
 data AssignStoneTool ui = AssignStoneTool
   { myUi :: ui
+  , myViewState :: ViewState
   , myToolState :: ToolState
   , myStone :: Maybe Color
   , myWidgets :: Widgets
@@ -58,6 +59,15 @@ data Widgets = Widgets
   , myViewUpdateLatch :: Latch
     -- ^ This latch should be held on whenever updating the radio buttons above.
   }
+
+instance UiCtrl go ui => UiView go ui (AssignStoneTool ui) where
+  viewName = const "AssignStoneTool"
+
+  viewCtrl = myUi
+
+  viewState = myViewState
+
+  viewUpdate = const $ return ()
 
 instance UiCtrl go ui => UiTool go ui (AssignStoneTool ui) where
   toolState = myToolState
@@ -106,9 +116,11 @@ create :: UiCtrl go ui
        -> ToolState
        -> IO (AssignStoneTool ui)
 create ui stone existingTool toolState = do
+  viewState <- viewStateNew
   widgets <- maybe (createWidgets ui) (return . myWidgets) existingTool
   return AssignStoneTool
     { myUi = ui
+    , myViewState = viewState
     , myToolState = toolState
     , myStone = stone
     , myWidgets = widgets

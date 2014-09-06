@@ -40,6 +40,7 @@ import Graphics.UI.Gtk (
 -- | A 'UiTool' that toggles 'Mark's in rectangles on the board.
 data MarkTool ui = MarkTool
   { myUi :: ui
+  , myViewState :: ViewState
   , myToolState :: ToolState
   , myMark :: Mark
   , myWidgets :: Widgets
@@ -56,6 +57,15 @@ data Widgets = Widgets
   , myViewUpdateLatch :: Latch
     -- ^ This latch should be held on whenever updating the radio buttons above.
   }
+
+instance UiCtrl go ui => UiView go ui (MarkTool ui) where
+  viewName = const "MarkTool"
+
+  viewCtrl = myUi
+
+  viewState = myViewState
+
+  viewUpdate = const $ return ()
 
 instance UiCtrl go ui => UiTool go ui (MarkTool ui) where
   toolState = myToolState
@@ -99,9 +109,11 @@ instance UiCtrl go ui => UiTool go ui (MarkTool ui) where
 -- instances of 'MarkTool' are meant to share a single instance of 'Widgets'.
 create :: UiCtrl go ui => ui -> Mark -> Maybe (MarkTool ui) -> ToolState -> IO (MarkTool ui)
 create ui mark existingTool toolState = do
+  viewState <- viewStateNew
   widgets <- maybe (createWidgets ui) (return . myWidgets) existingTool
   return MarkTool
     { myUi = ui
+    , myViewState = viewState
     , myToolState = toolState
     , myMark = mark
     , myWidgets = widgets

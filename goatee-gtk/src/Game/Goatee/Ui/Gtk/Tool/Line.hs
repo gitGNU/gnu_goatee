@@ -30,6 +30,7 @@ import Game.Goatee.Ui.Gtk.Common
 -- | A 'UiTool' that toggles lines between points on the board.
 data LineTool ui = LineTool
   { myUi :: ui
+  , myViewState :: ViewState
   , myToolState :: ToolState
   , myDescriptor :: AnyLinelikeDescriptor
   }
@@ -58,6 +59,15 @@ lineDescriptor = AnyLinelikeDescriptor LinelikeDescriptor
   , linelikeLift = uncurry Line
   }
 
+instance UiCtrl go ui => UiView go ui (LineTool ui) where
+  viewName = const "LineTool"
+
+  viewCtrl = myUi
+
+  viewState = myViewState
+
+  viewUpdate = const $ return ()
+
 instance UiCtrl go ui => UiTool go ui (LineTool ui) where
   toolState = myToolState
 
@@ -83,9 +93,11 @@ instance UiCtrl go ui => UiTool go ui (LineTool ui) where
 -- | Creates a 'LineTool' that will toggle a line-like property between pairs of
 -- points on the board.
 create :: UiCtrl go ui => ui -> AnyLinelikeDescriptor -> ToolState -> IO (LineTool ui)
-create ui descriptor toolState =
+create ui descriptor toolState = do
+  viewState <- viewStateNew
   return LineTool
     { myUi = ui
+    , myViewState = viewState
     , myToolState = toolState
     , myDescriptor = descriptor
     }
