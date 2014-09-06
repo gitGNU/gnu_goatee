@@ -457,14 +457,14 @@ data ToolType =
   | ToolAssignBlack  -- ^ Editing tool.
   | ToolAssignWhite  -- ^ Editing tool.
   | ToolAssignEmpty  -- ^ Editing tool.
-  | ToolArrow  -- ^ Markup tool.
   | ToolMarkCircle  -- ^ Markup tool.
-  | ToolLabel  -- ^ Markup tool.
-  | ToolLine  -- ^ Markup tool.
-  | ToolMarkX  -- ^ Markup tool.
   | ToolMarkSelected  -- ^ Markup tool.
   | ToolMarkSquare  -- ^ Markup tool.
   | ToolMarkTriangle  -- ^ Markup tool.
+  | ToolMarkX  -- ^ Markup tool.
+  | ToolArrow  -- ^ Markup tool.
+  | ToolLine  -- ^ Markup tool.
+  | ToolLabel  -- ^ Markup tool.
   | ToolVisible  -- ^ Visibility tool.
   | ToolDim  -- ^ Visibility tool.
   deriving (Bounded, Enum, Eq, Ord, Show)
@@ -674,7 +674,7 @@ toolOrdering :: [[ToolType]]
 toolOrdering =
   [[ToolPlay, ToolJump, ToolScore],
    [ToolAssignBlack, ToolAssignWhite, ToolAssignEmpty],
-   [ToolMarkCircle, ToolMarkX, ToolMarkSelected, ToolMarkSquare, ToolMarkTriangle,
+   [ToolMarkCircle, ToolMarkSelected, ToolMarkSquare, ToolMarkTriangle, ToolMarkX,
     ToolArrow, ToolLine, ToolLabel],
    [ToolVisible, ToolDim]]
 
