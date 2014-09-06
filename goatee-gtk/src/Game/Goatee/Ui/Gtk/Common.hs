@@ -454,9 +454,9 @@ data ToolType =
   ToolPlay  -- ^ Game tool.
   | ToolJump  -- ^ Game tool.
   | ToolScore  -- ^ Game tool.
-  | ToolBlack  -- ^ Editing tool.
-  | ToolWhite  -- ^ Editing tool.
-  | ToolErase  -- ^ Editing tool.
+  | ToolAssignBlack  -- ^ Editing tool.
+  | ToolAssignWhite  -- ^ Editing tool.
+  | ToolAssignEmpty  -- ^ Editing tool.
   | ToolArrow  -- ^ Markup tool.
   | ToolMarkCircle  -- ^ Markup tool.
   | ToolLabel  -- ^ Markup tool.
@@ -673,16 +673,16 @@ initialToolType = ToolPlay
 toolOrdering :: [[ToolType]]
 toolOrdering =
   [[ToolPlay, ToolJump, ToolScore],
-   [ToolBlack, ToolWhite, ToolErase],
+   [ToolAssignBlack, ToolAssignWhite, ToolAssignEmpty],
    [ToolMarkCircle, ToolMarkX, ToolMarkSelected, ToolMarkSquare, ToolMarkTriangle,
     ToolArrow, ToolLine, ToolLabel],
    [ToolVisible, ToolDim]]
 
--- | Converts 'ToolBlack' and 'ToolWhite' into 'Color's.  Does not accept any
--- other tools.
+-- | Converts 'ToolAssignBlack' and 'ToolAssignWhite' into 'Color's.  Does not
+-- accept any other tools.
 toolToColor :: ToolType -> Color
-toolToColor ToolBlack = Black
-toolToColor ToolWhite = White
+toolToColor ToolAssignBlack = Black
+toolToColor ToolAssignWhite = White
 toolToColor other = error $ "toolToColor is invalid for " ++ show other ++ "."
 
 -- | Creates a list of 'FileFilter's that should be used in 'FileChooser's that

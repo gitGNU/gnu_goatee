@@ -19,8 +19,6 @@ module Game.Goatee.Ui.Gtk.Tool (
   createTools,
   ) where
 
-import Control.Applicative ((<$>))
-import Data.Foldable (foldrM)
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Game.Goatee.Lib.Types
@@ -34,31 +32,42 @@ import qualified Game.Goatee.Ui.Gtk.Tool.Play as Play
 -- | Instantiates 'UiTool' instances for all of the 'ToolType's, and returns a
 -- map for looking up tools by their type.
 createTools :: UiCtrl go ui => ui -> IO (Map ToolType (AnyTool go ui))
-createTools ui =
-  foldrM
-  (\toolType tools -> do
-    let newState = toolStateNew toolType
-    tool <- case toolType of
-      ToolPlay -> AnyTool <$> (Play.create ui =<< newState "Play")
-      ToolJump -> AnyTool <$> (Null.create ui =<< newState "Jump to move")
-      ToolScore -> AnyTool <$> (Null.create ui =<< newState "Score")
-      ToolBlack -> AnyTool <$> (AssignStone.create ui (Just Black) =<<
-                                newState "Paint black stones")
-      ToolWhite -> AnyTool <$> (AssignStone.create ui (Just White) =<<
-                                newState "Paint white stones")
-      ToolErase -> AnyTool <$> (AssignStone.create ui Nothing =<< newState "Erase stones")
-      ToolArrow -> AnyTool <$> (Line.create ui Line.arrowDescriptor =<<
-                                newState "Draw arrows")
-      ToolMarkCircle -> AnyTool <$> (Mark.create ui MarkCircle =<< newState "Mark circles")
-      ToolLabel -> AnyTool <$> (Null.create ui =<< newState "Label points")
-      ToolLine -> AnyTool <$> (Line.create ui Line.lineDescriptor =<<
-                               newState "Draw lines")
-      ToolMarkX -> AnyTool <$> (Mark.create ui MarkX =<< newState "Mark Xs")
-      ToolMarkSelected -> AnyTool <$> (Mark.create ui MarkSelected =<< newState "Mark selected")
-      ToolMarkSquare -> AnyTool <$> (Mark.create ui MarkSquare =<< newState "Mark squares")
-      ToolMarkTriangle -> AnyTool <$> (Mark.create ui MarkTriangle =<< newState "Mark triangles")
-      ToolVisible -> AnyTool <$> (Null.create ui =<< newState "Toggle points visible")
-      ToolDim -> AnyTool <$> (Null.create ui =<< newState "Toggle points dimmed")
-    return $ Map.insert toolType tool tools)
-  Map.empty
-  [minBound..]
+createTools ui = do
+  toolArrow <- toolStateNew ToolArrow "Draw arrows" >>= Line.create ui Line.arrowDescriptor
+  toolAssignBlack <- toolStateNew ToolAssignBlack "Paint black stones" >>=
+                     AssignStone.create ui (Just Black) Nothing
+  toolAssignEmpty <- toolStateNew ToolAssignEmpty "Paint empty stones" >>=
+                     AssignStone.create ui Nothing (Just toolAssignBlack)
+  toolAssignWhite <- toolStateNew ToolAssignWhite "Paint white stones" >>=
+                     AssignStone.create ui (Just White) (Just toolAssignBlack)
+  toolDim <- toolStateNew ToolDim "Toggle points dimmed" >>= Null.create ui
+  toolJump <- toolStateNew ToolJump "Jump to move" >>= Null.create ui
+  toolLabel <- toolStateNew ToolLabel "Label points" >>= Null.create ui
+  toolLine <- toolStateNew ToolLine "Draw lines" >>= Line.create ui Line.lineDescriptor
+  toolMarkCircle <- toolStateNew ToolMarkCircle "Mark circles" >>= Mark.create ui MarkCircle
+  toolMarkSelected <- toolStateNew ToolMarkSelected "Mark selected" >>= Mark.create ui MarkSelected
+  toolMarkSquare <- toolStateNew ToolMarkSquare "Mark squares" >>= Mark.create ui MarkSquare
+  toolMarkTriangle <- toolStateNew ToolMarkTriangle "Mark trianges" >>= Mark.create ui MarkTriangle
+  toolMarkX <- toolStateNew ToolMarkX "Mark Xs" >>= Mark.create ui MarkX
+  toolPlay <- toolStateNew ToolPlay "Play" >>= Play.create ui
+  toolScore <- toolStateNew ToolScore "Score" >>= Null.create ui
+  toolVisible <- toolStateNew ToolVisible "Toggle points visible" >>= Null.create ui
+  return $ Map.fromList $ map
+    (\tool@(AnyTool tool') -> (toolType tool', tool))
+    [ AnyTool toolArrow
+    , AnyTool toolAssignBlack
+    , AnyTool toolAssignEmpty
+    , AnyTool toolAssignWhite
+    , AnyTool toolDim
+    , AnyTool toolJump
+    , AnyTool toolLabel
+    , AnyTool toolLine
+    , AnyTool toolMarkCircle
+    , AnyTool toolMarkSelected
+    , AnyTool toolMarkSquare
+    , AnyTool toolMarkTriangle
+    , AnyTool toolMarkX
+    , AnyTool toolPlay
+    , AnyTool toolScore
+    , AnyTool toolVisible
+    ]

@@ -188,7 +188,7 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
       --    and the new tool's widget, now up-to-date, to become visible).
       -- 3) Tell the old tool that is was deactivated.
       when toolChanged $ do
-        AnyTool newTool <- findTool ui oldToolType
+        AnyTool newTool <- findTool ui newToolType
         toolOnActivating newTool
       fireModesChangedHandlers ui oldModes newModes
       when toolChanged $ do

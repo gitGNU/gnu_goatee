@@ -47,6 +47,8 @@ module Game.Goatee.Ui.Gtk.Actions (
 
 import Control.Applicative ((<$>))
 import Control.Monad (forM, unless, void, when)
+import qualified Data.Foldable as F
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (catMaybes, fromMaybe, isJust)
 import Game.Goatee.Ui.Gtk.Common
 import Game.Goatee.Ui.Gtk.Utils
@@ -69,8 +71,10 @@ import Graphics.UI.Gtk (
   SpinButtonUpdatePolicy (UpdateIfValid),
   ToggleAction,
   actionActivate, actionActivated, actionGroupAddActionWithAccel, actionGroupAddRadioActions,
-  actionGroupGetAction, actionGroupNew, actionNew, actionSensitive, actionToggled,
+  actionGroupGetAction, actionGroupListActions, actionGroupNew, actionNew, actionSensitive,
+  actionToggled,
   boxPackStart,
+  castToRadioAction,
   dialogAddButton, dialogGetUpper, dialogNew, dialogRun, dialogSetDefaultResponse,
   get,
   labelNewWithMnemonic, labelSetMnemonicWidget,
@@ -107,11 +111,14 @@ data Actions ui = Actions
   , myGameVariationsBoardMarkupOnAction :: RadioAction
   , myGameVariationsBoardMarkupOffAction :: RadioAction
   , myToolActions :: ActionGroup
+  , mySomeToolAction :: RadioAction
+    -- ^ An arbitrary action in the 'myToolActions' group.
   , myViewHighlightCurrentMovesAction :: ToggleAction
   , myViewStonesRegularModeAction :: RadioAction
   , myViewStonesOneColorModeAction :: RadioAction
   , myViewStonesBlindModeAction :: RadioAction
   , myHelpAboutAction :: Action
+  , myModesChangedHandler :: IORef (Maybe Registration)
   }
 
 instance UiCtrl go ui => UiView go ui (Actions ui) where
@@ -314,6 +321,9 @@ create ui = do
       }
   actionGroupAddRadioActions toolActions toolActionList (fromEnum initialToolType)
     (\radioAction -> setTool ui =<< fmap toEnum (get radioAction radioActionCurrentValue))
+  someToolAction <- actionGroupListActions toolActions >>= \actions -> case actions of
+    someAction:_ -> return $ castToRadioAction someAction
+    _ -> error "Actions.initialize: Couldn't grab a tool action!?"
 
   -- View actions.
   viewHighlightCurrentMovesAction <-
@@ -360,6 +370,7 @@ create ui = do
          (actionGroupGetAction toolActions $ show initialToolType)
 
   state <- viewStateNew
+  modesChangedHandler <- newIORef Nothing
 
   let me = Actions
         { myUi = ui
@@ -382,25 +393,33 @@ create ui = do
         , myGameVariationsBoardMarkupOnAction = gameVariationsBoardMarkupOnAction
         , myGameVariationsBoardMarkupOffAction = gameVariationsBoardMarkupOffAction
         , myToolActions = toolActions
+        , mySomeToolAction = someToolAction
         , myViewHighlightCurrentMovesAction = viewHighlightCurrentMovesAction
         , myViewStonesRegularModeAction = viewStonesRegularModeAction
         , myViewStonesOneColorModeAction = viewStonesOneColorModeAction
         , myViewStonesBlindModeAction = viewStonesBlindModeAction
         , myHelpAboutAction = helpAboutAction
+        , myModesChangedHandler = modesChangedHandler
         }
 
   initialize me
   return me
 
 initialize :: UiCtrl go ui => Actions ui -> IO ()
-initialize me =
+initialize me = do
+  let ui = myUi me
   register me
     [ AnyEvent navigationEvent
     , AnyEvent variationModeChangedEvent
     ]
+  writeIORef (myModesChangedHandler me) =<<
+    fmap Just (registerModesChangedHandler ui "Actions" $ \_ _ -> update me)
 
 destroy :: UiCtrl go ui => Actions ui -> IO ()
-destroy = viewDestroy
+destroy me = do
+  let ui = myUi me
+  F.mapM_ (unregisterModesChangedHandler ui) =<< readIORef (myModesChangedHandler me)
+  viewDestroy me
 
 update :: UiCtrl go ui => Actions ui -> IO ()
 update me = do
@@ -410,6 +429,7 @@ update me = do
   set (myEditCutNodeAction me) [actionSensitive := isJust $ cursorParent cursor]
 
   updateVariationModeActions me cursor
+  updateToolActions me
 
 -- | Updates the selection variation mode radio actions.
 updateVariationModeActions :: Actions ui -> Cursor -> IO ()
@@ -428,3 +448,10 @@ updateVariationModeActions me cursor = do
   oldBoardMarkup <- get boardMarkupAction radioActionCurrentValue
   when (newBoardMarkup /= oldBoardMarkup) $
     set boardMarkupAction [radioActionCurrentValue := newBoardMarkup]
+
+-- | Updates the active tool radio action.
+updateToolActions :: UiCtrl go ui => Actions ui -> IO ()
+updateToolActions me = do
+  let ui = myUi me
+  tool <- uiToolType <$> readModes ui
+  set (mySomeToolAction me) [radioActionCurrentValue := fromEnum tool]
