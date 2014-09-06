@@ -44,11 +44,16 @@ createTools ui = do
   toolJump <- toolStateNew ToolJump "Jump to move" >>= Null.create ui
   toolLabel <- toolStateNew ToolLabel "Label points" >>= Null.create ui
   toolLine <- toolStateNew ToolLine "Draw lines" >>= Line.create ui Line.lineDescriptor
-  toolMarkCircle <- toolStateNew ToolMarkCircle "Mark circles" >>= Mark.create ui MarkCircle
-  toolMarkSelected <- toolStateNew ToolMarkSelected "Mark selected" >>= Mark.create ui MarkSelected
-  toolMarkSquare <- toolStateNew ToolMarkSquare "Mark squares" >>= Mark.create ui MarkSquare
-  toolMarkTriangle <- toolStateNew ToolMarkTriangle "Mark trianges" >>= Mark.create ui MarkTriangle
-  toolMarkX <- toolStateNew ToolMarkX "Mark Xs" >>= Mark.create ui MarkX
+  toolMarkCircle <- toolStateNew ToolMarkCircle "Mark circles" >>=
+                    Mark.create ui MarkCircle Nothing
+  toolMarkSelected <- toolStateNew ToolMarkSelected "Mark selected" >>=
+                      Mark.create ui MarkSelected (Just toolMarkCircle)
+  toolMarkSquare <- toolStateNew ToolMarkSquare "Mark squares" >>=
+                    Mark.create ui MarkSquare (Just toolMarkCircle)
+  toolMarkTriangle <- toolStateNew ToolMarkTriangle "Mark trianges" >>=
+                      Mark.create ui MarkTriangle (Just toolMarkCircle)
+  toolMarkX <- toolStateNew ToolMarkX "Mark Xs" >>=
+               Mark.create ui MarkX (Just toolMarkCircle)
   toolPlay <- toolStateNew ToolPlay "Play" >>= Play.create ui
   toolScore <- toolStateNew ToolScore "Score" >>= Null.create ui
   toolVisible <- toolStateNew ToolVisible "Toggle points visible" >>= Null.create ui

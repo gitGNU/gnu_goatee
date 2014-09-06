@@ -122,17 +122,15 @@ createWidgets ui = do
   blackButton <- radioButtonNewWithLabel "Black"
   whiteButton <- radioButtonNewWithLabelFromWidget blackButton "White"
   emptyButton <- radioButtonNewWithLabelFromWidget blackButton "Empty"
-  forM_ [blackButton, whiteButton, emptyButton] $ containerAdd box
   latch <- newLatch
-  on blackButton toggled $ do
-    active <- get blackButton toggleButtonActive
-    when active $ whenLatchOff latch $ setTool ui ToolAssignBlack
-  on whiteButton toggled $ do
-    active <- get whiteButton toggleButtonActive
-    when active $ whenLatchOff latch $ setTool ui ToolAssignWhite
-  on emptyButton toggled $ do
-    active <- get emptyButton toggleButtonActive
-    when active $ whenLatchOff latch $ setTool ui ToolAssignEmpty
+  forM_ [ (blackButton, ToolAssignBlack)
+        , (whiteButton, ToolAssignWhite)
+        , (emptyButton, ToolAssignEmpty)
+        ] $ \(button, toolType) -> do
+    containerAdd box button
+    on button toggled $ do
+      active <- get button toggleButtonActive
+      when active $ whenLatchOff latch $ setTool ui toolType
   return Widgets
     { myBox = box
     , myBlackButton = blackButton
