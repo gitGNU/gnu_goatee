@@ -43,7 +43,7 @@ renderGameTree node = do
     (\node' -> do renderNode node'
                   case nodeChildren node' of
                     [] -> return $ Left Nothing
-                    child:[] -> return $ Right child
+                    [child] -> return $ Right child
                     children -> return $ Left $ Just children)
     >>= maybe (return ()) (mapM_ renderGameTree)
   tell ")"

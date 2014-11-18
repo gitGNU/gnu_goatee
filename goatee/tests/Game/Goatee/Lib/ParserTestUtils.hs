@@ -35,7 +35,7 @@ parseOrFail :: String -> (Node -> IO ()) -> IO ()
 parseOrFail input cont = case parseString input of
   Left error -> assertFailure $ "Failed to parse SGF: " ++ error
   Right (Collection roots) -> case roots of
-    root:[] -> cont root
+    [root] -> cont root
     _ -> assertFailure $ "Expected a single root node, got: " ++ show roots
 
 -- Parses a string as a complete SGF document and expects failure.

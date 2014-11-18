@@ -577,7 +577,7 @@ instance Monad m => MonadGo (GoT m) where
     -- following popPosition.
     case statePathStack state of
       x:y:xs -> putState $ state { statePathStack = (x ++ y):xs }
-      _:[] -> putState $ state { statePathStack = [] }
+      [_] -> putState $ state { statePathStack = [] }
       [] -> fail "dropPosition: No position to drop from the stack."
 
   modifyProperties fn = do
