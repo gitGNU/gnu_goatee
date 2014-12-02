@@ -301,7 +301,7 @@ determineTargets() {
         [[ $forceVerifyTargets = *\ goatee-wx\ * ]]; verifyWx=$?
         [[ $forceVerifyTargets = *\ other\ * ]]; verifyOther=$?
     else
-        git diff --name-only --cached | grep -qv '^goatee\(\|-gtk\|wx\)/'; verifyOther=$?
+        git diff --name-only --cached | grep -qv '^goatee\(\|-gtk\|-wx\)/'; verifyOther=$?
         if [[ $verifyOther -eq 0 ]]; then
             msg "Files changed outside of Cabal packages.  Verifying everything."
             verifyLib=0
