@@ -48,6 +48,7 @@ import Graphics.UI.Gtk (
   Action,
   Menu,
   Packing (PackGrow, PackNatural),
+  ToolbarStyle (ToolbarText),
   Window,
   actionCreateMenuItem, actionCreateToolItem, actionGroupGetAction,
   boxPackStart,
@@ -62,7 +63,7 @@ import Graphics.UI.Gtk (
   panedPack1, panedPack2, panedSetPosition,
   separatorMenuItemNew, separatorToolItemNew,
   toAction,
-  toolbarNew,
+  toolbarNew, toolbarSetStyle,
   vBoxNew,
   widgetDestroy, widgetGrabFocus, widgetShowAll,
   windowNew, windowSetDefaultSize, windowSetTitle,
@@ -162,6 +163,7 @@ create ui = do
 
   toolbar <- toolbarNew
   boxPackStart boardBox toolbar PackNatural 0
+  toolbarSetStyle toolbar ToolbarText
 
   let addToolSeparator = do
         menuSep <- separatorMenuItemNew
