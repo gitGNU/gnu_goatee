@@ -148,7 +148,7 @@ stoneVariationRadius = 0.15
 stoneVariationBorderThickness :: Double
 stoneVariationBorderThickness = 0.02
 
--- | The radius of star points.  Percentage of coordinate size, in @[0, 1].
+-- | The radius of star points.  Percentage of coordinate size, in @[0, 1]@.
 starPointRadius :: Double
 starPointRadius = 0.1
 
