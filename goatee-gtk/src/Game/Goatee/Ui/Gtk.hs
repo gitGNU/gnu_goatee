@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -488,6 +488,18 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
     MainWindow.destroy =<< getMainWindow' ui
     fmap Map.elems (readIORef $ uiTools ui) >>= mapM_ (\(AnyTool tool) -> toolDestroy tool)
     writeIORef (uiTools ui) Map.empty
+
+    -- There should be no more handlers registered now.
+    let assertNoHandlers label handlers =
+          unless (null handlers) $ hPutStrLn stderr $
+          "UiCtrlImpl.fileCloseSilently: Warning, there are still" ++
+          maybe "" (' ':) label ++
+          " handler(s) registered:" ++
+          concatMap (\handler -> "\n- " ++ show handler) handlers
+    registeredHandlers ui >>= assertNoHandlers Nothing
+    registeredDirtyChangedHandlers ui >>= assertNoHandlers (Just "dirty changed")
+    registeredFilePathChangedHandlers ui >>= assertNoHandlers (Just "file path changed")
+    registeredModesChangedHandlers ui >>= assertNoHandlers (Just "modes changed")
 
     appStateUnregister (uiAppState ui) ui
 

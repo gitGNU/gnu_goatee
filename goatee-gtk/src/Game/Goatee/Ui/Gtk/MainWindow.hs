@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -25,7 +25,7 @@ module Game.Goatee.Ui.Gtk.MainWindow (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (forM, forM_, join, liftM, unless)
+import Control.Monad (forM, forM_, join, liftM)
 import Control.Monad.Trans (liftIO)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
@@ -67,7 +67,6 @@ import Graphics.UI.Gtk (
   widgetDestroy, widgetGrabFocus, widgetShowAll,
   windowNew, windowSetDefaultSize, windowSetTitle,
   )
-import System.IO (hPutStrLn, stderr)
 
 data MainWindow ui = MainWindow
   { myUi :: ui
@@ -291,22 +290,6 @@ destroy me = do
   let ui = myUi me
   F.mapM_ (unregisterDirtyChangedHandler ui) =<< readIORef (myDirtyChangedHandler me)
   F.mapM_ (unregisterFilePathChangedHandler ui) =<< readIORef (myFilePathChangedHandler me)
-
-  -- A main window owns a UI controller.  Once a main window is destroyed,
-  -- there should be no remaining handlers registered.
-  -- TODO Revisit this if we have multiple windows under a controller.
-  registeredHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
-    "MainWindow.destroy: Warning, there are still handler(s) registered:" ++
-    concatMap (\handler -> "\n- " ++ show handler) handlers
-  registeredDirtyChangedHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
-    "MainWindow.destroy: Warning, there are still dirty changed handler(s) registered:" ++
-    concatMap (\handler -> "\n- " ++ show handler) handlers
-  registeredFilePathChangedHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
-    "MainWindow.destroy: Warning, there are still file path changed handler(s) registered:" ++
-    concatMap (\handler -> "\n- " ++ show handler) handlers
-  registeredModesChangedHandlers ui >>= \handlers -> unless (null handlers) $ hPutStrLn stderr $
-    "MainWindow.destroy: Warning, there are still modes changed handler(s) registered:" ++
-    concatMap (\handler -> "\n- " ++ show handler) handlers
 
   widgetDestroy $ myWindow me
 
