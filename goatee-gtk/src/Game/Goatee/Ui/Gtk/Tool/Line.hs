@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -60,7 +60,9 @@ lineDescriptor = AnyLinelikeDescriptor LinelikeDescriptor
   }
 
 instance UiCtrl go ui => UiView go ui (LineTool ui) where
-  viewName = const "LineTool"
+  viewName me = case myDescriptor me of
+    AnyLinelikeDescriptor descriptor ->
+      "LineTool(" ++ propertyName (linelikeDescriptor descriptor) ++ ")"
 
   viewCtrl = myUi
 

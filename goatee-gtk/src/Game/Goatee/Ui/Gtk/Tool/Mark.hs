@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -59,7 +59,7 @@ data Widgets = Widgets
   }
 
 instance UiCtrl go ui => UiView go ui (MarkTool ui) where
-  viewName = const "MarkTool"
+  viewName me = "MarkTool(" ++ show (myMark me) ++ ")"
 
   viewCtrl = myUi
 
