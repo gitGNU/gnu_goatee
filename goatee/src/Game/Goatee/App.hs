@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -29,7 +29,7 @@ applicationName = "Goatee"
 
 -- | A user-presentable copyright message.
 applicationCopyright :: String
-applicationCopyright = "Copyright 2014 Bryan Gardiner"
+applicationCopyright = "Copyright 2014-2015 Bryan Gardiner"
 
 -- | The home page for Goatee on the web.
 applicationWebsite :: String

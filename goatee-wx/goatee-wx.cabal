@@ -4,7 +4,7 @@ synopsis: A monadic take on a 2,500-year-old board game - wxWidgets UI.
 category: Game
 license: AGPL-3
 license-file: LICENSE
-copyright: Copyright 2014 Bryan Gardiner
+copyright: Copyright 2014-2015 Bryan Gardiner
 author: Bryan Gardiner <bog@khumba.net>
 maintainer: Bryan Gardiner <bog@khumba.net>
 homepage: http://khumba.net/projects/goatee
