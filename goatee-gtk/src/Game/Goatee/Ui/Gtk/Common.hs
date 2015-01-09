@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -475,18 +475,17 @@ data ToolType =
 -- also provide a widget (or container of widgets) that will be inserted into
 -- the side panel while the tool is active.
 --
--- The 'ToolType' enum contains an entry for each tool.  This 'UiTool' class
--- is used to define the implementation of a tool.  A 'UiCtrl' manages tools,
--- and maps 'ToolType's to 'UiTool's.  When a 'UiCtrl' initializes, it should
--- create a map from each 'ToolType' to a 'UiTool' instance created with
--- 'toolCreate'.  Individual tool implementations should perform any necessary
--- initialization and clean-up in 'toolCreate'' and 'toolDestroy', respectively.
+-- The 'ToolType' enum contains an entry for each tool.  This 'UiTool' class is
+-- used to define the implementation of a tool.  A 'UiCtrl' manages tools, and
+-- maps 'ToolType's to 'UiTool's.  These can be accessed with 'findTool' and
+-- 'readTool'.
 --
 -- The goban sends events to the active tool as they occur, via
 -- 'toolGobanHandleEvent'.  The tool can then affect what the goban displays by
 -- overriding 'toolGobanRenderGetBoard' and/or 'toolGobanRenderModifyCoords'.
 class UiView go ui tool => UiTool go ui tool where
-  -- | Returns the state given to 'toolCreate''.
+  -- | Internal housekeeping data for the tool.  Create with 'toolStateNew'.  A
+  -- 'ToolState' may only be used with a single tool.
   toolState :: tool -> ToolState
 
   -- | By default, this returns true.  An implementation can override this to
@@ -498,8 +497,7 @@ class UiView go ui tool => UiTool go ui tool where
   toolIsImplemented _ = True
 
   -- | A tool can provide a widget (or container of widgets) to display in the
-  -- side panel by creating widgets in 'toolCreate'' then returning them from
-  -- this function.
+  -- side panel by returning it from this function.
   toolPanelWidget :: tool -> Maybe Widget
   toolPanelWidget _ = Nothing
 
