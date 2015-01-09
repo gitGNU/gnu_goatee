@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -386,7 +386,7 @@ applyProperty (DD coords) board =
   in if null coords'
      then board'
      else updateCoordStates (\state -> state { coordDimmed = True }) coords'
-          board { boardHasDimmed = True }
+          board' { boardHasDimmed = True }
 applyProperty (LB labels) board = board { boardLabels = labels ++ boardLabels board }
 applyProperty (LN lines) board = board { boardLines = lines ++ boardLines board }
 applyProperty (MA coords) board =
