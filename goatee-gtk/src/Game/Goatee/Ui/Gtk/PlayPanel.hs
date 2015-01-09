@@ -23,9 +23,11 @@ module Game.Goatee.Ui.Gtk.PlayPanel (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad ((>=>), void, when)
+import Control.Monad (forM, void, when)
 import Data.Foldable (forM_, mapM_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.Maybe (catMaybes)
+import qualified Data.Set as Set
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board
 import qualified Game.Goatee.Lib.Monad as Monad
@@ -90,9 +92,14 @@ create ui = do
   on endButton buttonActivated $ doUiGo ui $
     whileM ((> 0) . length . cursorChildren <$> getCursor) $ Monad.goDown 0
 
-  -- Add the widgets of all of the tools.
-  forM_ [minBound..] $ findTool ui >=> \(AnyTool tool) ->
-    forM_ (toolPanelWidget tool) $ \widget ->
+  -- Add the widgets of all of the tools.  Deduplicate the widgets so those that
+  -- are shared between tools only get added once; GTK+ doesn't like having a
+  -- widget added multiple times.
+  toolWidgets <- fmap catMaybes $
+                 forM [minBound..] $
+                 fmap (\(AnyTool tool) -> toolPanelWidget tool) .
+                 findTool ui
+  forM_ (Set.toList $ Set.fromList toolWidgets) $ \widget ->
     boxPackStart box widget PackNatural 0
 
   comment <- textViewNew
