@@ -23,8 +23,18 @@ import Game.Goatee.Ui.Gtk.Common
 -- that are not yet implemented should be bound to this implementation.
 data NullTool ui = NullTool
   { myUi :: ui
+  , myViewState :: ViewState
   , myToolState :: ToolState
   }
+
+instance UiCtrl go ui => UiView go ui (NullTool ui) where
+  viewName = const "NullTool"
+
+  viewCtrl = myUi
+
+  viewState = myViewState
+
+  viewUpdate = const $ return ()
 
 instance UiCtrl go ui => UiTool go ui (NullTool ui) where
   toolState = myToolState
@@ -32,8 +42,10 @@ instance UiCtrl go ui => UiTool go ui (NullTool ui) where
   toolIsImplemented _ = False
 
 create :: UiCtrl go ui => ui -> ToolState -> IO (NullTool ui)
-create ui toolState =
+create ui toolState = do
+  viewState <- viewStateNew
   return NullTool
     { myUi = ui
+    , myViewState = viewState
     , myToolState = toolState
     }

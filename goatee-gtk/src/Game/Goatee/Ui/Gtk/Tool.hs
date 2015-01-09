@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -21,6 +21,8 @@ module Game.Goatee.Ui.Gtk.Tool (
 
 import qualified Data.Map as Map
 import Data.Map (Map)
+import Game.Goatee.Lib.Board
+import Game.Goatee.Lib.Property
 import Game.Goatee.Lib.Types
 import Game.Goatee.Ui.Gtk.Common
 import qualified Game.Goatee.Ui.Gtk.Tool.AssignStone as AssignStone
@@ -28,6 +30,7 @@ import qualified Game.Goatee.Ui.Gtk.Tool.Line as Line
 import qualified Game.Goatee.Ui.Gtk.Tool.Mark as Mark
 import qualified Game.Goatee.Ui.Gtk.Tool.Null as Null
 import qualified Game.Goatee.Ui.Gtk.Tool.Play as Play
+import qualified Game.Goatee.Ui.Gtk.Tool.Visibility as Visibility
 
 -- | Instantiates 'UiTool' instances for all of the 'ToolType's, and returns a
 -- map for looking up tools by their type.
@@ -40,7 +43,8 @@ createTools ui = do
                      AssignStone.create ui Nothing (Just toolAssignBlack)
   toolAssignWhite <- toolStateNew ToolAssignWhite "Paint white stones" >>=
                      AssignStone.create ui (Just White) (Just toolAssignBlack)
-  toolDim <- toolStateNew ToolDim "Toggle points dimmed" >>= Null.create ui
+  toolDim <- toolStateNew ToolDim "Toggle points dimmed" >>=
+             Visibility.create ui propertyDD boardHasDimmed "dimming"
   toolJump <- toolStateNew ToolJump "Jump to move" >>= Null.create ui
   toolLabel <- toolStateNew ToolLabel "Label points" >>= Null.create ui
   toolLine <- toolStateNew ToolLine "Draw lines" >>= Line.create ui Line.lineDescriptor
@@ -56,7 +60,8 @@ createTools ui = do
                Mark.create ui MarkX (Just toolMarkCircle)
   toolPlay <- toolStateNew ToolPlay "Play" >>= Play.create ui
   toolScore <- toolStateNew ToolScore "Score" >>= Null.create ui
-  toolVisible <- toolStateNew ToolVisible "Toggle points visible" >>= Null.create ui
+  toolVisible <- toolStateNew ToolVisible "Toggle points visible" >>=
+                 Visibility.create ui propertyVW boardHasInvisible "visibilities"
   return $ Map.fromList $ map
     (\tool@(AnyTool tool') -> (toolType tool', tool))
     [ AnyTool toolArrow

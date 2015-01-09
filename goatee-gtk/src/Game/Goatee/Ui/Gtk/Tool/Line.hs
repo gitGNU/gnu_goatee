@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -30,6 +30,7 @@ import Game.Goatee.Ui.Gtk.Common
 -- | A 'UiTool' that toggles lines between points on the board.
 data LineTool ui = LineTool
   { myUi :: ui
+  , myViewState :: ViewState
   , myToolState :: ToolState
   , myDescriptor :: AnyLinelikeDescriptor
   }
@@ -58,6 +59,17 @@ lineDescriptor = AnyLinelikeDescriptor LinelikeDescriptor
   , linelikeLift = uncurry Line
   }
 
+instance UiCtrl go ui => UiView go ui (LineTool ui) where
+  viewName me = case myDescriptor me of
+    AnyLinelikeDescriptor descriptor ->
+      "LineTool(" ++ propertyName (linelikeDescriptor descriptor) ++ ")"
+
+  viewCtrl = myUi
+
+  viewState = myViewState
+
+  viewUpdate = const $ return ()
+
 instance UiCtrl go ui => UiTool go ui (LineTool ui) where
   toolState = myToolState
 
@@ -83,9 +95,11 @@ instance UiCtrl go ui => UiTool go ui (LineTool ui) where
 -- | Creates a 'LineTool' that will toggle a line-like property between pairs of
 -- points on the board.
 create :: UiCtrl go ui => ui -> AnyLinelikeDescriptor -> ToolState -> IO (LineTool ui)
-create ui descriptor toolState =
+create ui descriptor toolState = do
+  viewState <- viewStateNew
   return LineTool
     { myUi = ui
+    , myViewState = viewState
     , myToolState = toolState
     , myDescriptor = descriptor
     }
