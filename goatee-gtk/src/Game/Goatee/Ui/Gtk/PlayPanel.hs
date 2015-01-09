@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -90,7 +90,7 @@ create ui = do
   on prevButton buttonActivated $ void $ goUp ui
   on nextButton buttonActivated $ void $ goDown ui 0
   on endButton buttonActivated $ doUiGo ui $
-    whileM ((> 0) . length . cursorChildren <$> getCursor) $ Monad.goDown 0
+    whileM (not . null . cursorChildren <$> getCursor) $ Monad.goDown 0
 
   -- Add the widgets of all of the tools.  Deduplicate the widgets so those that
   -- are shared between tools only get added once; GTK+ doesn't like having a
