@@ -207,7 +207,10 @@ create ui = do
   menuHelpMenu <- menuNew
   menuShellAppend menuBar menuHelp
   menuItemSetSubmenu menuHelp menuHelpMenu
-  addActionsToMenu menuHelpMenu actions [Actions.myHelpAboutAction]
+  addActionsToMenu menuHelpMenu actions
+    [ Actions.myHelpKeyBindingsAction
+    , Actions.myHelpAboutAction
+    ]
 
   infoLine <- InfoLine.create ui
   boxPackStart boardBox (InfoLine.myWidget infoLine) PackNatural 0

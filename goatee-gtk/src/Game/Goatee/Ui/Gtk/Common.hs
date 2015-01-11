@@ -279,6 +279,9 @@ class MonadUiGo go => UiCtrl go ui | ui -> go where
   -- insert the parsed node below the current node.
   editPasteNode :: ui -> IO ()
 
+  -- | Presents the user with a dialog that shows the UI's key bindings.
+  helpKeyBindings :: ui -> IO ()
+
   -- | Presents the user with an about dialog that shows general information
   -- about the application to the user (authorship, license, etc.).
   helpAbout :: ui -> IO ()

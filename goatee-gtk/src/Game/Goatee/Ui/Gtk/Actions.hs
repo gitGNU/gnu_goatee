@@ -42,6 +42,7 @@ module Game.Goatee.Ui.Gtk.Actions (
   myViewStonesRegularModeAction,
   myViewStonesOneColorModeAction,
   myViewStonesBlindModeAction,
+  myHelpKeyBindingsAction,
   myHelpAboutAction,
   ) where
 
@@ -117,6 +118,7 @@ data Actions ui = Actions
   , myViewStonesRegularModeAction :: RadioAction
   , myViewStonesOneColorModeAction :: RadioAction
   , myViewStonesBlindModeAction :: RadioAction
+  , myHelpKeyBindingsAction :: Action
   , myHelpAboutAction :: Action
   , myModesChangedHandler :: IORef (Maybe Registration)
   }
@@ -362,6 +364,9 @@ create ui = do
     modifyModes ui $ \modes -> return modes { uiViewStonesMode = value }
 
   -- Help actions.
+  helpKeyBindingsAction <- actionNew "HelpKeyBindings" "_Key bindings" Nothing Nothing
+  on helpKeyBindingsAction actionActivated $ helpKeyBindings ui
+
   helpAboutAction <- actionNew "HelpAbout" "_About" Nothing Nothing
   on helpAboutAction actionActivated $ helpAbout ui
 
@@ -398,6 +403,7 @@ create ui = do
         , myViewStonesRegularModeAction = viewStonesRegularModeAction
         , myViewStonesOneColorModeAction = viewStonesOneColorModeAction
         , myViewStonesBlindModeAction = viewStonesBlindModeAction
+        , myHelpKeyBindingsAction = helpKeyBindingsAction
         , myHelpAboutAction = helpAboutAction
         , myModesChangedHandler = modesChangedHandler
         }

@@ -33,6 +33,7 @@ import Data.Char (isSpace)
 import qualified Data.Foldable as Foldable
 import Data.Foldable (foldl')
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
+import Data.List (intercalate)
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
@@ -61,7 +62,7 @@ import Graphics.UI.Gtk (
   Clipboard,
   DialogFlags (DialogDestroyWithParent, DialogModal),
   FileChooserAction (FileChooserActionOpen, FileChooserActionSave),
-  MessageType (MessageError, MessageQuestion),
+  MessageType (MessageError, MessageInfo, MessageQuestion),
   ResponseId (ResponseCancel, ResponseNo, ResponseOk, ResponseYes),
   aboutDialogAuthors, aboutDialogCopyright, aboutDialogLicense, aboutDialogNew,
   aboutDialogProgramName, aboutDialogWebsite,
@@ -69,7 +70,7 @@ import Graphics.UI.Gtk (
   dialogAddButton, dialogRun,
   fileChooserAddFilter, fileChooserDialogNew, fileChooserGetFilename,
   mainQuit,
-  messageDialogNew,
+  messageDialogNew, messageDialogNewWithMarkup,
   selectionClipboard,
   stockCancel, stockOpen, stockSave, stockSaveAs,
   widgetDestroy, widgetHide,
@@ -545,6 +546,26 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
             dialogRun dialog
             widgetDestroy dialog
           Right node -> doUiGo ui $ Monad.addChild node
+
+  helpKeyBindings ui = do
+    let message =
+          intercalate "\n"
+          [ "Pressing <b>Esc</b> focuses the board.  When the board is focused, the following " ++
+            "keys are available:"
+          , ""
+          , "<b>Left:</b> Go to the parent node."
+          , "<b>Right:</b> Go to the first child node."
+          , "<b>Up:</b> Go to the previous variation node."
+          , "<b>Down:</b> Go to the next variation node."
+          ]
+    mainWindow <- getMainWindow ui
+    dialog <- messageDialogNewWithMarkup (Just mainWindow)
+              [DialogModal, DialogDestroyWithParent]
+              MessageInfo
+              ButtonsOk
+              message
+    dialogRun dialog
+    widgetDestroy dialog
 
   helpAbout _ = do
     about <- aboutDialogNew
