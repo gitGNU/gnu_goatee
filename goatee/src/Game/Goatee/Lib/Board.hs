@@ -25,7 +25,8 @@ module Game.Goatee.Lib.Board (
   CoordState(..), emptyBoardState, rootBoardState, emptyCoordState, boardCoordState,
   boardCoordModify, mapBoardCoords,
   isValidMove, isCurrentValidMove,
-  Cursor(..), rootCursor, cursorRoot, cursorChild, cursorChildren,
+  Cursor, cursorParent, cursorChildIndex, cursorNode, cursorBoard,
+  rootCursor, cursorRoot, cursorChild, cursorChildren,
   cursorChildCount, cursorChildPlayingAt, cursorProperties,
   cursorModifyNode,
   cursorVariations,
@@ -302,10 +303,19 @@ updateRootInfo fn board = flip updateBoardInfo board $ \gameInfo ->
 updateBoardInfo :: (GameInfo -> GameInfo) -> BoardState -> BoardState
 updateBoardInfo fn board = board { boardGameInfo = fn $ boardGameInfo board }
 
+-- | Given a 'BoardState' for a parent node, and a child node, this function
+-- constructs the 'BoardState' for the child node.
+boardChild :: BoardState -> Node -> BoardState
+boardChild =
+  -- This function first prepares the board (clearing temporary marks, etc.)
+  -- then applies the child node's properties to the board.  It is done in two
+  -- stages because various points in this module apply the steps themselves.
+  boardApplyChild . boardResetForChild
+
 -- | Performs necessary updates to a 'BoardState' between nodes in the tree.
--- Clears marks.
-boardChild :: BoardState -> BoardState
-boardChild board =
+-- Clears marks.   This is the first step of 'boardChild'.
+boardResetForChild :: BoardState -> BoardState
+boardResetForChild board =
   board { boardCoordStates = map (map clearMark) $ boardCoordStates board
         , boardArrows = []
         , boardLines = []
@@ -314,6 +324,11 @@ boardChild board =
   where clearMark coord = case coordMark coord of
           Nothing -> coord
           Just _ -> coord { coordMark = Nothing }
+
+-- | Applies a child node's properties to a prepared 'BoardState'.  This is the
+-- second step of 'boardChild'.
+boardApplyChild :: BoardState -> Node -> BoardState
+boardApplyChild = flip applyProperties
 
 -- | Sets all points on a board to be visible (if given true) or invisible (if
 -- given false).
@@ -670,29 +685,66 @@ isCurrentValidMove board = isValidMove board (boardPlayerTurn board)
 
 -- | A pointer to a node in a game tree that also holds information
 -- about the current state of the game at that node.
-data Cursor = Cursor { cursorParent :: Maybe Cursor
-                       -- ^ The cursor for the node above this cursor's node in
-                       -- the game tree.  The node of the parent cursor is the
-                       -- parent of the cursor's node.
-                       --
-                       -- This is @Nothing@ iff the cursor's node has no parent.
-                     , cursorChildIndex :: Int
-                       -- ^ The index of this cursor's node in its parent's
-                       -- child list.  When the cursor's node has no parent,
-                       -- the value in this field is not specified.
-                     , cursorNode :: Node
-                       -- ^ The game tree node about which the cursor stores
-                       -- information.
-                     , cursorBoard :: BoardState
-                       -- ^ The complete board state for the current node.
-                     } deriving (Show) -- TODO Better Show Cursor instance.
+data Cursor = Cursor
+  { cursorParent' :: Maybe Cursor
+    -- ^ The cursor of the parent node in the tree.  This is the cursor that was
+    -- used to construct this cursor.  For a root node, this is @Nothing@.
+    --
+    -- If this cursor's node is modified (with 'cursorModifyNode'), then this
+    -- parent cursor (if present) is /not/ updated to have the modified current
+    -- node as a child; the public 'cursorParent' takes care of this.
+
+  , cursorChildIndex :: Int
+    -- ^ The index of this cursor's node in its parent's child list.  When the
+    -- cursor's node has no parent, the value in this field is not specified.
+
+  , cursorNode' :: CursorNode
+    -- ^ The game tree node about which the cursor stores information.  The
+    -- 'CursorNode' keeps track of whether the current node has been modified
+    -- since last visiting the cursor's parent (if it exists; if it doesn't,
+    -- then the current node is never considered modified, although in this case
+    -- it doesn't matter).  'cursorNode' is the public export.
+
+  , cursorBoard :: BoardState
+    -- ^ The complete board state for the current node.
+  } deriving (Show) -- TODO Better Show Cursor instance.
+
+-- | Keeps track of a cursor's node.  Also records whether the node has been
+-- modified, and uses separate data constructors to force consideration of this.
+data CursorNode =
+  UnmodifiedNode { getCursorNode :: Node }
+  | ModifiedNode { getCursorNode :: Node }
+  deriving (Show)
+
+-- | The cursor for the node above this cursor's node in the game tree.  The
+-- node of the parent cursor is the parent of the cursor's node.
+--
+-- This is @Nothing@ iff the cursor's node has no parent.
+cursorParent :: Cursor -> Maybe Cursor
+cursorParent cursor = case cursorParent' cursor of
+  Nothing -> Nothing
+  p@(Just parent) -> case cursorNode' cursor of
+    -- If the current node hasn't been modified, then 'parent' is still the
+    -- correct parent cursor for the current node.
+    UnmodifiedNode _ -> p
+    -- If the current node /has/ been modified, then we need to update the
+    -- parent node's child list to include the modified node rather than the
+    -- original.  We do this one step at a time whenever we walk up the tree.
+    ModifiedNode node ->
+      Just $ flip cursorModifyNode parent $ \pnode ->
+      pnode { nodeChildren = listUpdate (const node) (cursorChildIndex cursor) $
+                             nodeChildren pnode }
+
+-- | The game tree node about which the cursor stores information.
+cursorNode :: Cursor -> Node
+cursorNode = getCursorNode . cursorNode'
 
 -- | Returns a cursor for a root node.
 rootCursor :: Node -> Cursor
 rootCursor node =
-  Cursor { cursorParent = Nothing
+  Cursor { cursorParent' = Nothing
          , cursorChildIndex = -1
-         , cursorNode = node
+         , cursorNode' = UnmodifiedNode node
          , cursorBoard = rootBoardState node
          }
 
@@ -703,21 +755,21 @@ cursorRoot cursor = case cursorParent cursor of
 
 cursorChild :: Cursor -> Int -> Cursor
 cursorChild cursor index =
-  Cursor { cursorParent = Just cursor
+  Cursor { cursorParent' = Just cursor
          , cursorChildIndex = index
-         , cursorNode = child
-         , cursorBoard = applyProperties child $ boardChild $ cursorBoard cursor
+         , cursorNode' = UnmodifiedNode child
+         , cursorBoard = boardChild (cursorBoard cursor) child
          }
   -- TODO Better handling or messaging for out-of-bounds:
   where child = (!! index) $ nodeChildren $ cursorNode cursor
 
 cursorChildren :: Cursor -> [Cursor]
 cursorChildren cursor =
-  let board = boardChild $ cursorBoard cursor
-  in map (\(index, child) -> Cursor { cursorParent = Just cursor
+  let board = boardResetForChild $ cursorBoard cursor
+  in map (\(index, child) -> Cursor { cursorParent' = Just cursor
                                     , cursorChildIndex = index
-                                    , cursorNode = child
-                                    , cursorBoard = applyProperties child board
+                                    , cursorNode' = UnmodifiedNode child
+                                    , cursorBoard = boardApplyChild board child
                                     })
      $ zip [0..]
      $ nodeChildren
@@ -739,19 +791,16 @@ cursorProperties = nodeProperties . cursorNode
 
 cursorModifyNode :: (Node -> Node) -> Cursor -> Cursor
 cursorModifyNode fn cursor =
-  let node' = fn $ cursorNode cursor
-  in case cursorParent cursor of
-    Nothing -> rootCursor node'
-    Just parentCursor ->
-      let index = cursorChildIndex cursor
-          parentCursor' = cursorModifyNode
-                          (\parentNode ->
-                            parentNode { nodeChildren = listUpdate (const node')
-                                                        index
-                                                        (nodeChildren parentNode)
-                                       })
-                          parentCursor
-      in cursorChild parentCursor' index
+  let node = fn $ cursorNode cursor
+      maybeParent = cursorParent' cursor
+  in cursor { cursorNode' =
+              -- If we're at a root node, then there is no need to mark the node
+              -- as modified, since we'll never move up.
+              (if isJust maybeParent then ModifiedNode else UnmodifiedNode) node
+            , cursorBoard = case maybeParent of
+              Nothing -> rootBoardState node
+              Just parent -> boardChild (cursorBoard parent) node
+            }
 
 -- | Returns the variations to display for a cursor.  The returned list contains
 -- the location and color of 'B' and 'W' properties in variation nodes.
