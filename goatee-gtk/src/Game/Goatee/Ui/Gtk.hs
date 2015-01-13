@@ -557,6 +557,8 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
           , "<b>Right:</b> Go to the first child node."
           , "<b>Up:</b> Go to the previous variation node."
           , "<b>Down:</b> Go to the next variation node."
+          , "<b>Home:</b> Go to the start of the game."
+          , "<b>End:</b> Go to the end of the current variation."
           ]
     mainWindow <- getMainWindow ui
     dialog <- messageDialogNewWithMarkup (Just mainWindow)

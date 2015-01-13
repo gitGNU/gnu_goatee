@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -33,8 +33,10 @@ import Data.Maybe (fromJust, isJust)
 import Data.Tree (drawTree, unfoldTree)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board hiding (isValidMove)
+import qualified Game.Goatee.Lib.Monad as Monad
 import Game.Goatee.Lib.Monad (
-  AnyEvent (..), childAddedEvent, childDeletedEvent, navigationEvent, propertiesModifiedEvent,
+  AnyEvent (..), childAddedEvent, childDeletedEvent, getCursor, navigationEvent,
+  propertiesModifiedEvent,
   )
 import Game.Goatee.Lib.Property
 import Game.Goatee.Lib.Tree
@@ -96,18 +98,28 @@ useHorizontalKeyNavigation :: Bool
 useHorizontalKeyNavigation = True
 
 -- Key handler code below requires that these keys don't use modifiers.
-keyNavActions :: UiCtrl go ui => Map String (ui -> IO Bool)
+keyNavActions :: UiCtrl go ui => Map String (ui -> IO ())
 keyNavActions =
   Map.fromList $
-  if useHorizontalKeyNavigation
-  then [("Up", goLeft),
-        ("Down", goRight),
-        ("Left", goUp),
-        ("Right", flip goDown 0)]
-  else [("Up", goUp),
-        ("Down", flip goDown 0),
-        ("Left", goLeft),
-        ("Right", goRight)]
+  map (fmap ((>> return ()) .))  -- Drop the booleans these actions return.
+      (if useHorizontalKeyNavigation
+       then [ ("Up", goLeft)
+            , ("Down", goRight)
+            , ("Left", goUp)
+            , ("Right", flip goDown 0)
+            ]
+       else [ ("Up", goUp)
+            , ("Down", flip goDown 0)
+            , ("Left", goLeft)
+            , ("Right", goRight)
+            ]) ++
+  [ ("Home", flip doUiGo Monad.goToRoot)
+  , ("End", flip doUiGo $
+            -- TODO This is duplicated in PlayPanel's ">>" button.  These will
+            -- be a lot cleaner when the Monad go* functions return bools (bug
+            -- #43149).
+            whileM (not . null . cursorChildren <$> getCursor) $ Monad.goDown 0)
+  ]
 
 boardBgColor :: Rgb
 boardBgColor = rgb255 229 178 58

@@ -90,6 +90,8 @@ create ui = do
   on prevButton buttonActivated $ void $ goUp ui
   on nextButton buttonActivated $ void $ goDown ui 0
   on endButton buttonActivated $ doUiGo ui $
+    -- TODO This is duplicated in Goban's End keybinding.  These will be a lot
+    -- cleaner when the Monad go* functions return bools (bug #43149).
     whileM (not . null . cursorChildren <$> getCursor) $ Monad.goDown 0
 
   -- Add the widgets of all of the tools.  Deduplicate the widgets so those that
