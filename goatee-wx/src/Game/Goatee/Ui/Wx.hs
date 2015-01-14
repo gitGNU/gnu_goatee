@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -202,7 +202,7 @@ boardFrame cursor = do
                                     _ -> show childCount ++ " variations from here."]
 
         -- Update the mouse state and redraw the board.
-        updateMouse
+        _ <- updateMouse
         doRedraw
 
       doGoTo cursorFn = goTo cursorFn cursorVar >> onBoardChange
@@ -228,11 +228,11 @@ boardFrame cursor = do
 
   -- Create a menubar.
   menuFile <- menuPane [text := "&File"]
-  menuItem menuFile [text := "&New\tCtrl+N",
-                     on command := boardFrame $ rootCursor emptyNode]
+  _ <- menuItem menuFile [text := "&New\tCtrl+N",
+                          on command := boardFrame $ rootCursor emptyNode]
   menuLine menuFile
   -- TODO This is close, not quit.
-  menuQuit menuFile [on command := close frame]
+  _ <- menuQuit menuFile [on command := close frame]
 
   -- Set up the window's layout.
   set frame [menuBar := [menuFile],

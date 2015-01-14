@@ -32,7 +32,7 @@ executable goatee-wx
         goatee >= 0.3 && < 0.4,
         wx >= 0.13 && < 0.91,
         wxcore >= 0.13 && < 0.91
-    ghc-options: -W -fwarn-incomplete-patterns
+    ghc-options: -W -fwarn-incomplete-patterns -fwarn-unused-do-bind
     hs-source-dirs: src
     main-is: Main.hs
     other-modules:

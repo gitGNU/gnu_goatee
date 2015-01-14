@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -107,10 +107,10 @@ collectionParser =
 
 gameTreeParser :: Parser Node
 gameTreeParser = do
-  char '('
+  _ <- char '('
   nodes <- spaces *> many1 (nodeParser <* spaces) <?> "sequence"
   subtrees <- many (gameTreeParser <* spaces) <?> "subtrees"
-  char ')'
+  _ <- char ')'
   let (sequence, [final]) = splitAt (length nodes - 1) nodes
   return $ foldr (\seqNode childNode -> seqNode { nodeChildren = [childNode] })
                  (final { nodeChildren = subtrees })

@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -986,7 +986,7 @@ deleteChildAtTests = "deleteChildAt" ~: TestList
           action = do goDown 0
                       pushPosition
                       goUp
-                      deleteChildAt 1
+                      NodeDeleteOk <- deleteChildAt 1
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W Nothing]
 
@@ -995,7 +995,7 @@ deleteChildAtTests = "deleteChildAt" ~: TestList
           action = do goDown 1
                       pushPosition
                       goUp
-                      deleteChildAt 0
+                      NodeDeleteOk <- deleteChildAt 0
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W $ Just (0,0)]
 
@@ -1006,7 +1006,7 @@ deleteChildAtTests = "deleteChildAt" ~: TestList
           action = do goDown 2
                       pushPosition
                       goUp
-                      deleteChildAt 0
+                      NodeDeleteOk <- deleteChildAt 0
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W $ Just (2,2)]
 
@@ -1019,14 +1019,14 @@ deleteChildAtTests = "deleteChildAt" ~: TestList
           action = do goDown 1 >> goDown 2 >> goDown 3
                       pushPosition
                       goUp
-                      deleteChildAt 1
+                      NodeDeleteOk <- deleteChildAt 1
                       pushPosition
                       goToRoot >> goDown 0 >> goDown 2
                       pushPosition
                       goUp
-                      deleteChildAt 0
+                      NodeDeleteOk <- deleteChildAt 0
                       goToRoot >> goDown 1 >> goDown 2
-                      deleteChildAt 1
+                      NodeDeleteOk <- deleteChildAt 1
                       replicateM_ 3 popPosition
       in cursorNode (execGo action $ rootCursor level0Node) @?= node [B $ Just (3,3)]
 

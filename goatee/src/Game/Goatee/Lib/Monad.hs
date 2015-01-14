@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -630,7 +630,7 @@ instance Monad m => MonadGo (GoT m) where
     when (gameInfoRootInfo info /= gameInfoRootInfo info') $
       fail "Illegal modification of root info in modifyGameInfo."
     pushPosition
-    goToGameInfoNode True
+    _ <- goToGameInfoNode True
     modifyProperties $ \props ->
       gameInfoToProperties info' ++ filter ((GameInfoProperty /=) . propertyType) props
     popPosition

@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -80,7 +80,7 @@ single valueParser = char '[' *> valueParser <* char ']'
 compose :: Parser a -> Parser b -> Parser (a, b)
 compose first second = do
   x <- first
-  char ':'
+  _ <- char ':'
   y <- second
   return (x, y)
 
@@ -125,7 +125,7 @@ coordListParser =
   "list of points"
   where coordListEntry = do x0 <- line
                             y0 <- line
-                            choice [do char ':'
+                            choice [do _ <- char ':'
                                        x1 <- line
                                        y1 <- line
                                        return $ coordR ((x0, y0), (x1, y1)),
@@ -137,7 +137,7 @@ coordPairListParser = listOf coordPair <?> "list of point pairs"
   where coordPair = do
           x0 <- line
           y0 <- line
-          char ':'
+          _ <- char ':'
           x1 <- line
           y1 <- line
           return ((x0, y0), (x1, y1))
@@ -202,12 +202,12 @@ simpleText isComposed = toSimpleText <$> text isComposed
 
 sizeParser :: Parser (Int, Int)
 sizeParser =
-  (do char '['
+  (do _ <- char '['
       width <- integral
       height <- choice [width <$ char ']',
-                        do char ':'
+                        do _ <- char ':'
                            height <- integral
-                           char ']'
+                           _ <- char ']'
                            -- TODO We should warn here rather than aborting.
                            when (width == height) $
                              fail $ show width ++ "x" ++ show height ++ " square board " ++
