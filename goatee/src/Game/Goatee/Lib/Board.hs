@@ -168,6 +168,10 @@ data BoardState = BoardState
     -- ^ Whether any of the board's 'CoordState's are dimmed.  This is an
     -- optimization to make it more efficient to clear all dimming from the
     -- board.
+  , boardHasCoordMarks :: Bool
+    -- ^ Whether any of the board's 'CoordState's have a 'Mark' set on them.
+    -- This is an optimization to make it more efficient to clear marks in the
+    -- common case where there are no marks set.
   , boardArrows :: ArrowList
   , boardLines :: LineList
   , boardLabels :: LabelList
@@ -236,6 +240,7 @@ emptyBoardState width height = BoardState
   { boardCoordStates = coords
   , boardHasInvisible = False
   , boardHasDimmed = False
+  , boardHasCoordMarks = False
   , boardArrows = []
   , boardLines = []
   , boardLabels = []
@@ -316,7 +321,10 @@ boardChild =
 -- Clears marks.   This is the first step of 'boardChild'.
 boardResetForChild :: BoardState -> BoardState
 boardResetForChild board =
-  board { boardCoordStates = map (map clearMark) $ boardCoordStates board
+  board { boardCoordStates =
+            (if boardHasCoordMarks board then map (map clearMark) else id) $
+            boardCoordStates board
+        , boardHasCoordMarks = False
         , boardArrows = []
         , boardLines = []
         , boardLabels = []
@@ -394,7 +402,8 @@ applyProperty (TE {}) board = board
 
 applyProperty (AR arrows) board = board { boardArrows = arrows ++ boardArrows board }
 applyProperty (CR coords) board =
-  updateCoordStates' (\state -> state { coordMark = Just MarkCircle }) coords board
+  updateCoordStates' (\state -> state { coordMark = Just MarkCircle }) coords
+  board { boardHasCoordMarks = True }
 applyProperty (DD coords) board =
   let coords' = expandCoordList coords
       board' = clearBoardDimmed board
@@ -405,13 +414,17 @@ applyProperty (DD coords) board =
 applyProperty (LB labels) board = board { boardLabels = labels ++ boardLabels board }
 applyProperty (LN lines) board = board { boardLines = lines ++ boardLines board }
 applyProperty (MA coords) board =
-  updateCoordStates' (\state -> state { coordMark = Just MarkX }) coords board
+  updateCoordStates' (\state -> state { coordMark = Just MarkX }) coords
+  board { boardHasCoordMarks = True }
 applyProperty (SL coords) board =
-  updateCoordStates' (\state -> state { coordMark = Just MarkSelected }) coords board
+  updateCoordStates' (\state -> state { coordMark = Just MarkSelected }) coords
+  board { boardHasCoordMarks = True }
 applyProperty (SQ coords) board =
-  updateCoordStates' (\state -> state { coordMark = Just MarkSquare }) coords board
+  updateCoordStates' (\state -> state { coordMark = Just MarkSquare }) coords
+  board { boardHasCoordMarks = True }
 applyProperty (TR coords) board =
-  updateCoordStates' (\state -> state { coordMark = Just MarkTriangle }) coords board
+  updateCoordStates' (\state -> state { coordMark = Just MarkTriangle }) coords
+  board { boardHasCoordMarks = True }
 
 applyProperty (AP {}) board = board
 applyProperty (CA {}) board = board

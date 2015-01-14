@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -17,6 +17,7 @@
 
 module Game.Goatee.Lib.BoardTest (tests) where
 
+import Game.Goatee.Common
 import Game.Goatee.Lib.Board
 import Game.Goatee.Lib.Property
 import Game.Goatee.Lib.TestInstances ()
@@ -130,6 +131,25 @@ markupPropertiesTests = "markup properties" ~: TestList
     [] @=? boardArrows board
     [] @=? boardLines board
     [] @=? boardLabels board
+
+  , "boardHasCoordMarks" ~: TestList
+    [ "defaults to false" ~:
+      False @=? boardHasCoordMarks (cursorBoard $ rootCursor $ node [])
+
+    , "is true when marks are present" ~:
+      True @=? boardHasCoordMarks (cursorBoard $ rootCursor $ node [CR $ coord1 (0,0)])
+
+    , "is set to false when moving to a child node" ~:
+      False @=? boardHasCoordMarks (cursorBoard $ child 0 $ rootCursor $
+                                    node1 [CR $ coord1 (0,0)] $ node [])
+
+    , "all marks set it to true" ~: TestList
+      (for [minBound..] $ \mark ->
+        let p = markProperty mark
+        in propertyName p ~:
+           True @=? boardHasCoordMarks (cursorBoard $ rootCursor $
+                                        node [propertyBuilder p $ coord1 (0,0)]))
+    ]
   ]
   where rootCoord = cursorBoard . rootCursor
         st = toSimpleText
