@@ -2,7 +2,7 @@
 
 # This file is part of Goatee.
 #
-# Copyright 2014 Bryan Gardiner
+# Copyright 2014-2015 Bryan Gardiner
 #
 # Goatee is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -22,8 +22,8 @@
 
 set -u
 
-projectDir="$(dirname "$(realpath "$(git rev-parse --git-dir)")")"
-srcDirs="$*"
+declare -r projectDir="$(dirname "$(realpath "$(git rev-parse --git-dir)")")"
+declare -r srcDirs="$*"
 
 echo "HLint:"
 echo
@@ -85,6 +85,7 @@ else
 fi
 
 # Check that all files contain copyright and license notices.
+# TODO Rewrite these loops' process substitutions in a POSIX-friendly manner.
 legalResult=0
 while read file; do
     # Only check tracked files.
@@ -109,7 +110,22 @@ while read file; do
         fi
     fi
 done < <(find $srcDirs -type f)
-# TODO ^ Rewrite this process substitution in a POSIX-friendly manner.
+
+# Check that all staged files have copyright notices for the current year.
+copyrightYearResult=0
+declare -r curYear=$(date +%Y)
+while read file; do
+    file="$projectDir/$file"
+    if ! grep -iq "copyright.*$curYear" "$file"; then
+        if test $copyrightYearResult -eq 0; then
+            echo
+            echo "These files are missing copyright notices for $curYear:"
+            echo
+            copyrightYearResult=1
+        fi
+        echo "$file"
+    fi
+done < <(git --no-pager diff --name-only --cached .)
 
 # If in a Cabal package, then check that all tracked files are listed in Cabal
 # file.
@@ -151,6 +167,7 @@ if test $hlintResult -ne 0 \
     -o $tabsResult -ne 0 \
     -o $longLinesResult -ne 0 \
     -o $legalResult -ne 0 \
+    -o $copyrightYearResult -ne 0 \
     -o $sdistResult -ne 0; then
     exit 1
 else
