@@ -228,43 +228,16 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
         dialogRun dialog
         widgetDestroy dialog
       else case cursorChildPlayingAt move cursor of
-        Just child -> doUiGo' ui (Monad.goDown $ cursorChildIndex child) cursor
-        Nothing ->
+        Just child -> do
+          ok <- doUiGo' ui (Monad.goDown $ cursorChildIndex child) cursor
+          unless ok $ fail "UiCtrlImpl.playAt: Failed to move to existing child."
+        Nothing -> do
           let board = cursorBoard cursor
               player = boardPlayerTurn board
               index = length $ cursorChildren cursor
               child = emptyNode { nodeProperties = [moveToProperty player move] }
-          in doUiGo' ui (Monad.addChildAt index child >> Monad.goDown index) cursor
-
-  goUp ui = doUiGo ui $ do
-    cursor <- Monad.getCursor
-    if isNothing $ cursorParent cursor
-      then return False
-      else Monad.goUp >> return True
-
-  goDown ui index = doUiGo ui $ do
-    cursor <- Monad.getCursor
-    if null $ drop index $ cursorChildren cursor
-      then return False
-      else Monad.goDown index >> return True
-
-  goLeft ui = doUiGo ui $ do
-    cursor <- Monad.getCursor
-    case (cursorParent cursor, cursorChildIndex cursor) of
-      (Nothing, _) -> return False
-      (Just _, 0) -> return False
-      (Just _, n) -> do Monad.goUp
-                        Monad.goDown $ n - 1
-                        return True
-
-  goRight ui = doUiGo ui $ do
-    cursor <- Monad.getCursor
-    case (cursorParent cursor, cursorChildIndex cursor) of
-      (Nothing, _) -> return False
-      (Just parent, n) | n == cursorChildCount parent - 1 -> return False
-      (Just _, n) -> do Monad.goUp
-                        Monad.goDown $ n + 1
-                        return True
+          ok <- doUiGo' ui (Monad.addChildAt index child >> Monad.goDown index) cursor
+          unless ok $ fail "UiCtrlImpl.playAt: Failed to move to new child."
 
   register view events = do
     let ui = viewCtrl view

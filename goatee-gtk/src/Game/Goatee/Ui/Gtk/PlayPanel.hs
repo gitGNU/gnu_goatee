@@ -30,9 +30,14 @@ import Data.Maybe (catMaybes)
 import qualified Data.Set as Set
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board
-import qualified Game.Goatee.Lib.Monad as Monad
 import Game.Goatee.Lib.Monad (
-  AnyEvent (..), getCursor, modifyPropertyString, navigationEvent, propertiesModifiedEvent,
+  AnyEvent (..),
+  goDown,
+  goToRoot,
+  goUp,
+  modifyPropertyString,
+  navigationEvent,
+  propertiesModifiedEvent,
   )
 import Game.Goatee.Lib.Property
 import Game.Goatee.Lib.Tree
@@ -86,13 +91,10 @@ create ui = do
   endButton <- buttonNewWithLabel ">>"
   mapM_ (\b -> boxPackStart navBox b PackGrow 0)
     [startButton, prevButton, nextButton, endButton]
-  on startButton buttonActivated $ doUiGo ui Monad.goToRoot
-  on prevButton buttonActivated $ void $ goUp ui
-  on nextButton buttonActivated $ void $ goDown ui 0
-  on endButton buttonActivated $ doUiGo ui $
-    -- TODO This is duplicated in Goban's End keybinding.  These will be a lot
-    -- cleaner when the Monad go* functions return bools (bug #43149).
-    whileM (not . null . cursorChildren <$> getCursor) $ Monad.goDown 0
+  on startButton buttonActivated $ doUiGo ui goToRoot
+  on prevButton buttonActivated $ doUiGo ui $ void goUp
+  on nextButton buttonActivated $ doUiGo ui $ void $ goDown 0
+  on endButton buttonActivated $ doUiGo ui $ whileM (goDown 0) $ return ()
 
   -- Add the widgets of all of the tools.  Deduplicate the widgets so those that
   -- are shared between tools only get added once; GTK+ doesn't like having a

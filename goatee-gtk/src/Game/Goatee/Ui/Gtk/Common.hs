@@ -156,26 +156,6 @@ class MonadUiGo go => UiCtrl go ui | ui -> go where
   -- case of 'Nothing'.
   playAt :: ui -> Maybe Coord -> IO ()
 
-  -- | If possible, takes a step up to the parent of the current node in the
-  -- game tree.  Returns whether a move was made (i.e. whether the current node
-  -- is not the root node).
-  goUp :: ui -> IO Bool
-
-  -- | If possible, takes a step down from the current node to its child at the
-  -- given index.  Returns whether a move was made (i.e. whether the node had
-  -- @n+1@ children).
-  goDown :: ui -> Int -> IO Bool
-
-  -- | If possible, move to the sibling node immediately to the left of the
-  -- current one.  Returns whether a move was made (i.e. whether there was a
-  -- left sibling).
-  goLeft :: ui -> IO Bool
-
-  -- | If possible, move to the sibling node immediately to the right of the
-  -- current one.  Returns whether a move was made (i.e. whether there was a
-  -- right sibling).
-  goRight :: ui -> IO Bool
-
   -- | Registers a view to update when any of the given 'Event's fires.  The
   -- controller will call 'viewUpdate' after the Go action finishes running.
   --

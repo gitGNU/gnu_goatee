@@ -24,7 +24,7 @@ module Game.Goatee.Ui.Gtk.Goban (
   ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad ((<=<), liftM, unless, when)
+import Control.Monad ((<=<), liftM, unless, void, when)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import qualified Data.Map as Map
@@ -33,9 +33,16 @@ import Data.Maybe (fromJust, isJust)
 import Data.Tree (drawTree, unfoldTree)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board hiding (isValidMove)
-import qualified Game.Goatee.Lib.Monad as Monad
 import Game.Goatee.Lib.Monad (
-  AnyEvent (..), childAddedEvent, childDeletedEvent, getCursor, navigationEvent,
+  AnyEvent (..),
+  childAddedEvent,
+  childDeletedEvent,
+  goDown,
+  goLeft,
+  goRight,
+  goToRoot,
+  goUp,
+  navigationEvent,
   propertiesModifiedEvent,
   )
 import Game.Goatee.Lib.Property
@@ -101,24 +108,21 @@ useHorizontalKeyNavigation = True
 keyNavActions :: UiCtrl go ui => Map String (ui -> IO ())
 keyNavActions =
   Map.fromList $
-  map (fmap ((>> return ()) .))  -- Drop the booleans these actions return.
+  --map (fmap ((>> return ()) .))  -- Drop the booleans these actions return.
+  map (fmap $ \action ui -> doUiGo ui $ void action)
       (if useHorizontalKeyNavigation
        then [ ("Up", goLeft)
             , ("Down", goRight)
             , ("Left", goUp)
-            , ("Right", flip goDown 0)
+            , ("Right", goDown 0)
             ]
        else [ ("Up", goUp)
-            , ("Down", flip goDown 0)
+            , ("Down", goDown 0)
             , ("Left", goLeft)
             , ("Right", goRight)
             ]) ++
-  [ ("Home", flip doUiGo Monad.goToRoot)
-  , ("End", flip doUiGo $
-            -- TODO This is duplicated in PlayPanel's ">>" button.  These will
-            -- be a lot cleaner when the Monad go* functions return bools (bug
-            -- #43149).
-            whileM (not . null . cursorChildren <$> getCursor) $ Monad.goDown 0)
+  [ ("Home", flip doUiGo goToRoot)
+  , ("End", flip doUiGo $ whileM (goDown 0) $ return ())
   ]
 
 boardBgColor :: Rgb

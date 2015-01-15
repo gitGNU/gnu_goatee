@@ -42,7 +42,7 @@ import Control.Applicative ((<$>), Applicative ((<*>), pure))
 #if !MIN_VERSION_containers(0,5,0)
 import Control.Arrow (second)
 #endif
-import Control.Monad ((<=<), ap, forM, forM_, liftM, msum, when)
+import Control.Monad ((<=<), ap, forM, forM_, liftM, msum, unless, when)
 import Control.Monad.Identity (Identity, runIdentity)
 import qualified Control.Monad.State as State
 import Control.Monad.State (MonadState, StateT, get, put)
@@ -52,7 +52,7 @@ import qualified Data.Function as F
 import Data.List (delete, find, mapAccumL, nub, sortBy)
 import qualified Data.Map as Map
 import Data.Map (Map)
-import Data.Maybe (fromMaybe, isJust, isNothing)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Ord (comparing)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board
@@ -126,9 +126,10 @@ takeStep (GoUp _) cursor = fromMaybe (error $ "takeStep: Can't go up from " ++ s
                            cursorParent cursor
 takeStep (GoDown index) cursor = cursorChild cursor index
 
--- | Internal function.  Takes a 'Step' in the Go monad.  Updates the path stack
--- accordingly.
-takeStepM :: Monad m => Step -> (PathStack -> PathStack) -> GoT m ()
+-- | Internal function.  Takes a 'Step' in the Go monad and returns whether that
+-- step was successful (i.e. if there was a node to mode to).  Updates the path
+-- stack accordingly.
+takeStepM :: Monad m => Step -> (PathStack -> PathStack) -> GoT m Bool
 takeStepM step = case step of
   GoUp _ -> goUp'
   GoDown index -> goDown' index
@@ -146,13 +147,25 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
   getCoordState :: Coord -> go CoordState
   getCoordState coord = liftM (boardCoordState coord . cursorBoard) getCursor
 
-  -- | Navigates up the tree.  It must be valid to do so, otherwise 'fail' is
-  -- called.  Fires a 'navigationEvent' after moving.
-  goUp :: go ()
+  -- | Navigates up to the parent node, fires a 'navigationEvent', then returns
+  -- true.  If already at the root of the tree, then none of this happens and
+  -- false is returned.
+  goUp :: go Bool
 
-  -- | Navigates down the tree to the child with the given index.  The child
-  -- must exist.  Fires a 'navigationEvent' after moving.
-  goDown :: Int -> go ()
+  -- | Navigates down the tree to the child with the given index, fires a
+  -- 'navigationEvent', then returns true.  If the requested child doesn't
+  -- exist, then none of this happens and false is returned.
+  goDown :: Int -> go Bool
+
+  -- | If possible, moves to the sibling node immediately to the left of the
+  -- current one.  Returns whether a move was made (i.e. whether there was a
+  -- left sibling).  Fires 'navigationEvent's while moving.
+  goLeft :: go Bool
+
+  -- | If possible, moves to the sibling node immediately to the right of the
+  -- current one.  Returns whether a move was made (i.e. whether there was a
+  -- right sibling).  Fires 'navigationEvent's while moving.
+  goRight :: go Bool
 
   -- | Navigates up to the root of the tree.  Fires 'navigationEvent's for each
   -- step.
@@ -359,7 +372,8 @@ class (Functor go, Applicative go, Monad go) => MonadGo go where
                                [propertyBuilder (stoneToStoneAssignmentProperty assignedStone) $
                                 buildCoordList coords]
                              }
-          goDown =<< subtract 1 . length . cursorChildren <$> getCursor
+          ok <- goDown =<< subtract 1 . length . cursorChildren <$> getCursor
+          unless ok $ fail "GoT.modifyAssignedStones: Failed to move to new child."
       else do
         -- Get a map from getAllAssignedStones: Map Coord (Maybe Color)
         allAssignedStones <- getAllAssignedStones
@@ -538,7 +552,25 @@ instance Monad m => MonadGo (GoT m) where
     [] -> pathStack
     path:paths -> (GoUp index:path):paths
 
-  goToRoot = whileM (isJust . cursorParent <$> getCursor) goUp
+  goLeft = do
+    cursor <- getCursor
+    case (cursorParent cursor, cursorChildIndex cursor) of
+      (Nothing, _) -> return False
+      (Just _, 0) -> return False
+      (Just _, n) -> do True <- goUp
+                        True <- goDown $ n - 1
+                        return True
+
+  goRight = do
+    cursor <- getCursor
+    case (cursorParent cursor, cursorChildIndex cursor) of
+      (Nothing, _) -> return False
+      (Just parent, n) | n == cursorChildCount parent - 1 -> return False
+      (Just _, n) -> do True <- goUp
+                        True <- goDown $ n + 1
+                        return True
+
+  goToRoot = whileM goUp $ return ()
 
   goToGameInfoNode goToRootIfNotFound = pushPosition >> findGameInfoNode
     where findGameInfoNode = do
@@ -561,8 +593,9 @@ instance Monad m => MonadGo (GoT m) where
     -- Drop each step in the top list of the path stack one at a time, until the
     -- top list is empty.
     whileM' (do path:_ <- getPathStack
-                return $ if null path then Nothing else Just $ head path) $
-      flip takeStepM $ \((_:steps):paths) -> steps:paths
+                return $ if null path then Nothing else Just $ head path) $ \step -> do
+      ok <- takeStepM step $ \((_:steps):paths) -> steps:paths
+      unless ok $ fail "popPosition: Failed to retrace steps."
 
     -- Finally, drop the empty top of the path stack.
     modifyState $ \state -> case statePathStack state of
@@ -681,11 +714,12 @@ instance Monad m => MonadGo (GoT m) where
     childCount <- cursorChildCount <$> getCursor
     if index < 0 || index >= childCount
       then return NodeDeleteBadIndex
-      else do goDown index
+      else do goDown index >>=
+                \ok -> unless ok $ fail "GoT.deleteChildAt: Internal error, index isn't valid."
               childCursor <- getCursor
               deletingNodeOnPath <- doesPathStackEnterCurrentNode <$>
                                     pure childCursor <*> getPathStack
-              goUp
+              goUp >>= \ok -> unless ok $ fail "GoT.deleteChildAt: Internal error, can't go up."
               if deletingNodeOnPath
                 then return NodeDeleteOnPathStack
                 else do cursor <- getCursor
@@ -711,14 +745,15 @@ instance Monad m => MonadGo (GoT m) where
 
 -- | Takes a step up the game tree, updates the path stack according to the
 -- given function, then fires navigation and game info changed events as
--- appropriate.
-goUp' :: Monad m => (PathStack -> PathStack) -> GoT m ()
+-- appropriate, finally returning true.  When at the root of the tree, none of
+-- this happens and false is returned.
+goUp' :: Monad m => (PathStack -> PathStack) -> GoT m Bool
 goUp' pathStackFn = do
   state@(GoState { stateCursor = cursor
                  , statePathStack = pathStack
                  }) <- getState
   case cursorParent cursor of
-    Nothing -> error $ "goUp': Can't go up from a root cursor: " ++ show cursor
+    Nothing -> return False
     Just parent -> do
       let index = cursorChildIndex cursor
       putState state { stateCursor = parent
@@ -731,17 +766,19 @@ goUp' pathStackFn = do
       when (any ((GameInfoProperty ==) . propertyType) $ cursorProperties cursor) $
         fire gameInfoChangedEvent (\f -> f (boardGameInfo $ cursorBoard cursor)
                                            (boardGameInfo $ cursorBoard parent))
+      return True
 
 -- | Takes a step down the game tree, updates the path stack according to the
 -- given function, then fires navigation and game info changed events as
--- appropriate.
-goDown' :: Monad m => Int -> (PathStack -> PathStack) -> GoT m ()
+-- appropriate, finally returning true.  When the child index is invalid, none
+-- of this happens and false is returned.
+goDown' :: Monad m => Int -> (PathStack -> PathStack) -> GoT m Bool
 goDown' index pathStackFn = do
   state@(GoState { stateCursor = cursor
                  , statePathStack = pathStack
                  }) <- getState
   case drop index $ cursorChildren cursor of
-    [] -> error $ "goDown': Cursor does not have a child #" ++ show index ++ ": " ++ show cursor
+    [] -> return False
     child:_ -> do
       putState state { stateCursor = child
                      , statePathStack = pathStackFn pathStack
@@ -753,6 +790,7 @@ goDown' index pathStackFn = do
       when (any ((GameInfoProperty ==) . propertyType) $ cursorProperties child) $
         fire gameInfoChangedEvent (\f -> f (boardGameInfo $ cursorBoard cursor)
                                            (boardGameInfo $ cursorBoard child))
+      return True
 
 -- | Returns the current path stack.
 getPathStack :: Monad m => GoT m PathStack

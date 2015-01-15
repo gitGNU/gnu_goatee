@@ -100,23 +100,69 @@ monadTests = "monad properties" ~: TestList
   ]
 
 navigationTests = "navigation" ~: TestList
-  [ "navigates down a tree" ~:
+  [ "navigates down a tree" ~: do
     let cursor = rootCursor $
                  node1 [B $ Just (0,0)] $
                  node' [W $ Just (1,1)] [node [B $ Just (2,2)],
                                          node [B Nothing]]
-        action = goDown 0 >> goDown 1
-        (_, cursor') = runGo action cursor
-    in cursorProperties cursor' @?= [B Nothing]
+        action = do tell . (:[]) =<< goDown 0
+                    tell . (:[]) =<< goDown 1
+                    tell . (:[]) =<< goDown 0
+        ((_, cursor'), log) = runWriter $ runGoT action cursor
+    cursorProperties cursor' @?= [B Nothing]
+    log @?= [True, True, False]
 
-  , "navigates up a tree" ~:
+  , "navigates up a tree" ~: do
     let cursor = child 1 $ child 0 $ rootCursor $
                  node1 [B $ Just (0,0)] $
                  node' [W $ Just (1,1)] [node [B $ Just (2,2)],
                                          node [B Nothing]]
-        action = goUp >> goUp
-        (_, cursor') = runGo action cursor
-    in cursorProperties cursor' @?= [B $ Just (0,0)]
+        action = replicateM_ 3 (tell . (:[]) =<< goUp)
+        ((_, cursor'), log) = runWriter $ runGoT action cursor
+    cursorProperties cursor' @?= [B $ Just (0,0)]
+    log @?= [True, True, False]
+
+  , "navigates to the left" ~:
+    let cursor = child 2 $ child 0 $ rootCursor $
+                 node1 [B $ Just (0,0)] $
+                 node' [W $ Just (1,1)]
+                       [node [B $ Just (2,2)],
+                        node [B $ Just (3,3)],
+                        node [B $ Just (4,4)]]
+        action = do tell . (:[]) . show =<< goLeft
+                    tell . (:[]) . show =<< getProperties
+                    tell . (:[]) . show =<< goLeft
+                    tell . (:[]) . show =<< getProperties
+                    tell . (:[]) . show =<< goLeft
+                    tell . (:[]) . show =<< getProperties
+        log = execWriter $ runGoT action cursor
+    in log @?= ["True",
+                "[B (Just (3,3))]",
+                "True",
+                "[B (Just (2,2))]",
+                "False",
+                "[B (Just (2,2))]"]
+
+  , "navigates to the right" ~:
+    let cursor = child 0 $ child 0 $ rootCursor $
+                 node1 [B $ Just (0,0)] $
+                 node' [W $ Just (1,1)]
+                       [node [B $ Just (2,2)],
+                        node [B $ Just (3,3)],
+                        node [B $ Just (4,4)]]
+        action = do tell . (:[]) . show =<< goRight
+                    tell . (:[]) . show =<< getProperties
+                    tell . (:[]) . show =<< goRight
+                    tell . (:[]) . show =<< getProperties
+                    tell . (:[]) . show =<< goRight
+                    tell . (:[]) . show =<< getProperties
+        log = execWriter $ runGoT action cursor
+    in log @?= ["True",
+                "[B (Just (3,3))]",
+                "True",
+                "[B (Just (4,4))]",
+                "False",
+                "[B (Just (4,4))]"]
 
   , "invokes handlers when navigating" ~:
     let cursor = rootCursor $ node1 [B Nothing] $ node [W Nothing]
@@ -126,8 +172,9 @@ navigationTests = "navigation" ~: TestList
                     on navigationEvent $ \step -> case step of
                       GoDown index -> tell ["Down " ++ show index]
                       _ -> return ()
-                    goDown 0
-                    goUp
+                    True <- goDown 0
+                    True <- goUp
+                    return ()
         (_, _, log) = runLoggedGo action cursor
     in log @?= ["Down 0", "Up 0"]
 
@@ -230,8 +277,8 @@ positionStackTests = "position stack" ~: TestList
   , "should fire navigation handlers while popping" ~: do
     let cursor = rootCursor $ node1 [B Nothing] $ node [W Nothing]
         action = do pushPosition
-                    goDown 0
-                    goUp
+                    True <- goDown 0
+                    True <- goUp
                     on navigationEvent $ \step -> tell [step]
                     popPosition
     execWriter (runGoT action cursor) @?= [GoDown 0, GoUp 0]
@@ -247,9 +294,14 @@ positionStackTests = "position stack" ~: TestList
           [W (Just x)] -> tell ["W " ++ show x]
           xs -> error $ "Unexpected properties: " ++ show xs
         navigate = do log >> pushPosition
-                      goUp >> goDown 1
+                      True <- goUp
+                      True <- goDown 1
                       log >> pushPosition
-                      goUp >> goUp >> goDown 1 >> goDown 0
+                      True <- goUp
+                      True <- goUp
+                      True <- goDown 1
+                      True <- goDown 0
+                      return ()
 
 propertiesTests = "properties" ~: TestList
   [ "getProperties" ~: TestList
@@ -884,7 +936,7 @@ addChildAtTests = "addChildAt" ~: TestList
     [ "basic case just not needing updating" ~:
       let cursor = child 0 $ rootCursor $ node' [B Nothing] [node [W Nothing]]
           action = do pushPosition
-                      goUp
+                      True <- goUp
                       addChildAt 1 $ node [W $ Just (0,0)]
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W Nothing]
@@ -892,7 +944,7 @@ addChildAtTests = "addChildAt" ~: TestList
     , "basic case just needing updating" ~:
       let cursor = child 0 $ rootCursor $ node' [B Nothing] [node [W Nothing]]
           action = do pushPosition
-                      goUp
+                      True <- goUp
                       addChildAt 0 $ node [W $ Just (0,0)]
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W Nothing]
@@ -900,9 +952,9 @@ addChildAtTests = "addChildAt" ~: TestList
     , "basic case definitely needing updating" ~:
       let cursor = rootCursor $ node' [B Nothing] [node [W $ Just (0,0)],
                                                    node [W $ Just (1,1)]]
-          action = do goDown 1
+          action = do True <- goDown 1
                       pushPosition
-                      goUp
+                      True <- goUp
                       addChildAt 0 $ node [W Nothing]
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W $ Just (1,1)]
@@ -913,13 +965,13 @@ addChildAtTests = "addChildAt" ~: TestList
           level1Node i = node' [at 1 i] $ map level2Node [0..2]
           level2Node i = node' [at 2 i] $ map level3Node [0..3]
           level3Node i = node [at 3 i]
-          action = do goDown 1 >> goDown 2 >> goDown 3
+          action = do True <- and <$> sequence [goDown 1, goDown 2, goDown 3]
                       pushPosition
                       replicateM_ 3 goUp
                       pushPosition
-                      goDown 1 >> goDown 2 >> goDown 2 >> goUp >> goDown 1
+                      True <- and <$> sequence [goDown 1, goDown 2, goDown 2, goUp, goDown 1]
                       addChildAt 0 $ node1 [] $ node []
-                      goDown 0 >> goDown 0
+                      True <- and <$> sequence [goDown 0, goDown 0]
                       goToRoot
                       popPosition
                       popPosition
@@ -928,8 +980,8 @@ addChildAtTests = "addChildAt" ~: TestList
     , "updates paths with GoUp correctly" ~:
       let cursor = rootCursor $ node1 [B $ Just (0,0)] $ node [W $ Just (1,1)]
           action = do pushPosition
-                      goDown 0
-                      goUp
+                      True <- goDown 0
+                      True <- goUp
                       addChildAt 0 $ node [B $ Just (2,2)]
                       on navigationEvent $ \step -> tell [step]
                       popPosition
@@ -983,18 +1035,18 @@ deleteChildAtTests = "deleteChildAt" ~: TestList
   , "path stack correctness" ~: TestList
     [ "basic case just not needing updating" ~:
       let cursor = rootCursor $ node' [B Nothing] [node [W Nothing], node [W $ Just (0,0)]]
-          action = do goDown 0
+          action = do True <- goDown 0
                       pushPosition
-                      goUp
+                      True <- goUp
                       NodeDeleteOk <- deleteChildAt 1
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W Nothing]
 
     , "basic case just needing updating" ~:
       let cursor = rootCursor $ node' [B Nothing] [node [W Nothing], node [W $ Just (0,0)]]
-          action = do goDown 1
+          action = do True <- goDown 1
                       pushPosition
-                      goUp
+                      True <- goUp
                       NodeDeleteOk <- deleteChildAt 0
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W $ Just (0,0)]
@@ -1003,9 +1055,9 @@ deleteChildAtTests = "deleteChildAt" ~: TestList
       let cursor = rootCursor $ node' [B Nothing] [node [W $ Just (0,0)],
                                                    node [W $ Just (1,1)],
                                                    node [W $ Just (2,2)]]
-          action = do goDown 2
+          action = do True <- goDown 2
                       pushPosition
-                      goUp
+                      True <- goUp
                       NodeDeleteOk <- deleteChildAt 0
                       popPosition
       in cursorNode (execGo action cursor) @?= node [W $ Just (2,2)]
@@ -1016,16 +1068,20 @@ deleteChildAtTests = "deleteChildAt" ~: TestList
           level1Node i = node' [at 1 i] $ map level2Node [0..2]
           level2Node i = node' [at 2 i] $ map level3Node [0..3]
           level3Node i = node [at 3 i]
-          action = do goDown 1 >> goDown 2 >> goDown 3
+          action = do True <- and <$> sequence [goDown 1, goDown 2, goDown 3]
                       pushPosition
-                      goUp
+                      True <- goUp
                       NodeDeleteOk <- deleteChildAt 1
                       pushPosition
-                      goToRoot >> goDown 0 >> goDown 2
+                      goToRoot
+                      True <- goDown 0
+                      True <- goDown 2
                       pushPosition
-                      goUp
+                      True <- goUp
                       NodeDeleteOk <- deleteChildAt 0
-                      goToRoot >> goDown 1 >> goDown 2
+                      goToRoot
+                      True <- goDown 1
+                      True <- goDown 2
                       NodeDeleteOk <- deleteChildAt 1
                       replicateM_ 3 popPosition
       in cursorNode (execGo action $ rootCursor level0Node) @?= node [B $ Just (3,3)]
@@ -1033,13 +1089,13 @@ deleteChildAtTests = "deleteChildAt" ~: TestList
     , "returns an error if a node to delete is on the path stack" ~:
       let base = node' [B $ Just (0,0)] [node [W $ Just (1,1)],
                                          node [W $ Just (2,2)]]
-          action = do goDown 1
+          action = do True <- goDown 1
                       pushPosition
-                      goUp
+                      True <- goUp
                       pushPosition
-                      goDown 0
+                      True <- goDown 0
                       pushPosition
-                      goUp
+                      True <- goUp
                       deleteChildAt 1
       in second cursorNode (runGo action $ rootCursor base) @?=
          (NodeDeleteOnPathStack, base)
@@ -1052,7 +1108,8 @@ gameInfoChangedTests = "gameInfoChangedEvent" ~: TestList
                  node1 [B $ Just (0,0)] $
                  node [W $ Just (0,0), GN $ toSimpleText "Foo"]
         action = do on gameInfoChangedEvent onInfo
-                    goDown 0
+                    True <- goDown 0
+                    return ()
     in execWriter (runGoT action cursor) @?= [(Nothing, Just $ toSimpleText "Foo")]
 
   , "fires when navigating up" ~:
@@ -1060,7 +1117,8 @@ gameInfoChangedTests = "gameInfoChangedEvent" ~: TestList
                  node1 [B $ Just (0,0)] $
                  node [W $ Just (0,0), GN $ toSimpleText "Foo"]
         action = do on gameInfoChangedEvent onInfo
-                    goUp
+                    True <- goUp
+                    return ()
     in execWriter (runGoT action cursor) @?= [(Just $ toSimpleText "Foo", Nothing)]
 
   , "fires from within popPosition" ~:
@@ -1068,8 +1126,8 @@ gameInfoChangedTests = "gameInfoChangedEvent" ~: TestList
                  node1 [B $ Just (0,0)] $
                  node [W $ Just (0,0), GN $ toSimpleText "Foo"]
         action = do pushPosition
-                    goDown 0
-                    goUp
+                    True <- goDown 0
+                    True <- goUp
                     on gameInfoChangedEvent onInfo
                     popPosition
     in execWriter (runGoT action cursor) @?=
