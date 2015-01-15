@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -71,7 +71,7 @@ import Graphics.UI.Gtk (
   ResponseId (ResponseCancel, ResponseOk),
   SpinButtonUpdatePolicy (UpdateIfValid),
   ToggleAction,
-  actionActivate, actionActivated, actionGroupAddActionWithAccel, actionGroupAddRadioActions,
+  actionActivate, actionActivated, actionGroupAddAction, actionGroupAddRadioActions,
   actionGroupGetAction, actionGroupListActions, actionGroupNew, actionNew, actionSensitive,
   actionToggled,
   boxPackStart,
@@ -138,19 +138,19 @@ create ui = do
   fileActions <- actionGroupNew "File"
 
   fileNew9Action <- actionNew "FileNew9" "New _9x9 board" Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileNew9Action Nothing
+  actionGroupAddAction fileActions fileNew9Action
   on fileNew9Action actionActivated $ void $ openNewBoard (Just ui) (Just (9, 9))
 
   fileNew13Action <- actionNew "FileNew13" "New 1_3x13 board" Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileNew13Action Nothing
+  actionGroupAddAction fileActions fileNew13Action
   on fileNew13Action actionActivated $ void $ openNewBoard (Just ui) (Just (13, 13))
 
   fileNew19Action <- actionNew "FileNew19" "New _19x19 board" Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileNew19Action $ Just "<Control>n"
+  actionGroupAddAction fileActions fileNew19Action
   on fileNew19Action actionActivated $ void $ openNewBoard (Just ui) (Just (19, 19))
 
   fileNewCustomAction <- actionNew "FileNewCustom" "New _custom board..." Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileNewCustomAction Nothing
+  actionGroupAddAction fileActions fileNewCustomAction
   on fileNewCustomAction actionActivated $ do
     dialog <- dialogNew
     windowSetTitle dialog "New custom board"
@@ -234,23 +234,23 @@ create ui = do
           setDirty ui' False
 
   fileOpenAction <- actionNew "FileOpen" "_Open file..." Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileOpenAction $ Just "<Control>o"
+  actionGroupAddAction fileActions fileOpenAction
   on fileOpenAction actionActivated $ fileOpen ui
 
   fileSaveAction <- actionNew "FileSave" "_Save file" Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileSaveAction $ Just "<Control>s"
+  actionGroupAddAction fileActions fileSaveAction
   on fileSaveAction actionActivated $ void $ fileSave ui
 
   fileSaveAsAction <- actionNew "FileSaveAs" "Sa_ve file as..." Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileSaveAsAction $ Just "<Control><Shift>s"
+  actionGroupAddAction fileActions fileSaveAsAction
   on fileSaveAsAction actionActivated $ void $ fileSaveAs ui
 
   fileCloseAction <- actionNew "FileClose" "_Close" Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileCloseAction $ Just "<Control>w"
+  actionGroupAddAction fileActions fileCloseAction
   on fileCloseAction actionActivated $ void $ fileClose ui
 
   fileQuitAction <- actionNew "FileQuit" "_Quit" Nothing Nothing
-  actionGroupAddActionWithAccel fileActions fileQuitAction $ Just "<Control>q"
+  actionGroupAddAction fileActions fileQuitAction
   on fileQuitAction actionActivated $ void $ fileQuit ui
 
   -- Edit actions.
