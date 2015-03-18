@@ -67,11 +67,16 @@ import Game.Goatee.Lib.Parser
 import Game.Goatee.Lib.Tree
 import Game.Goatee.Lib.Types
 import Graphics.UI.Gtk (
+  ButtonsType (ButtonsOk),
   FileFilter,
+  MessageType (MessageWarning),
   MouseButton,
   Widget,
   Window,
+  dialogRun,
   fileFilterAddPattern, fileFilterNew, fileFilterSetName,
+  messageDialogNew,
+  widgetDestroy,
   )
 import System.FilePath (takeFileName)
 
@@ -210,8 +215,21 @@ class MonadUiGo go => UiCtrl go ui | ui -> go where
     result <- parseFile file
     case result of
       -- TODO Don't only choose the first tree in the collection.
-      Right collection ->
-        fmap Right $ openBoard ui (Just file) $ head $ collectionTrees collection
+      Right collection -> case collectionTrees collection of
+        [root] -> Right <$> openBoard ui (Just file) root
+        root0:_:_ -> do
+          dialog <- messageDialogNew Nothing []
+                    MessageWarning
+                    ButtonsOk
+                    ("The file " ++ file ++ " contains multiple game trees.  Goatee only " ++
+                     "supports single-tree collections at this time.  Only the first tree " ++
+                     "will be presented, and saving the game will write a file containing " ++
+                     "only the first tree.\n\n" ++
+                     "Saving the game will not overwrite the existing file by default.")
+          dialogRun dialog
+          widgetDestroy dialog
+          Right <$> openBoard ui Nothing root0
+        [] -> return $ Left "Invalid game file, it contains no game trees."
       Left err -> return $ Left err
 
   -- | Prompts with an open file dialog for a game to open, then opens the
