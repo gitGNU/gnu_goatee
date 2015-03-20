@@ -526,12 +526,14 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
           [ "Pressing <b>Esc</b> focuses the board.  When the board is focused, the following " ++
             "keys are available:"
           , ""
-          , "<b>Left:</b> Go to the parent node."
-          , "<b>Right:</b> Go to the first child node."
-          , "<b>Up:</b> Go to the previous variation node."
-          , "<b>Down:</b> Go to the next variation node."
+          , "<b>Left:</b> Go up the tree one step."
+          , "<b>Right:</b> Go down the tree one step."
+          , "<b>Up:</b> Go to the previous variation."
+          , "<b>Down:</b> Go to the next variation."
           , "<b>Home:</b> Go to the start of the game."
           , "<b>End:</b> Go to the end of the current variation."
+          , "<b>Page Up:</b> Go up the tree 10 steps."
+          , "<b>Page Down:</b> Go down the tree 10 steps."
           ]
     mainWindow <- getMainWindow ui
     dialog <- messageDialogNewWithMarkup (Just mainWindow)

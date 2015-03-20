@@ -123,6 +123,8 @@ keyNavActions =
             ]) ++
   [ ("Home", flip doUiGo goToRoot)
   , ("End", flip doUiGo $ whileM (goDown 0) $ return ())
+  , ("Page_Up", flip doUiGo $ void $ andM $ replicate 10 goUp)
+  , ("Page_Down", flip doUiGo $ void $ andM $ replicate 10 $ goDown 0)
   ]
 
 boardBgColor :: Rgb
