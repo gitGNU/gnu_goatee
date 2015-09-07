@@ -90,6 +90,7 @@ import Graphics.UI.Gtk (
   widgetDestroy, widgetShowAll,
   windowSetTitle,
   )
+import System.Glib (stringToGlib)
 
 data Actions ui = Actions
   { myUi :: ui
@@ -314,8 +315,8 @@ create ui = do
   toolActionList <- fmap catMaybes $ forM toolTypes $ \toolType -> do
     AnyTool tool <- findTool ui toolType
     return $ Just RadioActionEntry
-      { radioActionName = show toolType
-      , radioActionLabel = toolLabel tool
+      { radioActionName = stringToGlib $ show toolType
+      , radioActionLabel = stringToGlib $ toolLabel tool
       , radioActionStockId = Nothing
       , radioActionAccelerator = Nothing
       , radioActionTooltip = Nothing

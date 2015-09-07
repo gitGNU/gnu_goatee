@@ -78,6 +78,7 @@ import Graphics.UI.Gtk (
   )
 import qualified Paths_goatee_gtk as Paths
 import System.Directory (doesFileExist)
+import System.Glib (glibToString)
 import System.IO (hPutStrLn, stderr)
 
 {-# ANN module "HLint: ignore Reduce duplication" #-}
@@ -381,8 +382,8 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
     dialog <- fileChooserDialogNew (Just "Open a file")
                                    Nothing
                                    FileChooserActionOpen
-                                   [(stockCancel, ResponseCancel),
-                                    (stockOpen, ResponseOk)]
+                                   [(glibToString stockCancel, ResponseCancel),
+                                    (glibToString stockOpen, ResponseOk)]
     mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
     response <- dialogRun dialog
     widgetHide dialog
@@ -434,8 +435,8 @@ instance MonadUiGo go => UiCtrl go (UiCtrlImpl go) where
     dialog <- fileChooserDialogNew (Just "Save file as")
                                    Nothing
                                    FileChooserActionSave
-                                   [(stockCancel, ResponseCancel),
-                                    (stockSave, ResponseOk)]
+                                   [(glibToString stockCancel, ResponseCancel),
+                                    (glibToString stockSave, ResponseOk)]
     mapM_ (fileChooserAddFilter dialog) =<< fileFiltersForSgf
     response <- dialogRun dialog
     finally

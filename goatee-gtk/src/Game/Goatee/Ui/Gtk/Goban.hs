@@ -95,6 +95,7 @@ import Graphics.UI.Gtk (
   widgetAddEvents, widgetGetDrawWindow, widgetGetSize, widgetGrabFocus, widgetQueueDraw,
   widgetSetCanFocus,
   )
+import System.Glib (glibToString)
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
@@ -257,7 +258,7 @@ create ui = do
     return True
 
   on drawingArea keyPressEvent $ do
-    key <- eventKeyName
+    key <- glibToString <$> eventKeyName
     mods <- eventModifier
     let km = (key, mods)
     let maybeAction = Map.lookup key keyNavActions

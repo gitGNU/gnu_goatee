@@ -68,6 +68,7 @@ import Graphics.UI.Gtk (
   widgetDestroy, widgetGrabFocus, widgetShowAll,
   windowNew, windowSetDefaultSize, windowSetTitle,
   )
+import System.Glib (glibToString)
 
 data MainWindow ui = MainWindow
   { myUi :: ui
@@ -255,7 +256,7 @@ create ui = do
   initialize me
 
   on window keyPressEvent $ do
-    key <- eventKeyName
+    key <- glibToString <$> eventKeyName
     mods <- eventModifier
     let km = (key, mods)
     case km of

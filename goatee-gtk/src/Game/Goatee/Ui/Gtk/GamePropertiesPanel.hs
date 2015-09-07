@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -179,7 +179,7 @@ create ui = do
   mainTimeSpin <- goateeSpinButtonNewWithRange 0 3155692600 {- 100 years -} 1
   let mainTimeSpinWidget = goateeSpinButtonWidget mainTimeSpin
   spinButtonSetDigits mainTimeSpinWidget 1
-  mainTimeLabel <- labelNew Nothing
+  mainTimeLabel <- labelNew (Nothing :: Maybe String)
   boxPackStart mainTimeBox mainTimeSpinWidget PackGrow 0
   boxPackStart mainTimeBox mainTimeLabel PackNatural 0
   addWidget "Time" mainTimeBox

@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -47,7 +47,7 @@ instance UiCtrl go ui => UiView go ui (InfoLine ui) where
 
 create :: UiCtrl go ui => ui -> IO (InfoLine ui)
 create ui = do
-  label <- labelNew Nothing
+  label <- labelNew (Nothing :: Maybe String)
   state <- viewStateNew
 
   let me = InfoLine { myUi = ui

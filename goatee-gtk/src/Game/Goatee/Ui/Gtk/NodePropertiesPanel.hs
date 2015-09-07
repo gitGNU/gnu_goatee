@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -70,6 +70,7 @@ import Graphics.UI.Gtk (
   widgetDestroy, widgetSetSensitive, widgetShowAll,
   windowSetDefaultSize, windowSetTitle,
   )
+import System.Glib (glibToString)
 import Text.ParserCombinators.Parsec (eof, parse, spaces)
 
 data NodePropertiesPanel ui = NodePropertiesPanel
@@ -129,7 +130,7 @@ create ui = do
                                }
 
   on addButton buttonActivated $ do
-    maybeProperty <- runPropertyEditDialog "Add property" stockAdd Nothing
+    maybeProperty <- runPropertyEditDialog "Add property" (glibToString stockAdd) Nothing
     Foldable.forM_ maybeProperty $ doUiGo ui . putProperty
 
   on editButton buttonActivated $ do
@@ -138,7 +139,8 @@ create ui = do
       [] -> return ()
       row:_ -> do
         oldProperty <- (!! row) <$> readIORef modelProperties
-        maybeNewProperty <- runPropertyEditDialog "Edit property" stockEdit $ Just oldProperty
+        maybeNewProperty <- runPropertyEditDialog "Edit property" (glibToString stockEdit) $
+                            Just oldProperty
         case maybeNewProperty of
           Nothing -> return ()
           Just newProperty -> doUiGo ui $ do
@@ -202,7 +204,7 @@ runPropertyEditDialog dialogTitle acceptButtonLabel initialProperty = do
   boxPackStart upper textScroll PackGrow 0
   textBuffer <- textViewGetBuffer textView
 
-  errorLabel <- labelNew Nothing
+  errorLabel <- labelNew (Nothing :: Maybe String)
   boxPackStart upper errorLabel PackNatural 0
 
   dialogAddButton dialog stockCancel ResponseCancel
