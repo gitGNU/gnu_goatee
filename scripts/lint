@@ -22,18 +22,21 @@
 
 set -u
 
-declare -r projectDir="$(dirname "$(realpath "$(git rev-parse --git-dir)")")"
-declare -r srcDirs="$*"
+declare -r projectDir="$(dirname "$(readlink -f "$(git rev-parse --git-dir)")")"
+declare srcDirs="$*"
 
 echo "HLint:"
 echo
 cppFileArg=
 if [[ -e dist/build/autogen/cabal_macros.h ]]; then
     cppFileArg=--cpp-file=dist/build/autogen/cabal_macros.h
+else
+    cppFileArg=--cpp-simple
 fi
 if [[ -z $srcDirs ]]; then
     srcDirs="$projectDir"
 fi
+declare -r srcDirs
 if [[ -n "$(find $srcDirs -name '*.hs' -print -quit)" ]]; then
     hlint $cppFileArg $srcDirs
 else

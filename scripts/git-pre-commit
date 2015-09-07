@@ -2,7 +2,7 @@
 
 # This file is part of Goatee.
 #
-# Copyright 2014 Bryan Gardiner
+# Copyright 2014-2015 Bryan Gardiner
 #
 # Goatee is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -97,8 +97,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 declare -r precommitBuildOpts="-Werror -fno-warn-warnings-deprecations"
-declare -r projectDir="$(dirname "$(realpath "$(git rev-parse --git-dir)")")"
-declare -r scriptsDir="$(dirname "$(realpath "$0")")"
+declare -r projectDir="$(dirname "$(readlink -f "$(git rev-parse --git-dir)")")"
+declare -r scriptsDir="$(dirname "$(readlink -f "$0")")"
 declare -r unstagedDiff="$(mktemp)"
 declare -r allowUnsandboxedInstallFile="$projectDir/allow-unsandboxed-install"
 
@@ -174,7 +174,7 @@ sandboxInit() {
 
     if [[ -e .precommit-sandbox ]]; then
         msg "Old precommit sandbox exists; removing:"
-        msg "    $(realpath .precommit-sandbox)"
+        msg "    $(readlink -f .precommit-sandbox)"
         rm -r .precommit-sandbox
         if [[ -e cabal.sandbox.config ]] \
             && grep -q '\.precommit-sandbox' cabal.sandbox.config; then
@@ -201,7 +201,7 @@ sandboxClean() {
     msgIncDepth
     if ! grep -q '\.precommit-sandbox' cabal.sandbox.config; then
         err "Precommit: Error: Asked to clean non-precommit sandbox, refusing:"
-        msg "    $(realpath cabal.sandbox.config):"
+        msg "    $(readlink -f cabal.sandbox.config):"
         msg "$(grep -n '\bprefix:' cabal.sandbox.config | sed 's/^/        /')"
     fi
     cabal sandbox delete
