@@ -23,7 +23,7 @@
 }:
 mkDerivation ({
   pname = "goatee";
-  version = "0.3.0";
+  version = "0.3.1";
   src = ./.;
   libraryHaskellDepends = [
     base containers mtl parsec template-haskell
