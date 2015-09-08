@@ -15,9 +15,13 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 module Game.Goatee.Ui.Gtk.Tool.AssignStone (AssignStoneTool, create) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>))
+#endif
 import Control.Monad (forM_, when)
 import Game.Goatee.Lib.Board
 import qualified Game.Goatee.Lib.Monad as Monad

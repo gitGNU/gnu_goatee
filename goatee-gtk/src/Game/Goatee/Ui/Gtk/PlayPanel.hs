@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 module Game.Goatee.Ui.Gtk.PlayPanel (
   PlayPanel,
   create,
@@ -22,7 +24,9 @@ module Game.Goatee.Ui.Gtk.PlayPanel (
   myWidget,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>))
+#endif
 import Control.Monad (forM, void, when)
 import Data.Foldable (forM_, mapM_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)

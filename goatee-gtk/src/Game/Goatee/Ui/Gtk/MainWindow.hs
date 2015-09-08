@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 -- | Implementation of the main window that contains the game board.
 module Game.Goatee.Ui.Gtk.MainWindow (
   MainWindow,
@@ -24,7 +26,9 @@ module Game.Goatee.Ui.Gtk.MainWindow (
   myWindow,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>))
+#endif
 import Control.Monad (forM, forM_, join, liftM)
 import Control.Monad.Trans (liftIO)
 import qualified Data.Foldable as F

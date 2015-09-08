@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 -- | A parser for reading SGF files.
 module Game.Goatee.Lib.Parser (
   parseString,
@@ -24,7 +26,9 @@ module Game.Goatee.Lib.Parser (
   ) where
 
 import Control.Arrow ((+++))
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<*), (*>))
+#endif
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board

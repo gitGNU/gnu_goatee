@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -14,6 +14,8 @@
 --
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
+
+{-# LANGUAGE CPP #-}
 
 -- | Constants and data types for property values used in SGF game trees.
 module Game.Goatee.Lib.Types (
@@ -45,7 +47,9 @@ module Game.Goatee.Lib.Types (
   Ruleset (..), RulesetType (..), fromRuleset, toRuleset,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>), (<*>))
+#endif
 import Data.Char (isSpace)
 import Data.Function (on)
 import Data.List (delete, groupBy, partition, sort)

@@ -15,9 +15,16 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 module Game.Goatee.Ui.Gtk.Tool.Visibility (VisibilityTool, create) where
 
-import Control.Applicative ((<$>), (<|>))
+import Control.Applicative (
+#if !MIN_VERSION_base(4,8,0)
+  (<$>),
+#endif
+  (<|>),
+  )
 import Control.Monad (void, when)
 import Data.Foldable (forM_)
 import Data.List (intercalate)

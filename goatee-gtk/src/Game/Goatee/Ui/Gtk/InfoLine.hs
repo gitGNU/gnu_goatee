@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 -- | A text widget that displays information about the game, including some
 -- overall information, as well as the current board position.
 module Game.Goatee.Ui.Gtk.InfoLine (
@@ -24,7 +26,9 @@ module Game.Goatee.Ui.Gtk.InfoLine (
   myWidget,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>))
+#endif
 import Data.Maybe (fromMaybe)
 import Game.Goatee.Lib.Board
 import Game.Goatee.Lib.Monad

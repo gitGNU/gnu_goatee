@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -15,7 +15,7 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP, TemplateHaskell #-}
 {-# OPTIONS_HADDOCK hide #-}
 
 -- | Core property-related data types, and some Template Haskell declarations
@@ -35,7 +35,9 @@ module Game.Goatee.Lib.Property.Base (
   defProperty, defValuedProperty,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$))
+#endif
 import Game.Goatee.Lib.Property.Value (PropertyValueType(..), nonePvt)
 import Game.Goatee.Lib.Renderer
 import Game.Goatee.Lib.Types

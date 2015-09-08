@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 -- | The main module for the GTK+ UI, used by clients of the UI.  Also
 -- implements the UI controller.
 module Game.Goatee.Ui.Gtk (
@@ -24,7 +26,9 @@ module Game.Goatee.Ui.Gtk (
   startFile,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>), Applicative)
+#endif
 import Control.Concurrent.MVar (MVar, newMVar, takeMVar, readMVar, putMVar, modifyMVar, modifyMVar_)
 import Control.Exception (IOException, catch, finally)
 import Control.Monad (forM_, join, liftM, unless, void, when)

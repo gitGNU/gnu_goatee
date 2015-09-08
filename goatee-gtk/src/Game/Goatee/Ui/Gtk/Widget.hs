@@ -1,6 +1,6 @@
 -- This file is part of Goatee.
 --
--- Copyright 2014 Bryan Gardiner
+-- Copyright 2014-2015 Bryan Gardiner
 --
 -- Goatee is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 -- | Provides wrappers around regular GTK+ widgets, adding support for assigning
 -- to widget values without firing signal handlers.
 module Game.Goatee.Ui.Gtk.Widget (
@@ -26,7 +28,9 @@ module Game.Goatee.Ui.Gtk.Widget (
   goateeSpinButtonSetValue, goateeSpinButtonOnSpinned,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>), (<*>))
+#endif
 import Control.Monad (void)
 import qualified Game.Goatee.Common.Bigfloat as BF
 import Game.Goatee.Ui.Gtk.Latch

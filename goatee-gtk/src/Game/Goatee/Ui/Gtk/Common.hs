@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 -- | Common dependencies among all GTK+ UI code.  Contains class definitions and
 -- some common data declarations.
 module Game.Goatee.Ui.Gtk.Common (
@@ -56,7 +58,9 @@ module Game.Goatee.Ui.Gtk.Common (
   toggle,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>), (<*>), pure)
+#endif
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import qualified Data.Set as Set
 import Data.Set (Set)

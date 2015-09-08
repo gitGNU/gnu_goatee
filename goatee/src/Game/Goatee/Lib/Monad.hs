@@ -38,7 +38,9 @@ module Game.Goatee.Lib.Monad (
   variationModeChangedEvent, VariationModeChangedHandler,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>), Applicative ((<*>), pure))
+#endif
 #if !MIN_VERSION_containers(0,5,0)
 import Control.Arrow (second)
 #endif

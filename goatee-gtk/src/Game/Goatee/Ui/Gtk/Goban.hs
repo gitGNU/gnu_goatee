@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 -- | A widget that renders an interactive Go board.
 module Game.Goatee.Ui.Gtk.Goban (
   Goban,
@@ -23,7 +25,9 @@ module Game.Goatee.Ui.Gtk.Goban (
   myWidget,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>))
+#endif
 import Control.Monad ((<=<), liftM, unless, void, when)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)

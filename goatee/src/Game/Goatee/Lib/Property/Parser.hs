@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE CPP #-}
+
 -- | Parsers of property values.
 module Game.Goatee.Lib.Property.Parser (
   colorParser,
@@ -43,11 +45,15 @@ module Game.Goatee.Lib.Property.Parser (
   text,
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$), (<$>), (<*), (<*>), (*>))
+#endif
 import Control.Monad (when)
 import Data.Char (isUpper, ord)
 import Data.Maybe (catMaybes)
+#if !MIN_VERSION_base(4,8,0)
 import Data.Monoid (Monoid, mappend, mconcat, mempty)
+#endif
 import qualified Game.Goatee.Common.Bigfloat as BF
 import Game.Goatee.Lib.Types
 import Text.ParserCombinators.Parsec (

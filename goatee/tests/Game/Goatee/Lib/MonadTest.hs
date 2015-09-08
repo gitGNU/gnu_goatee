@@ -15,18 +15,22 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE CPP, FlexibleContexts #-}
 
 module Game.Goatee.Lib.MonadTest (tests) where
 
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>))
+#endif
 import Control.Arrow ((&&&), second)
 import Control.Monad (forM_, liftM, replicateM_, void)
 import Control.Monad.Writer (Writer, execWriter, runWriter, tell)
 import Data.List (sortBy, unfoldr)
 import qualified Data.Map as Map
 import Data.Maybe (fromJust, maybeToList)
+#if !MIN_VERSION_base(4,8,0)
 import Data.Monoid (Monoid)
+#endif
 import Data.Ord (comparing)
 import Game.Goatee.Common
 import Game.Goatee.Lib.Board
