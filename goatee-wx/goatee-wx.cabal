@@ -30,8 +30,8 @@ executable goatee-wx
     build-depends:
         base >= 4 && < 5,
         goatee >= 0.3 && < 0.4,
-        wx >= 0.13 && < 0.91,
-        wxcore >= 0.13 && < 0.91
+        wx >= 0.13 && < 0.93,
+        wxcore >= 0.13 && < 0.93
     ghc-options: -W -fwarn-incomplete-patterns -fwarn-unused-do-bind
     hs-source-dirs: src
     main-is: Main.hs
