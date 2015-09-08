@@ -144,7 +144,10 @@ elif cabal help sdist |& grep -qe --list-sources; then
         echo "Failed to list source distribution files."
     else
         sed 's!^\./!!' <"$sdistDir/sdist-files-raw" | sort | uniq >"$sdistDir/sdist-files"
-        git ls-files | sort >"$sdistDir/tracked-files"
+        # Not shipping default.nix with Cabal packages.
+        git ls-files | \
+            grep --invert-match --line-regexp --fixed-strings default.nix | \
+            sort >"$sdistDir/tracked-files"
         if ! cmp "$sdistDir/tracked-files" "$sdistDir/sdist-files" >/dev/null; then
             echo
             echo "Some files are missing from the source distribution."
