@@ -15,6 +15,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with Goatee.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE FlexibleContexts #-}
+
 module Game.Goatee.Lib.MonadTest (tests) where
 
 import Control.Applicative ((<$>))
