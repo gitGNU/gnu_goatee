@@ -54,7 +54,7 @@ import Control.Applicative ((<$>))
 import Control.Monad (forM, unless, void, when)
 import qualified Data.Foldable as F
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.Maybe (catMaybes, fromMaybe, isJust)
+import Data.Maybe (fromMaybe, isJust)
 import Game.Goatee.Ui.Gtk.Common
 import Game.Goatee.Ui.Gtk.Utils
 import Game.Goatee.Lib.Board
@@ -316,9 +316,9 @@ create ui = do
 
   -- Tool actions.
   toolActions <- actionGroupNew "Tools"
-  toolActionList <- fmap catMaybes $ forM toolTypes $ \toolType -> do
+  toolActionList <- forM toolTypes $ \toolType -> do
     AnyTool tool <- findTool ui toolType
-    return $ Just RadioActionEntry
+    return RadioActionEntry
       { radioActionName = stringToGlib $ show toolType
       , radioActionLabel = stringToGlib $ toolLabel tool
       , radioActionStockId = Nothing
