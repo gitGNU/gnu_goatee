@@ -334,7 +334,11 @@ defValuedProperty name propType inherited valueType = do
       varName = mkName $ "property" ++ name
   foo <- newName "foo"
   bar <- newName "bar"
+#if MIN_VERSION_template_haskell(2,11,0)
+  DataConI _ (AppT (AppT _ haskellValueType) _) _ <- reify propName
+#else
   DataConI _ (AppT (AppT _ haskellValueType) _) _ _ <- reify propName
+#endif
   sequence [
     sigD varName $ appT (conT ''ValuedPropertyInfo) $ return haskellValueType,
     valD (varP varName)
